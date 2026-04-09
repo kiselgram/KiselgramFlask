@@ -1,0 +1,65 @@
+# Kiselgram Configuration File
+
+[app]
+name = "Kiselgram"
+version = "2.0.0"
+debug = true
+host = "0.0.0.0"
+port = 5000
+secret_key = "your-secret-key-change-in-production"
+
+[database]
+url = "sqlite:///kiselgram.db"
+echo = false
+
+[server]
+workers = 4
+threaded = true
+
+[video]
+enabled = true
+host = "0.0.0.0"
+port = 5001
+quality = "medium"
+max_size = 104857600  # 100MB
+auto_start = true
+
+[logging]
+# Logging configuration
+
+[logging.kiselgram]
+file = "kiselgram.log"
+level = "INFO"
+max_bytes = 10485760  # 10MB
+backup_count = 5
+
+[logging.video]
+file = "kis_vid.log"
+level = "INFO"
+max_bytes = 10485760
+backup_count = 5
+
+[logging.main]
+file = "kis_main.log"
+level = "INFO"
+max_bytes = 10485760
+backup_count = 5
+
+[telegram]
+bot_token = "YOUR_BOT_TOKEN_HERE"
+webhook_url = ""
+
+[uploads]
+folder = "uploads"
+max_size = 16777216  # 16MB
+allowed_images = [".jpg", ".jpeg", ".png", ".gif", ".bmp"]
+allowed_documents = [".pdf", ".doc", ".docx", ".txt", ".md"]
+allowed_videos = [".mp4", ".avi", ".mov", ".mkv"]
+
+[features]
+groups = true
+channels = true
+bots = false
+video_streaming = true
+file_sharing = true
+reactions = false
