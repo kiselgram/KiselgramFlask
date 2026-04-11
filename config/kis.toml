@@ -9,7 +9,7 @@ port = 5000
 secret_key = "your-secret-key-change-in-production"
 
 [database]
-url = "sqlite:///kiselgram.db"
+url = "sqlite:////Users/dkisel/PycharmProjects/kiselgram-dev/instance/kiselgram.db"
 echo = false
 
 [server]
