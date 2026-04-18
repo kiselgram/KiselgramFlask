@@ -59,7 +59,12 @@ allowed_videos = [".mp4", ".avi", ".mov", ".mkv"]
 [features]
 groups = true
 channels = true
-bots = false
+bots = true
 video_streaming = true
 file_sharing = true
-reactions = false
+reactions = true
+
+
+[google]
+client_id = "GOOGLE_OAUTH_CLIENT_ID_PLACEHOLDER"
+client_secret = "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"
