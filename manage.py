@@ -433,7 +433,7 @@ project_root = "{os.getcwd()}"
 os.chdir(project_root)
 sys.path.insert(0, project_root)
 
-from app import create_app, db
+from app import create_app, db, socketio
 from app.utils.bot_utils import setup_bots
 import threading
 
@@ -450,7 +450,7 @@ if __name__ == '__main__':
     print("\\n🚀 Kiselgram is running!")
     print(f"🌐 Access at: http://{'localhost' if host == '0.0.0.0' else host}:{port}")
     print("📝 Press Ctrl+C to stop\\n")
-    app.run(host='{host}', port={port}, debug={debug})
+    socketio.run(app, host='{host}', port={port}, debug={debug}, allow_unsafe_werkzeug=True)
 '''
 
         runner_path = '/tmp/run_kiselgram.py'

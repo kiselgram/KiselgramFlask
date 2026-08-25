@@ -502,6 +502,9 @@ class Call(db.Model):
     call_type = db.Column(db.String(10), default='audio')  # 'audio' or 'video'
     status = db.Column(db.String(20), default='ringing')   # ringing, answered, ended
     duration = db.Column(db.Integer, default=0)
+    room_token = db.Column(db.String(100), nullable=True)
+    ended_at = db.Column(db.DateTime, nullable=True)
+    duration_seconds = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self):

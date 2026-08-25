@@ -36,7 +36,7 @@ K.adminPage = {
         if (t === 'chats') K.adminPage.loadChats();
         if (t === 'mail') K.adminPage.loadMailAccounts();
         if (t === 'promo') K.adminPage.loadPromoCodes();
-        if (t === 'twofa') { K.adminPage.loadTwofaOverview(); K.adminPage.loadTwofaOtps(); K.adminPage.loadEmailVerifications(); }
+        if (t === 'twofa') { K.adminPage.loadTwofaOverview(); K.adminPage.loadTwofaOtps(); K.adminPage.loadEmailVerifications(); K.adminPage.loadQrTokens(); }
         if (t === 'terminal') { K.adminPage.initTerminal(); }
         setTimeout(() => { const ti = $('terminal-input'); if (ti && t === 'terminal') ti.focus(); }, 100);
       });
@@ -444,6 +444,32 @@ K.adminPage = {
     try {
       const d = await K.api.post('/api/admin/2fa/email-codes/cleanup');
       if (d.success) { this.loadEmailVerifications(); K.ui.toast('Deleted ' + d.data.deleted + ' verification codes', 'success'); }
+      else { K.ui.toast('Cleanup failed', 'error'); }
+    } catch(e) { K.ui.toast('Error', 'error'); }
+  },
+
+  // ── QR Login Tokens ─────────────────────────────────────
+
+  async loadQrTokens() {
+    try {
+      const d = await K.api.get('/api/admin/2fa/qr-tokens?per_page=50');
+      if (!d.success) return;
+      if ($('qrTokensBody')) {
+        $('qrTokensBody').innerHTML = (d.data?.tokens || []).map(t => {
+          const cls = t.consumed ? 'badge-resolved' : t.expired ? 'badge-pending' : 'badge-active';
+          const lbl = t.consumed ? 'Consumed' : t.expired ? 'Expired' : 'Active';
+          const user = t.username ? esc(t.username) : t.user_id ? 'User #' + t.user_id : '—';
+          const auth = t.authorized_by ? esc(t.authorized_by) : '—';
+          return '<tr><td>' + t.id + '</td><td>' + user + '</td><td style="font-family:monospace;letter-spacing:1px;font-size:12px">' + esc(t.token?.substring(0, 16) + '...') + '</td><td>' + (t.created_at ? new Date(t.created_at).toLocaleString() : '-') + '</td><td>' + (t.expires_at ? new Date(t.expires_at).toLocaleString() : '-') + '</td><td>' + auth + '</td><td><span class="badge ' + cls + '">' + lbl + '</span></td></tr>';
+        }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:12px">No QR tokens</td></tr>';
+      }
+    } catch(e) { K.ui.toast('Error loading QR tokens', 'error'); }
+  },
+
+  async cleanupQrTokens() {
+    try {
+      const d = await K.api.post('/api/admin/2fa/qr-tokens/cleanup');
+      if (d.success) { this.loadQrTokens(); K.ui.toast('Deleted ' + d.data.deleted + ' QR tokens', 'success'); }
       else { K.ui.toast('Cleanup failed', 'error'); }
     } catch(e) { K.ui.toast('Error', 'error'); }
   },

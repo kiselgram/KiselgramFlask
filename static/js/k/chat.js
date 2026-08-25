@@ -65,6 +65,8 @@ K.chat = {
       const type = isSaved ? 'personal' : chat.chat_type;
       const isActive = K.state.activeChat?.type === type && K.state.activeChat?.id === id;
       const isPinned = K.state.pinned?.includes(type+':'+id);
+      const showIds = K.settings?._showPeerIds?.();
+      const idSuffix = showIds ? ` <span class="k-peer-id" title="Peer ID">${id}</span>` : '';
       let preview = '';
       if (chat.last_message) {
         const lm = chat.last_message;
@@ -79,7 +81,7 @@ K.chat = {
       return `<div class="k-chat-item ${isActive?'active':''} ${isPinned?'pinned':''}" onclick="K.chat.open('${type}',${id})" data-type="${type}" data-id="${id}">
         <div class="k-chat-avatar personal">${isSaved ? '<i class="fas fa-bookmark" style="font-size:20px;color:var(--accent-blue)"></i>' : K.ui.avatar(name, avatar, chat.peer?.is_bot)}${isOnline ? '<span class="k-online-dot"></span>' : ''}</div>
         <div class="k-chat-info">
-          <div class="k-chat-name-row"><span class="k-chat-name">${esc(name)}${isPremium ? (statusEmoji === '⭐' ? ' <img src="/static/img/img.png" alt="" style="width:16px;height:16px;vertical-align:middle;display:inline-block">' : ' ' + esc(statusEmoji)) : (statusEmoji ? ' ' + esc(statusEmoji) : '')}${isPinned ? ' <i class="fas fa-thumbtack" style="font-size:10px;color:var(--accent-blue);transform:rotate(45deg);margin-left:2px"></i>' : ''}</span><span class="k-chat-time">${time}</span></div>
+          <div class="k-chat-name-row"><span class="k-chat-name">${esc(name)}${idSuffix}${isPremium ? (statusEmoji === '⭐' ? ' <img src="/static/img/img.png" alt="" style="width:16px;height:16px;vertical-align:middle;display:inline-block">' : ' ' + esc(statusEmoji)) : (statusEmoji ? ' ' + esc(statusEmoji) : '')}${isPinned ? ' <i class="fas fa-thumbtack" style="font-size:10px;color:var(--accent-blue);transform:rotate(45deg);margin-left:2px"></i>' : ''}</span><span class="k-chat-time">${time}</span></div>
           <div class="k-chat-preview"><span>${preview}</span>${unread ? `<span class="k-unread">${unread>99?'99+':unread}</span>` : ''}</div>
         </div>
       </div>`;
@@ -112,7 +114,10 @@ K.chat = {
     await K.chat.loadHeader(type, id);
     await K.chat.loadMessages(type, id);
     $('messageInput').focus();
-    if (type === 'personal') { try { await K.api.post(V2 + `/mark_read/${id}`); K.chat.loadList(); } catch(_) {} }
+    if (type === 'personal') { try {
+      const rr = localStorage.getItem('k_read_receipts');
+      if (rr !== '0') { await K.api.post(V2 + `/mark_read/${id}`); }
+      K.chat.loadList(); } catch(_) {} }
   },
   headerClick() {
     if (!K.state.activeChat || K.state.activeChat.type !== 'personal') return;
@@ -139,8 +144,9 @@ K.chat = {
     const cb = $('callBtn'); if (cb) cb.style.display = 'none';
     const wb = $('webappBtn'); if (wb) wb.style.display = 'none';
     const isSelf = id === K.state.user?.user_id;
+    const showIds = K.settings?._showPeerIds?.();
     if (isSelf) {
-      if (nameEl) nameEl.textContent = 'Saved Messages';
+      if (nameEl) nameEl.textContent = 'Saved Messages' + (showIds ? ' #' + id : '');
       if (avatarEl) { avatarEl.innerHTML = '<i class="fas fa-bookmark" style="font-size:20px;color:var(--accent-blue)"></i>'; avatarEl.className = 'k-chat-avatar-sm'; }
       if (statusEl) { statusEl.textContent = ''; statusEl.className = 'k-chat-header-status'; }
       return;
@@ -156,7 +162,7 @@ K.chat = {
         const pname = peer.display_name || peer.name || peer.username || 'User #'+id;
         const emoji = peer.status_emoji || '';
         const isP = peer.is_premium;
-        if (nameEl) nameEl.innerHTML = esc(pname) + (isP && (!emoji || emoji === '⭐') ? '<img src="/static/img/img.png" alt="" style="width:16px;height:16px;vertical-align:middle;display:inline-block;margin-left:3px">' : (emoji ? ' ' + esc(emoji) : ''));
+        if (nameEl) nameEl.innerHTML = esc(pname) + (showIds ? ` <span class="k-peer-id" title="Peer ID">${id}</span>` : '') + (isP && (!emoji || emoji === '⭐') ? '<img src="/static/img/img.png" alt="" style="width:16px;height:16px;vertical-align:middle;display:inline-block;margin-left:3px">' : (emoji ? ' ' + esc(emoji) : ''));
         if (avatarEl) { avatarEl.innerHTML = K.ui.avatar(pname, peer.avatar_url, peer.is_bot); avatarEl.className = 'k-chat-avatar-sm'+(type==='group'?' group':type==='channel'?' channel':''); }
         if (statusEl) { statusEl.textContent = peer.is_online ? 'online' : ''; statusEl.className = 'k-chat-header-status'+(peer.is_online?' online':''); }
         if (cb && type === 'personal') cb.style.display = 'flex';
@@ -173,7 +179,7 @@ K.chat = {
           if (u) {
             const emoji = u.status_emoji || '';
             const isP = u.is_premium;
-            if (nameEl) nameEl.innerHTML = esc(u.display_name || u.username) + (isP && (!emoji || emoji === '⭐') ? '<img src="/static/img/img.png" alt="" style="width:16px;height:16px;vertical-align:middle;display:inline-block;margin-left:3px">' : (emoji ? ' ' + esc(emoji) : ''));
+            if (nameEl) nameEl.innerHTML = esc(u.display_name || u.username) + (showIds ? ` <span class="k-peer-id" title="Peer ID">${id}</span>` : '') + (isP && (!emoji || emoji === '⭐') ? '<img src="/static/img/img.png" alt="" style="width:16px;height:16px;vertical-align:middle;display:inline-block;margin-left:3px">' : (emoji ? ' ' + esc(emoji) : ''));
             if (avatarEl) { avatarEl.className = 'k-chat-avatar-sm'; avatarEl.innerHTML = K.ui.avatar(u.display_name||u.username, u.avatar_url, u.is_bot); }
             if (statusEl) { statusEl.textContent = u.is_online ? 'online' : ''; statusEl.className = 'k-chat-header-status'+(u.is_online?' online':''); }
             if (wb && u.is_bot && u.bot_webapp_url) { wb.style.display = 'flex'; wb.dataset.url = u.bot_webapp_url; }
@@ -287,7 +293,13 @@ K.chat = {
     }
     let reply = '';
     if (m.reply_to_id) reply = `<div class="k-msg-reply"><div style="font-weight:600;font-size:11px">↩ Reply</div>${esc(m.reply_to_content||'')}</div>`;
-    const sName = (!isOwn && !consecutive && (m.sender_username||m.sender_name)) ? `<div class="k-msg-sender">${esc(m.sender_username||m.sender_name)}</div>` : '';
+    const showIds = K.settings?._showPeerIds?.();
+    let sName = '';
+    if (!isOwn && !consecutive) {
+      const nm = esc(m.sender_username||m.sender_name);
+      const idB = showIds && m.sender_id ? ` <span class="k-peer-id" title="User ID">#${m.sender_id}</span>` : '';
+      if (nm || idB) sName = `<div class="k-msg-sender">${nm}${idB}</div>`;
+    }
     let reactions = '';
     let pollHtml = '';
     if (m.poll) {
@@ -571,11 +583,15 @@ K.chat = {
   async startCall() {
     if (!K.state.activeChat || K.state.activeChat.type !== 'personal') return;
     const peerId = K.state.activeChat.id;
+    const peer = K.state.chats?.find(c => (c.peer?.user_id || c.peer?.id) === peerId)?.peer;
+    const peerName = peer?.display_name || peer?.username || '';
+    K.calls._activeCallId = null;
     try {
-      const d = await K.api.post(V2 + '/video/create-room', {user_id: peerId});
-      if (d.success && d.data?.room_url) {
-        K.calls.start(d.data.room_url, peerId);
-      } else K.ui.toast('Failed to create call', 'error');
+      const d = await K.api.post(V2 + '/calls/start', { callee_id: peerId, type: 'audio' });
+      if (d.success && d.data?.room_id) {
+        K.calls._activeCallId = d.data.call_id;
+        K.calls._showOutgoing(peerName, 'audio');
+      } else K.ui.toast('Failed to start call', 'error');
     } catch(e) { K.ui.toast('Call failed', 'error'); }
   },
   menu: {

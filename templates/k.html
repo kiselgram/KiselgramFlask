@@ -157,6 +157,11 @@
             <div class="k-msg incoming"><div class="k-msg-bubble"><div class="k-msg-text">Perfect, see you there! ☕</div><div class="k-msg-meta">12:34</div></div></div>
           </div>
         </div>
+        <div class="k-settings-section">
+          <h3>Developer</h3>
+          <div class="k-settings-item"><span>Show peer / user IDs</span><input type="checkbox" id="showPeerIds" onchange="K.settings.setShowPeerIds(this.checked)"></div>
+          <div class="k-settings-item"><span>Dynamic Lake Backgrounds</span><input type="checkbox" id="lakeBackgrounds" onchange="K.settings.startLakeBackgrounds()"></div>
+        </div>
       </div>
       <div class="k-settings-tab-content" data-tab="colors" style="display:none">
         <div class="k-settings-section">
@@ -202,6 +207,7 @@
             <h3>Privacy</h3>
             <div class="k-settings-item"><span>Last Seen</span><select onchange="K.settings.updatePrivacy('last_seen',this.value)"><option value="everyone">Everyone</option><option value="contacts">Contacts</option><option value="nobody">Nobody</option></select></div>
             <div class="k-settings-item"><span>Profile Photo</span><select onchange="K.settings.updatePrivacy('profile_photo',this.value)"><option value="everyone">Everyone</option><option value="contacts">Contacts</option><option value="nobody">Nobody</option></select></div>
+            <div class="k-settings-item"><span>Read Receipts</span><select id="readReceipts" onchange="K.settings.toggleReadReceipts(this.value)"><option value="true">Show to others</option><option value="false">Hide from others</option></select></div>
           </div>
         </div>
         <div class="k-settings-tab-content" data-tab="sessions" style="display:none">
@@ -224,6 +230,7 @@
             <select class="k-select" onchange="K.settings.setTheme(this.value)">
               <option value="dark">Dark</option>
               <option value="light">Light</option>
+              <option value="auto">Auto</option>
             </select>
           </div>
         </div>
@@ -395,6 +402,29 @@
   <div class="k-toast" id="toast"></div>
 </div>
 
+<div class="k-incoming-overlay" id="incomingCallOverlay" style="display:none">
+  <div class="k-incoming-card">
+    <div class="k-incoming-avatar" id="incomingCallerAvatar"><i class="fas fa-phone"></i></div>
+    <div class="k-incoming-name" id="incomingCallerName">Incoming call</div>
+    <div class="k-incoming-label" id="incomingCallType">Voice call</div>
+    <div class="k-incoming-actions">
+      <button class="k-incoming-btn decline" onclick="K.calls.reject()" title="Decline"><i class="fas fa-phone-slash"></i></button>
+      <button class="k-incoming-btn answer" onclick="K.calls.accept()" title="Accept"><i class="fas fa-phone"></i></button>
+    </div>
+  </div>
+</div>
+
+<div class="k-incoming-overlay" id="outgoingCallOverlay" style="display:none">
+  <div class="k-incoming-card">
+    <div class="k-incoming-avatar" id="outgoingCallerAvatar" style="background:#667eea"><i class="fas fa-phone"></i></div>
+    <div class="k-incoming-name" id="outgoingCallerName">Calling...</div>
+    <div class="k-incoming-label" id="outgoingCallType">Voice call</div>
+    <div class="k-incoming-actions">
+      <button class="k-incoming-btn decline" onclick="K.calls.cancel()" title="Cancel"><i class="fas fa-phone-slash"></i></button>
+    </div>
+  </div>
+</div>
+
 <div class="k-video-overlay" id="videoOverlay" style="display:none">
   <div class="k-video-header">
     <div class="k-video-info"><span id="videoCallPeer">In call</span><span id="videoCallDuration" class="k-video-duration">00:00</span></div>
@@ -451,6 +481,7 @@
 <script src="{{ url_for('static', filename='js/k/groups.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/stories.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/saved.js') }}"></script>
+<script src="/socket.io/socket.io.js"></script>
 <script src="{{ url_for('static', filename='js/k/calls.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/music.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/webapp.js') }}"></script>

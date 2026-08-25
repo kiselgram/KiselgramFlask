@@ -55,6 +55,7 @@ K.auth = {
         K.settings.loadPrivacy();
         K.settings.loadSessions();
         K.saved.load();
+        K.calls.connectNotify();
         return;
       }
     } catch(e) { console.warn('K init error', e); }

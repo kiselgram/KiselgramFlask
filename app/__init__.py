@@ -10,11 +10,14 @@ from flask_migrate import Migrate
 from flask_mail import Mail
 from authlib.integrations.flask_client import OAuth
 
+from flask_socketio import SocketIO
+
 oauth = OAuth()
 db = SQLAlchemy()
 login_manager = LoginManager()
 migrate = Migrate()
 mail = Mail()
+socketio = SocketIO(cors_allowed_origins='*', async_mode='threading')
 
 import platform
 
@@ -102,6 +105,14 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     migrate.init_app(app, db)
+    socketio.init_app(app)
+
+    # Register WebSocket notification namespace
+    try:
+        from app.notify_ws import init_notify_ws
+        init_notify_ws(app, socketio)
+    except Exception as e:
+        app.logger.warning(f"Notify WebSocket not loaded: {e}")
 
     # ─── Security: headers, CSRF token context ───────────────────────────────
     app.after_request(add_security_headers)

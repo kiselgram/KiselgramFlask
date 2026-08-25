@@ -8,7 +8,7 @@ from flask import Blueprint, request, jsonify, render_template, session, redirec
 from functools import wraps
 from datetime import datetime, timezone
 from app import db
-from app.models import User, Report, Message, LoginOtp, Chat, ChatMember, ChatSubscriber, EmailVerification
+from app.models import User, Report, Message, LoginOtp, Chat, ChatMember, ChatSubscriber, EmailVerification, QrLoginToken
 from app.utils.helpers import get_current_user
 from app.utils.security import rate_limit
 from app.routes.premium import load_premium_config, save_premium_config, generate_promo_code
@@ -378,6 +378,55 @@ def twofa_email_cleanup():
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     deleted = EmailVerification.query.filter(
         (EmailVerification.expires_at <= now) | (EmailVerification.verified == True)
+    ).delete()
+    db.session.commit()
+    return jsonify({'success': True, 'data': {'deleted': deleted}})
+
+
+# ── QR Login Tokens ────────────────────────────────────────
+
+@spav2_admin_bp.route('/2fa/qr-tokens', methods=['GET'])
+@admin_required
+def twofa_qr_tokens():
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    per_page = min(per_page, 200)
+    query = QrLoginToken.query.order_by(QrLoginToken.id.desc())
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    user_ids = set()
+    for t in pagination.items:
+        if t.user_id:
+            user_ids.add(t.user_id)
+        if t.authorized_by_id:
+            user_ids.add(t.authorized_by_id)
+    users = {u.id: u for u in User.query.filter(User.id.in_(user_ids)).all()} if user_ids else {}
+
+    return jsonify({'success': True, 'data': {
+        'tokens': [{
+            'id': t.id,
+            'user_id': t.user_id,
+            'username': users.get(t.user_id).username if t.user_id and users.get(t.user_id) else None,
+            'token': t.token,
+            'created_at': t.created_at.isoformat() if t.created_at else None,
+            'expires_at': t.expires_at.isoformat() if t.expires_at else None,
+            'consumed': t.consumed,
+            'consumed_at': t.consumed_at.isoformat() if t.consumed_at else None,
+            'authorized_by': users.get(t.authorized_by_id).username if t.authorized_by_id and users.get(t.authorized_by_id) else None,
+            'expired': t.expires_at < datetime.now(timezone.utc).replace(tzinfo=None) if t.expires_at else False
+        } for t in pagination.items],
+        'page': page,
+        'total_pages': pagination.pages,
+        'total': pagination.total
+    }})
+
+
+@spav2_admin_bp.route('/2fa/qr-tokens/cleanup', methods=['POST'])
+@admin_required
+def twofa_qr_cleanup():
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    deleted = QrLoginToken.query.filter(
+        (QrLoginToken.expires_at <= now) | (QrLoginToken.consumed == True)
     ).delete()
     db.session.commit()
     return jsonify({'success': True, 'data': {'deleted': deleted}})

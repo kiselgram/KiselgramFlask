@@ -8,7 +8,13 @@ K.settings = {
     K.settings._applyTheme(isDark);
   },
   setTheme(t) {
-    K.settings._applyTheme(t === 'dark');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (t === 'auto') {
+      isDark = prefersDark;
+    } else {
+      isDark = t === 'dark';
+    }
+    K.settings._applyTheme(isDark);
   },
   _applyTheme(isDark, skipSave) {
     if (isDark) document.documentElement.setAttribute('data-theme', 'dark');
@@ -67,6 +73,128 @@ K.settings = {
       K.ui.toast('Privacy updated', 'success');
     } catch(e) { K.ui.toast('Failed', 'error'); }
   },
+  async toggleReadReceipts(value) {
+    localStorage.setItem('k_read_receipts', value);
+    K.settings.saveToServer();
+    K.ui.toast('Read receipts ' + (value === 'true' ? 'enabled' : 'disabled'), 'success');
+  },
+startLakeBackgrounds() {
+    if (!K.state.user?.is_premium) {
+      K.ui.toast('Dynamic lake backgrounds are a Premium feature', 'info');
+      return;
+    }
+    // Photo URLs - served from static/ folder
+    const photos = [
+      '/static/lake1.jpg',
+      '/static/lake2.jpg',
+      '/static/lake3.jpg'
+    ];
+    let currentIndex = localStorage.getItem('k_lake_index') ? parseInt(localStorage.getItem('k_lake_index')) : 0;
+    const intervalMs = 30 * 60 * 1000; // 30 min base
+    const randomOffset = Math.floor(Math.random() * (50 * 60 * 1000 - 30 * 60 * 1000 + 1)) + 30 * 60 * 1000; // 30-50 min random
+    let timer = null;
+    
+    // Create overlay element if not exists
+    let overlay = document.querySelector('.lake-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'lake-overlay';
+      overlay.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        color: var(--text-primary, #fff);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        background: rgba(0,0,0,0.6);
+        padding: 8px 12px;
+        border-radius: 4px;
+        z-index: 1000;
+        user-select: none;
+      `;
+      document.body.appendChild(overlay);
+    }
+    
+    function setBackground(idx) {
+      currentIndex = idx % photos.length;
+      const photo = photos[currentIndex];
+      document.documentElement.style.setProperty('--hero-image', `url("${photo}")`);
+      localStorage.setItem('k_lake_index', String(currentIndex));
+      // Update time overlay
+      const now = new Date();
+      const options = { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit', 
+        minute: '2-digit' 
+      };
+      overlay.textContent = now.toLocaleDateString(undefined, options);
+    }
+    
+    // Set first photo immediately
+    setBackground(0);
+    
+    // Schedule next change with random 30-50 min interval
+    function scheduleNext() {
+      timer = setTimeout(() => {
+        currentIndex = (currentIndex + 1) % photos.length;
+        setBackground(currentIndex);
+        // Reschedule with new random interval
+        scheduleNext();
+      }, randomOffset);
+    }
+    
+    scheduleNext();
+    
+    // Store the timer reference for cleanup
+    localStorage.setItem('k_lake_timer', String(timer || ''));
+    // Start updating time overlay every minute
+    this.updateLakeTime();
+    setInterval(() => this.updateLakeTime(), 60000);
+    K.ui.toast('Dynamic lake backgrounds started', 'success');
+  },
+  
+  // Update time overlay periodically
+  updateLakeTime() {
+    const overlay = document.querySelector('.lake-overlay');
+    if (overlay) {
+      const now = new Date();
+      const options = { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit', 
+        minute: '2-digit' 
+      };
+      overlay.textContent = now.toLocaleDateString(undefined, options);
+    }
+  },
+  stopLakeBackgrounds() {
+    const timer = localStorage.getItem('k_lake_timer');
+    if (timer && timer !== 'null' && timer !== 'undefined') {
+      clearTimeout(timer);
+      localStorage.removeItem('k_lake_timer');
+    }
+    // Remove the hero image var
+    document.documentElement.style.removeProperty('--hero-image');
+    // Remove overlay
+    const overlay = document.querySelector('.lake-overlay');
+    if (overlay) overlay.remove();
+    localStorage.removeItem('k_lake_index');
+    K.ui.toast('Lake backgrounds stopped', 'success');
+  },
+  stopLakeBackgrounds() {
+    const timer = localStorage.getItem('k_lake_timer');
+    if (timer && timer !== 'null' && timer !== 'undefined') {
+      clearTimeout(timer);
+      localStorage.removeItem('k_lake_timer');
+    }
+    // Remove the hero image var
+    document.documentElement.style.removeProperty('--hero-image');
+    localStorage.removeItem('k_lake_index');
+    K.ui.toast('Lake backgrounds stopped', 'success');
+  },
   async loadSessions() {
     try {
       const d = await K.api.get(V2 + '/sessions');
@@ -88,6 +216,17 @@ K.settings = {
   },
   setMyColor(color, skipSave) { K.settings._setBubbleColor('--bubble-my', 'k_color_my', color, skipSave); },
   setTheirColor(color, skipSave) { K.settings._setBubbleColor('--bubble-their', 'k_color_their', color, skipSave); },
+  _showPeerIds() { return localStorage.getItem('k_show_peer_ids') === '1'; },
+  setShowPeerIds(checked, skipSave) {
+    localStorage.setItem('k_show_peer_ids', checked ? '1' : '0');
+    const cb = $('showPeerIds'); if (cb) cb.checked = !!checked;
+    if (!skipSave) K.settings.saveToServer();
+    if (K.chat?.loadList) K.chat.loadList();
+    if (K.chat?.loadMessages && K.state?.activeChat) {
+      K.chat.loadMessages(K.state.activeChat.type, K.state.activeChat.id);
+      K.chat.loadHeader(K.state.activeChat.type, K.state.activeChat.id);
+    }
+  },
   addFolder() {
     const name = prompt('Folder name:');
     if (name && name.trim()) {
@@ -221,6 +360,14 @@ K.settings = {
         if (s.color_their) { localStorage.setItem('k_color_their', s.color_their); K.settings.setTheirColor(s.color_their, true); }
         if (s.saved_themes) { localStorage.setItem('k_saved_themes', JSON.stringify(s.saved_themes)); }
         if (s.music_tracks) { K.music._tracks = s.music_tracks; localStorage.setItem('k_music_tracks', JSON.stringify(s.music_tracks)); }
+        if (typeof s.show_peer_ids !== 'undefined') {
+          localStorage.setItem('k_show_peer_ids', s.show_peer_ids ? '1' : '0');
+          const cb = $('showPeerIds'); if (cb) cb.checked = !!s.show_peer_ids;
+        }
+if (typeof s.read_receipts !== 'undefined') {
+          localStorage.setItem('k_read_receipts', s.read_receipts ? 'true' : 'false');
+          const cb = document.querySelector('#readReceipts'); if (cb) cb.value = s.read_receipts ? 'true' : 'false';
+        }
       }
     } catch(e) { K.ui.toast('Failed to load settings', 'error'); }
   },
@@ -238,7 +385,9 @@ K.settings = {
       color_my: localStorage.getItem('k_color_my') || '#5e72e4',
       color_their: localStorage.getItem('k_color_their') || '#e8e8e8',
       saved_themes: K.settings._savedThemes(),
-      music_tracks: K.music._tracks || []
+      music_tracks: K.music._tracks || [],
+      show_peer_ids: K.settings._showPeerIds(),
+      read_receipts: localStorage.getItem('k_read_receipts') === 'true'
     };
     try {
       await K.api.put(V2 + '/k/settings', {settings});

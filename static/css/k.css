@@ -199,6 +199,21 @@
 .k-chat-info { flex: 1; min-width: 0; }
 .k-chat-name-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
 .k-chat-name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.k-peer-id { font-size: 11px; font-weight: 400; color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; vertical-align: middle; }
+.hero-overlay::after {
+  content: '';
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  color: var(--text-primary, #fff);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  background: rgba(0,0,0,0.6);
+  padding: 8px 12px;
+  border-radius: 4px;
+  width: max-content;
+  user-select: none;
+}
 .k-chat-time { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
 .k-chat-preview { font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; justify-content: space-between; align-items: center; }
 .k-unread { background: var(--accent-blue); color: white; border-radius: 10px; padding: 1px 6px; font-size: 10px; font-weight: 600; min-width: 18px; text-align: center; }
