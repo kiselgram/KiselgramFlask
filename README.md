@@ -2,8 +2,8 @@
 
 Flask messaging platform — personal chats, groups, channels, stories, and WebRTC video calls. JSON API with a pure-JS SPA frontend.
 
-[![CI](https://github.com/kiselgram/kiselgram/actions/workflows/ci.yml/badge.svg)](https://github.com/kiselgram/kiselgram/actions/workflows/ci.yml)
-[![CD](https://github.com/kiselgram/kiselgram/actions/workflows/cd.yml/badge.svg)](https://github.com/kiselgram/kiselgram/actions/workflows/cd.yml)
+[![CI](https://github.com/kiselgram/KiselgramFlask/actions/workflows/ci.yml/badge.svg)](https://github.com/kiselgram/KiselgramFlask/actions/workflows/ci.yml)
+[![CD](https://github.com/kiselgram/KiselgramFlask/actions/workflows/cd.yml/badge.svg)](https://github.com/kiselgram/KiselgramFlask/actions/workflows/cd.yml)
 
 ## Quick start
 

@@ -18,6 +18,7 @@ templates/.idea
 status/
 tmp/
 *.log
+/logs/
 
 /instance/
 /migrations
@@ -48,5 +49,32 @@ posts-instagram.html
 posts-twitter.html
 run_video_server.py
 screens.html
+
+# Dev/ops files
+.opencode/
+.playwright-mcp/
+Users/
+opencode.json
+prompts.md
+kiselgram.md
+telegram_chats.md
+tgsview.py
+Why_Kiselgram_EN.md
+Why_Kiselgram_RU.md
+NEW.md
+
+# Image files (root only)
+/*.jpeg
+/*.png
+/*.jpg
+/static/lake*.jpg
+/static/stickers/
+
+# Dev/test files
+edited_slide.html
+emojitest/
+
+# Archives
+*.tar.gz
 
 
