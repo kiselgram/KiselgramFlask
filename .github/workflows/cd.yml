@@ -125,6 +125,7 @@ jobs:
             ${{ steps.target.outputs.user }}@${{ steps.target.outputs.host }} "
             set -e
             cd /root/kiselgram
+            echo \"${{ secrets.GHCR_TOKEN }}\" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             PULL_TAG=${{ needs.build.outputs.pull_tag }}
             COMPOSE=${{ steps.target.outputs.compose }}
             echo \"using compose file: \$COMPOSE\"
