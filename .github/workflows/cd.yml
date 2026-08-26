@@ -131,8 +131,8 @@ jobs:
             PREV_APP=\$(docker inspect --format '{{index .Image}}' kiselgram-app-1 2>/dev/null || echo '')
             PREV_VIDEO=\$(docker inspect --format '{{index .Image}}' kiselgram-video-1 2>/dev/null || echo '')
             echo \"previous app image: \$PREV_APP\"
-            docker pull $PULL_TAG
-            docker tag $PULL_TAG kiselgram-app:latest
+            docker pull \$PULL_TAG
+            docker tag \$PULL_TAG kiselgram-app:latest
             # rebuild mailadmin from synced source (healthcheck fix, config changes)
             docker build -t kiselgram-mailadmin:latest ./mailadmin
             docker compose -f \$COMPOSE up -d --no-deps --build app video mailadmin
@@ -147,8 +147,8 @@ jobs:
             done
             if [ \"\$ok\" != 1 ]; then
               echo \"HEALTHCHECK FAILED — rolling back\"
-              if [ -n "$PREV_APP" ]; then docker tag "$PREV_APP" kiselgram-app:latest; fi
-              if [ -n "$PREV_VIDEO" ]; then docker tag "$PREV_VIDEO" kiselgram-app:latest; fi
+              if [ -n "\$PREV_APP" ]; then docker tag "\$PREV_APP" kiselgram-app:latest; fi
+              if [ -n "\$PREV_VIDEO" ]; then docker tag "\$PREV_VIDEO" kiselgram-app:latest; fi
               docker compose -f \$COMPOSE up -d --no-deps app video mailadmin
               exit 1
             fi
