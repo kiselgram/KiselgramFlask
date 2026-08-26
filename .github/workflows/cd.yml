@@ -125,18 +125,15 @@ jobs:
             ${{ steps.target.outputs.user }}@${{ steps.target.outputs.host }} "
             set -e
             cd /root/kiselgram
-            echo \"${{ secrets.GHCR_TOKEN }}\" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            PULL_TAG=${{ needs.build.outputs.pull_tag }}
             COMPOSE=${{ steps.target.outputs.compose }}
             echo \"using compose file: \$COMPOSE\"
             PREV_APP=\$(docker inspect --format '{{index .Image}}' kiselgram-app-1 2>/dev/null || echo '')
             PREV_VIDEO=\$(docker inspect --format '{{index .Image}}' kiselgram-video-1 2>/dev/null || echo '')
             echo \"previous app image: \$PREV_APP\"
-            docker pull \$PULL_TAG
-            docker tag \$PULL_TAG kiselgram-app:latest
-            # rebuild mailadmin from synced source (healthcheck fix, config changes)
+            # build app image from synced source (no GHCR auth needed)
+            docker build -t kiselgram-app:latest .
             docker build -t kiselgram-mailadmin:latest ./mailadmin
-            docker compose -f \$COMPOSE up -d --no-deps --build app video mailadmin
+            docker compose -f \$COMPOSE up -d --no-deps app video mailadmin
             # wait for health, allow up to ~90s
             ok=0
             for i in \$(seq 1 18); do
