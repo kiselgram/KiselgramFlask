@@ -40,6 +40,58 @@ def get_profile():
     }})
 
 
+@spav2_profile_bp.route('/users/<int:user_id>', methods=['GET'])
+def get_user(user_id):
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+
+    is_premium = (user.premium and user.premium.is_premium) or False
+
+    return jsonify({'success': True, 'data': {
+        'user_id': user.id,
+        'username': user.username,
+        'display_name': user.display_name or user.username,
+        'avatar_url': user.avatar_url,
+        'bio': getattr(user, 'bio', None),
+        'is_premium': is_premium,
+        'is_bot': getattr(user, 'is_bot', False),
+        'is_online': getattr(user, 'is_online', False),
+        'last_seen': user.last_seen.isoformat() if user.last_seen else None,
+        'status_emoji': user.status_emoji or ('\u2b50' if is_premium else '')
+    }})
+
+
+@spav2_profile_bp.route('/users/<int:user_id>/music', methods=['GET'])
+def get_user_music(user_id):
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+
+    return jsonify({'success': True, 'data': []})
+
+
+@spav2_profile_bp.route('/users/<int:user_id>/files', methods=['GET'])
+def get_user_files(user_id):
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+
+    return jsonify({'success': True, 'data': []})
+
+
 @spav2_profile_bp.route('/profile', methods=['PUT'])
 def update_profile():
     current_user = get_current_user()
