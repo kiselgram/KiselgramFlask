@@ -4,7 +4,7 @@ from flask import Blueprint, request, jsonify, session
 from sqlalchemy.orm import joinedload, selectinload
 from app import db
 from app.models import User, Message, Reaction, Reply, Forward, BlockedUser, Chat, ChatMember, File
-from app.utils.helpers import get_current_user_id, message_to_dict, validate_emoji
+from app.utils.helpers import get_current_user_id, message_to_dict, validate_emoji, get_animated_file_for_emoji
 
 spav2_messages_bp = Blueprint('spav2_messages', __name__, url_prefix='/api')
 
@@ -27,7 +27,7 @@ def _serialize_message(msg, current_user_id=None):
         'edited_at': msg.edited_at.isoformat() if msg.edited_at else None,
         'emoji': msg.emoji,
         'emoji_file': msg.emoji_file,
-        'emoji_url': f"/static/stickers/animatedemojies/{msg.emoji_file}" if msg.emoji_file else None,
+        'emoji_url': f"/uploads/animated_emojis/{msg.emoji_file}" if msg.emoji_file else None,
         'emoji_size': msg.emoji_size or 96,
         'emoji_count': msg.emoji_count or 1,
         'reactions': {}
@@ -53,7 +53,14 @@ def send_personal_message():
     content = data.get('content', '').strip()
     reply_to_id = data.get('reply_to_id')
 
+    # Auto-convert single unicode emoji (e.g., 😋) to animated
     emoji_data = None
+    if content and not data.get('emoji_file'):
+        anim_file = get_animated_file_for_emoji(content.strip())
+        if anim_file:
+            emoji_data, _ = validate_emoji(anim_file, content.strip(), 96, 1)
+            if emoji_data:
+                content = ''
     if data.get('emoji_file'):
         emoji_data, emoji_err = validate_emoji(
             data.get('emoji_file'), data.get('emoji', ''), data.get('size', 96), data.get('count', 1))
@@ -262,11 +269,15 @@ def list_emojis():
         return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
 
     import os
-    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    base = os.path.join(root, 'static', 'stickers', 'animatedemojies')
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    base = os.path.join(root, 'uploads', 'animated_emojis')
+    static_base = os.path.join(root, 'static', 'stickers', 'animatedemojies')
     manifest_path = os.path.join(root, 'static', 'stickers', '_manifest.json')
     emojis = []
     seen = set()
+    # Prefer server storage (uploads/animated_emojis)
+    check_base = base if os.path.isdir(base) and os.listdir(base) else static_base
+    check_url = "/uploads/animated_emojis" if check_base == base else "/static/stickers/animatedemojies"
     if os.path.isfile(manifest_path):
         try:
             import json
@@ -275,12 +286,15 @@ def list_emojis():
             for s in manifest.get('animatedemojies', {}).get('stickers', []):
                 fname = s.get('file')
                 if fname and fname.endswith('.webp') and fname not in seen:
-                    seen.add(fname)
-                    emojis.append({'file': fname, 'emoji': s.get('emoji', ''), 'url': f"/static/stickers/animatedemojies/{fname}"})
+                    # Only include if file exists in server storage or static
+                    fpath = os.path.join(check_base, fname)
+                    if os.path.isfile(fpath):
+                        seen.add(fname)
+                        emojis.append({'file': fname, 'emoji': s.get('emoji', ''), 'url': f"{check_url}/{fname}"})
         except Exception:
             emojis = []
-    if not emojis and os.path.isdir(base):
-        for fname in sorted(os.listdir(base)):
+    if not emojis and os.path.isdir(check_base):
+        for fname in sorted(os.listdir(check_base)):
             if fname.endswith('.webp'):
-                emojis.append({'file': fname, 'emoji': '', 'url': f"/static/stickers/animatedemojies/{fname}"})
+                emojis.append({'file': fname, 'emoji': '', 'url': f"{check_url}/{fname}"})
     return jsonify({'success': True, 'data': {'emojis': emojis}})

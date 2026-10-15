@@ -5,7 +5,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from app import db
 from app.models import User, Chat, ChatMember, GroupPermission, Message, File, Reply
-from app.utils.helpers import get_current_user_id, validate_emoji
+from app.utils.helpers import get_current_user_id, validate_emoji, get_animated_file_for_emoji
 
 spav2_groups_bp = Blueprint('spav2_groups', __name__, url_prefix='/api')
 
@@ -174,7 +174,7 @@ def get_group_messages(group_id):
             'file_type': msg.file_type,
             'emoji': msg.emoji,
             'emoji_file': msg.emoji_file,
-            'emoji_url': f"/static/stickers/animatedemojies/{msg.emoji_file}" if msg.emoji_file else None,
+            'emoji_url': f"/uploads/animated_emojis/{msg.emoji_file}" if msg.emoji_file else None,
             'emoji_size': msg.emoji_size or 96,
             'emoji_count': msg.emoji_count or 1,
             'timestamp': msg.timestamp.isoformat() if msg.timestamp else None,
@@ -245,7 +245,14 @@ def send_group_message():
     if not group_id:
         return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': 'group_id is required'}}), 400
 
+    # Auto-convert single unicode emoji (e.g., 😋) to animated
     emoji_data = None
+    if content and not data.get('emoji_file'):
+        anim_file = get_animated_file_for_emoji(content.strip())
+        if anim_file:
+            emoji_data, _ = validate_emoji(anim_file, content.strip(), 96, 1)
+            if emoji_data:
+                content = ''
     if data.get('emoji_file'):
         emoji_data, emoji_err = validate_emoji(
             data.get('emoji_file'), data.get('emoji', ''), data.get('size', 96), data.get('count', 1))
@@ -289,7 +296,7 @@ def send_group_message():
         'file_type': None,
         'emoji': msg.emoji,
         'emoji_file': msg.emoji_file,
-        'emoji_url': f"/static/stickers/animatedemojies/{msg.emoji_file}" if msg.emoji_file else None,
+        'emoji_url': f"/uploads/animated_emojis/{msg.emoji_file}" if msg.emoji_file else None,
         'emoji_size': msg.emoji_size or 96,
         'emoji_count': msg.emoji_count or 1,
         'timestamp': msg.timestamp.isoformat() if msg.timestamp else None,

@@ -16,6 +16,15 @@
             -webkit-font-smoothing: antialiased;
         }
         .container { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+        .highlight { background: linear-gradient(135deg, #fb6340, #f093fb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .highlight:hover { background: linear-gradient(135deg, #fb6340, #f093fb); -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: -1px -1px 0 #000;
+        }
+        /* THEMARK */
+        .feature-card h4 { background: linear-gradient(135deg, #f18f0a, #e80a5e); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .carousel-slide h3 { background: linear-gradient(135deg, #e80a5e, #f18f0a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .video-section h3 { background: linear-gradient(135deg, #59d611, #f10ab0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
         /* Nav */
         nav {
@@ -61,6 +70,7 @@
             line-height: 1.1; letter-spacing: -1.5px; margin-bottom: 20px;
         }
         .hero h1 span { background: linear-gradient(135deg, #fb6340, #f093fb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero span { background: linear-gradient(135deg, #fb6340, #f093fb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .hero p {
             font-size: 18px; color: #8b949e; max-width: 600px; margin: 0 auto 36px;
         }
@@ -231,9 +241,9 @@
 
     <!-- Hero -->
     <div class="hero">
-        <div class="hero-badge"><i class="fas fa-circle" style="font-size:8px;margin-right:6px;color:#3fb950;"></i> Fully operational — v4.1</div>
+        <div class="hero-badge"><i class="fas fa-circle" style="font-size:8px;margin-right:6px;color:#3fb950;"></i> Fully operational — v4.8</div>
         <h1>Messaging that's<br><span>fresh, fast & free</span></h1>
-        <p>Kiselgram is a modern communication platform built for everyone — with instant messaging, groups, channels, stories, video calls, and powerful file sharing. No limits, no hidden fees.</p>
+        <p>Kiselgram is a modern communication platform built for <span>everyone</span> — with instant messaging, groups, channels, stories, video calls, and powerful file sharing. No limits, no hidden fees.</p>
         <div class="hero-actions">
             <a href="{{ url_for('auth.register') }}" class="btn-primary btn-lg"><i class="fas fa-rocket"></i> Create Free Account</a>
             <a href="{{ url_for('auth.login') }}" class="btn-outline btn-lg"><i class="fas fa-arrow-right"></i> Sign In</a>
@@ -324,7 +334,7 @@
             </div>
         </div>
     </section>
-
+    <!-- THEMARK -->
     <!-- Feature Spotlight Carousel -->
     <section id="spotlight">
         <div class="section-header">

@@ -11,3 +11,6 @@ flask-login
 flask-migrate
 authlib
 psycopg2-binary
+requests
+PySocks
+tomli_w

@@ -31,6 +31,28 @@ def get_current_user():
     return None
 
 
+def presence_visible(viewer_id, target_user):
+    """Sputnik-style presence privacy: honor target's privacy_last_seen.
+
+    'everyone' -> visible; 'nobody' -> hidden; 'contacts' (default) ->
+    visible only if viewer is in target's contacts. Own presence always visible.
+    """
+    if target_user is None:
+        return False
+    if viewer_id is not None and viewer_id == target_user.id:
+        return True
+    policy = getattr(target_user, 'privacy_last_seen', 'everyone') or 'everyone'
+    if policy == 'everyone':
+        return True
+    if policy == 'nobody':
+        return False
+    from app.models import Contact
+    try:
+        return Contact.query.filter_by(user_id=target_user.id, contact_id=viewer_id).first() is not None
+    except Exception:
+        return False
+
+
 def get_current_user_id():
     from flask import session, request
     from app.models import UserSession
@@ -156,10 +178,29 @@ _EMOJI_MANIFEST_PATH = os.path.join(
 )
 _EMOJI_PACK = 'animatedemojies'
 _EMOJI_FILE_MAX = 128
+_ANIMATED_EMOJI_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    'uploads', 'animated_emojis',
+)
 
 
 def get_animated_emojis():
-    """Return list of {file, emoji} from the animatedemojies sticker pack."""
+    """Return list of {file, emoji} from server storage, fallback to manifest."""
+    # Check server storage first (uploads/animated_emojis)
+    try:
+        if os.path.isdir(_ANIMATED_EMOJI_DIR):
+            files = [f for f in os.listdir(_ANIMATED_EMOJI_DIR) if re.fullmatch(r'[A-Za-z0-9_]+\.(webp|tgs|gif)', f)]
+            if files:
+                try:
+                    with open(_EMOJI_MANIFEST_PATH, 'r', encoding='utf-8') as fh:
+                        manifest = json.load(fh)
+                    stickers = manifest.get(_EMOJI_PACK, {}).get('stickers', [])
+                    emoji_map = {s['file']: s.get('emoji', '') for s in stickers}
+                except (OSError, ValueError, KeyError):
+                    emoji_map = {}
+                return [{'file': f, 'emoji': emoji_map.get(f, '')} for f in sorted(files)]
+    except Exception:
+        pass
     try:
         with open(_EMOJI_MANIFEST_PATH, 'r', encoding='utf-8') as fh:
             manifest = json.load(fh)
@@ -191,10 +232,31 @@ def validate_emoji(emoji_file, emoji='', size=96, count=1):
     if not 1 <= count <= 100:
         return None, 'emoji count out of range'
 
+    # Check server storage first
+    server_path = os.path.join(_ANIMATED_EMOJI_DIR, file_name)
+    if os.path.isfile(server_path):
+        return {'file': file_name, 'emoji': emoji[:16] or '', 'size': size, 'count': count}, None
     manifest_files = {s.get('file') for s in get_animated_emojis()}
     if file_name not in manifest_files:
         return None, 'emoji_file not found in manifest'
     return {'file': file_name, 'emoji': emoji[:16] or '', 'size': size, 'count': count}, None
+
+def get_animated_file_for_emoji(emoji_char):
+    """Return animated file for a unicode emoji, or None."""
+    if not emoji_char or not isinstance(emoji_char, str):
+        return None
+    emoji_char = emoji_char.strip()
+    if not emoji_char:
+        return None
+    for item in get_animated_emojis():
+        if item.get('emoji') == emoji_char:
+            return item.get('file')
+    stripped = emoji_char.replace('\ufe0f', '')
+    if stripped != emoji_char:
+        for item in get_animated_emojis():
+            if item.get('emoji') == stripped or item.get('emoji', '').replace('\ufe0f', '') == stripped:
+                return item.get('file')
+    return None
 
 def has_active_story(user_id):
     try:
@@ -244,7 +306,7 @@ def message_to_dict(message, current_user_id):
         'forwarded_from': None,
         'emoji': message.emoji,
         'emoji_file': message.emoji_file,
-        'emoji_url': f"/static/stickers/animatedemojies/{message.emoji_file}" if message.emoji_file else None,
+        'emoji_url': f"/uploads/animated_emojis/{message.emoji_file}" if message.emoji_file else None,
         'emoji_size': message.emoji_size or 96,
         'emoji_count': message.emoji_count or 1,
         'reactions': {}

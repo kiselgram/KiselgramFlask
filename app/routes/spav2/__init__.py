@@ -31,12 +31,13 @@ class Api2:
         from .oauth import spav2_oauth_bp
         from .referrals import spav2_referrals_bp
         from .features import spav2_features_bp
+        from .sputnik import spav2_sputnik_bp
         return [
             spav2_auth_bp, spav2_chat_bp, spav2_groups_bp, spav2_channels_bp,
             spav2_contacts_bp, spav2_stories_bp, spav2_profile_bp, spav2_calls_bp,
             spav2_search_bp, spav2_sessions_bp, spav2_messages_bp, spav2_saved_bp,
             spav2_music_bp, spav2_ksettings_bp, spav2_oauth_bp, spav2_referrals_bp,
-            spav2_features_bp,
+            spav2_features_bp, spav2_sputnik_bp,
         ]
 
     def register(self, app):

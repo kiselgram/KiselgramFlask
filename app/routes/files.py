@@ -98,7 +98,9 @@ def get_uploads_dir():
 def safe_path_in_uploads(*parts):
     uploads_dir = get_uploads_dir()
     path = os.path.normpath(os.path.join(uploads_dir, *parts))
-    if not path.startswith(uploads_dir):
+    # exact dir or strictly inside it (prefix match alone would allow
+    # a sibling like uploads_evil/ — Sputnik path-traversal class fix)
+    if path != uploads_dir and not path.startswith(uploads_dir + os.sep):
         return None
     return path
 

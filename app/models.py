@@ -61,6 +61,8 @@ class User(db.Model):
     their_message_color = db.Column(db.String(20), default='#f3f4f6')
     wallpaper = db.Column(db.String(50), default='')
     wallpaper_image = db.Column(db.String(500), nullable=True)
+    banner_color = db.Column(db.String(20), default='#2b8d8d')
+    banner_image = db.Column(db.String(500), nullable=True)
 
     # Soft delete
     is_deleted = db.Column(db.Boolean, default=False)
@@ -850,3 +852,163 @@ class Archive(db.Model):
     archived_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (db.UniqueConstraint('user_id', 'chat_id', name='unique_archive_entry'),)
+
+
+# --- Sputnik ideas pack (ported from ilyyagoncharow12/sputnik) ---
+# Small additive tables only; no changes to existing tables.
+
+
+class SputnikMessageEdit(db.Model):
+    """Edit history: old -> new text with editor + timestamp (Sputnik idea)."""
+
+    __tablename__ = 'sputnik_message_edit'
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(db.Integer, db.ForeignKey('message.id', ondelete='CASCADE'), nullable=False, index=True)
+    editor_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    old_text = db.Column(db.Text, nullable=True)
+    new_text = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+
+class SputnikTrash(db.Model):
+    """Message-level trash bin: soft-deleted snapshot restorable by owner."""
+
+    __tablename__ = 'sputnik_trash'
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(db.Integer, nullable=False, index=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    snapshot = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    __table_args__ = (db.UniqueConstraint('message_id', 'owner_id', name='unique_sputnik_trash'),)
+
+
+class SputnikFolder(db.Model):
+    """Chat folder (pairs of chat_type + chat_id, Sputnik-style)."""
+
+    __tablename__ = 'sputnik_folder'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    name = db.Column(db.String(80), nullable=False)
+    sort_order = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class SputnikFolderChat(db.Model):
+    __tablename__ = 'sputnik_folder_chat'
+    id = db.Column(db.Integer, primary_key=True)
+    folder_id = db.Column(db.Integer, db.ForeignKey('sputnik_folder.id', ondelete='CASCADE'), nullable=False, index=True)
+    chat_type = db.Column(db.String(20), nullable=False, default='personal')
+    chat_id = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('folder_id', 'chat_type', 'chat_id', name='unique_sputnik_folder_chat'),)
+
+
+class SputnikSticker(db.Model):
+    """Custom user sticker built from an uploaded image (Sputnik idea)."""
+
+    __tablename__ = 'sputnik_sticker'
+    id = db.Column(db.Integer, primary_key=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    file_path = db.Column(db.String(500), nullable=False)
+    emoji = db.Column(db.String(16), nullable=True)
+    is_favorite = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+
+class SputnikAlbum(db.Model):
+    """Album groups several messages into one gallery item (Sputnik idea)."""
+
+    __tablename__ = 'sputnik_album'
+    id = db.Column(db.Integer, primary_key=True)
+    album_uid = db.Column(db.String(64), nullable=False, index=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    message_id = db.Column(db.Integer, db.ForeignKey('message.id', ondelete='CASCADE'), nullable=False, index=True)
+    position = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('album_uid', 'message_id', name='unique_sputnik_album_item'),)
+
+
+class SputnikMessageView(db.Model):
+    """Deduped per-user message/channel views (Sputnik: one view per user)."""
+
+    __tablename__ = 'sputnik_message_view'
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(db.Integer, db.ForeignKey('message.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('message_id', 'user_id', name='unique_sputnik_view'),)
+
+
+class SputnikSecret(db.Model):
+    """User cloud (2FA) password + app-lock PIN hashes (bcrypt, Sputnik idea)."""
+
+    __tablename__ = 'sputnik_secret'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    kind = db.Column(db.String(20), nullable=False, default='cloud')
+    secret_hash = db.Column(db.String(255), nullable=False)
+    hint = db.Column(db.String(255), nullable=True)
+    email = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('user_id', 'kind', name='unique_sputnik_secret'),)
+
+
+class SputnikDraft(db.Model):
+    """Unsent composer text per (chat_type, chat_id) — Sputnik drafts idea."""
+
+    __tablename__ = 'sputnik_draft'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    chat_type = db.Column(db.String(20), nullable=False, default='personal')
+    chat_id = db.Column(db.Integer, nullable=False)
+    text = db.Column(db.Text, nullable=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)
+
+    __table_args__ = (db.UniqueConstraint('user_id', 'chat_type', 'chat_id', name='unique_sputnik_draft'),)
+
+
+class SputnikJoinRequest(db.Model):
+    """Join requests for private groups (Sputnik showcase idea)."""
+
+    __tablename__ = 'sputnik_join_request'
+    id = db.Column(db.Integer, primary_key=True)
+    chat_id = db.Column(db.Integer, db.ForeignKey('chats.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    status = db.Column(db.String(20), default='pending', index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('chat_id', 'user_id', name='unique_sputnik_join_req'),)
+
+
+class SputnikMemberPerm(db.Model):
+    """Per-member permission overrides in groups (Sputnik idea)."""
+
+    __tablename__ = 'sputnik_member_perm'
+    id = db.Column(db.Integer, primary_key=True)
+    chat_id = db.Column(db.Integer, db.ForeignKey('chats.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    perms = db.Column(db.Text, nullable=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('chat_id', 'user_id', name='unique_sputnik_member_perm'),)
+
+
+class SputnikGroupRestrict(db.Model):
+    """Group bans / mutes with optional expiry (Sputnik idea)."""
+
+    __tablename__ = 'sputnik_group_restrict'
+    id = db.Column(db.Integer, primary_key=True)
+    chat_id = db.Column(db.Integer, db.ForeignKey('chats.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    kind = db.Column(db.String(10), nullable=False, default='ban', index=True)
+    reason = db.Column(db.String(255), nullable=True)
+    until = db.Column(db.DateTime, nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('chat_id', 'user_id', 'kind', name='unique_sputnik_restrict'),)

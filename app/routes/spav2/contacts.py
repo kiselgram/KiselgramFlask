@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify
 from sqlalchemy.orm import joinedload, selectinload
 from app import db
 from app.models import User, Contact, BlockedUser
-from app.utils.helpers import get_current_user_id
+from app.utils.helpers import get_current_user_id, presence_visible
 
 spav2_contacts_bp = Blueprint('spav2_contacts', __name__, url_prefix='/api')
 
@@ -32,14 +32,15 @@ def get_contacts():
         user = users.get(c.contact_id)
         if user:
             is_p = user.premium and user.premium.is_premium
+            visible = presence_visible(current_user_id, user)
             result.append({
                 'user_id': user.id,
                 'username': user.username,
                 'display_name': user.display_name or user.username,
                 'avatar_url': user.avatar_url,
                 'custom_name': c.custom_name,
-                'is_online': getattr(user, 'is_online', False),
-                'last_seen': user.last_seen.isoformat() if user.last_seen else None,
+                'is_online': getattr(user, 'is_online', False) if visible else False,
+                'last_seen': user.last_seen.isoformat() if (user.last_seen and visible) else None,
                 'added_at': c.created_at.isoformat() if c.created_at else None,
                 'is_premium': is_p,
                 'status_emoji': user.status_emoji or ('\u2b50' if is_p else '')

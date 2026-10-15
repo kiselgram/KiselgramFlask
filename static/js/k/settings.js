@@ -9,6 +9,7 @@ K.settings = {
   },
   setTheme(t) {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    let isDark;
     if (t === 'auto') {
       isDark = prefersDark;
     } else {
@@ -17,6 +18,8 @@ K.settings = {
     K.settings._applyTheme(isDark);
   },
   _applyTheme(isDark, skipSave) {
+    // Enforce dark if liquid glass is on
+    if (document.body.classList.contains('liquid-glass')) isDark = true;
     if (isDark) document.documentElement.setAttribute('data-theme', 'dark');
     else document.documentElement.removeAttribute('data-theme');
     localStorage.setItem('k_theme', isDark ? 'dark' : 'light');
@@ -25,12 +28,62 @@ K.settings = {
     const label = $('themeLabel'); if (label) label.textContent = isDark ? 'Light Mode' : 'Dark Mode';
     const ni = $('navThemeIcon'); if (ni) ni.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
     const nl = $('navThemeLabel'); if (nl) nl.textContent = isDark ? 'Light mode' : 'Dark mode';
+    const cpSw = $('cpThemeSwitch'); if (cpSw) cpSw.checked = isDark;
+    const cpIcon = $('cpThemeIcon'); if (cpIcon) cpIcon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+    const cpLabel = $('cpThemeLabel'); if (cpLabel) cpLabel.textContent = isDark ? 'Light Mode' : 'Dark Mode';
+    // Sync theme select dropdown (auto/dark/light) if present
+    const themeSelect = document.querySelector('.k-select');
+    if (themeSelect) {
+      // For auto we keep as dark/light based on actual, but if user chose auto we preserve; for now sync
+      themeSelect.value = isDark ? 'dark' : 'light';
+    }
     if (!skipSave) K.settings.saveToServer();
+  },
+  setLiquidGlass(enabled, skipSave) {
+    if (enabled) {
+      // Remember current theme before forcing dark
+      const curTheme = localStorage.getItem('k_theme');
+      if (curTheme) localStorage.setItem('k_theme_before_glass', curTheme);
+      document.body.classList.add('liquid-glass');
+      localStorage.setItem('k_liquid_glass', '1');
+      // Enforce dark mode (skipSave true to avoid double debounce, final save below handles it)
+      K.settings._applyTheme(true, true);
+    } else {
+      document.body.classList.remove('liquid-glass');
+      localStorage.removeItem('k_liquid_glass');
+      // Restore previous theme if we had one saved
+      const prev = localStorage.getItem('k_theme_before_glass');
+      if (prev) {
+        localStorage.removeItem('k_theme_before_glass');
+        // Apply restored theme without forcing dark
+        const restoreDark = prev === 'dark';
+        // Temporarily ensure body not considered liquid-glass for _applyTheme check
+        K.settings._applyTheme(restoreDark, true);
+      } else {
+        // Re-apply from current stored k_theme (handles removing forced dark)
+        const stored = localStorage.getItem('k_theme') || 'light';
+        K.settings._applyTheme(stored === 'dark', true);
+      }
+    }
+    const cb = $('liquidGlassMode'); if (cb) cb.checked = !!enabled;
+    if (!skipSave) K.settings.saveToServer();
+    // Disable theme toggle UI when glass is on
+    const sw = $('themeSwitch'); if (sw) sw.disabled = !!enabled;
+    const cpSw = $('cpThemeSwitch'); if (cpSw) cpSw.disabled = !!enabled;
+    const sel = document.querySelector('.k-select'); if (sel) sel.disabled = !!enabled;
+  },
+  loadLiquidGlass() {
+    const enabled = localStorage.getItem('k_liquid_glass') === '1';
+    if (enabled) K.settings.setLiquidGlass(true, true);
+    else {
+      const cb = $('liquidGlassMode'); if (cb) cb.checked = false;
+    }
   },
   setFontSize(s, skipSave) {
     document.querySelectorAll('.k-font-btn').forEach(b => b.classList.toggle('active', b.dataset.size === s));
     const sizes = { small: '13px', medium: '14px', large: '16px' };
-    document.querySelector('.k-app').style.fontSize = sizes[s] || '14px';
+    const appEl = document.querySelector('.k-app');
+    if (appEl) appEl.style.fontSize = sizes[s] || '14px';
     localStorage.setItem('k_font_size', s);
     if (!skipSave) K.settings.saveToServer();
   },
@@ -78,7 +131,7 @@ K.settings = {
     K.settings.saveToServer();
     K.ui.toast('Read receipts ' + (value === 'true' ? 'enabled' : 'disabled'), 'success');
   },
-startLakeBackgrounds() {
+  startLakeBackgrounds() {
     if (!K.state.user?.is_premium) {
       K.ui.toast('Dynamic lake backgrounds are a Premium feature', 'info');
       return;
@@ -90,7 +143,6 @@ startLakeBackgrounds() {
       '/static/lake3.jpg'
     ];
     let currentIndex = localStorage.getItem('k_lake_index') ? parseInt(localStorage.getItem('k_lake_index')) : 0;
-    const intervalMs = 30 * 60 * 1000; // 30 min base
     const randomOffset = Math.floor(Math.random() * (50 * 60 * 1000 - 30 * 60 * 1000 + 1)) + 30 * 60 * 1000; // 30-50 min random
     let timer = null;
     
@@ -181,17 +233,6 @@ startLakeBackgrounds() {
     // Remove overlay
     const overlay = document.querySelector('.lake-overlay');
     if (overlay) overlay.remove();
-    localStorage.removeItem('k_lake_index');
-    K.ui.toast('Lake backgrounds stopped', 'success');
-  },
-  stopLakeBackgrounds() {
-    const timer = localStorage.getItem('k_lake_timer');
-    if (timer && timer !== 'null' && timer !== 'undefined') {
-      clearTimeout(timer);
-      localStorage.removeItem('k_lake_timer');
-    }
-    // Remove the hero image var
-    document.documentElement.style.removeProperty('--hero-image');
     localStorage.removeItem('k_lake_index');
     K.ui.toast('Lake backgrounds stopped', 'success');
   },
@@ -296,10 +337,15 @@ startLakeBackgrounds() {
     K.ui.toast('Theme saved', 'success');
   },
   renderSavedThemes() {
-    const list = $('themeList'); if (!list) return;
     const saved = K.settings._savedThemes();
-    if (!saved.length) { list.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:13px">No saved themes</div>'; return; }
-    list.innerHTML = saved.map((t, i) =>
+    if (!saved.length) {
+      const empty = '<div style="padding:12px;color:var(--text-muted);font-size:13px">No saved themes</div>';
+      const list = $('themeList'); if (list) list.innerHTML = empty;
+      const cl = $('savedThemeList'); if (cl) cl.innerHTML = empty;
+      const st = $('savedThemes'); if (st) st.innerHTML = empty;
+      return;
+    }
+    const html = saved.map((t, i) =>
       `<div class="k-settings-item">
         <span><span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:${t.color_my};margin-right:8px;vertical-align:middle"></span>${esc(t.name)}</span>
         <span style="display:flex;gap:4px">
@@ -308,8 +354,9 @@ startLakeBackgrounds() {
         </span>
       </div>`
     ).join('');
-    const cl = $('savedThemeList');
-    if (cl) cl.innerHTML = list.innerHTML;
+    const list = $('themeList'); if (list) list.innerHTML = html;
+    const cl = $('savedThemeList'); if (cl) cl.innerHTML = html;
+    const st = $('savedThemes'); if (st) st.innerHTML = html;
   },
   applySavedTheme(idx) {
     const saved = K.settings._savedThemes();
@@ -364,12 +411,23 @@ startLakeBackgrounds() {
           localStorage.setItem('k_show_peer_ids', s.show_peer_ids ? '1' : '0');
           const cb = $('showPeerIds'); if (cb) cb.checked = !!s.show_peer_ids;
         }
-if (typeof s.read_receipts !== 'undefined') {
+        if (typeof s.read_receipts !== 'undefined') {
           localStorage.setItem('k_read_receipts', s.read_receipts ? 'true' : 'false');
           const cb = document.querySelector('#readReceipts'); if (cb) cb.value = s.read_receipts ? 'true' : 'false';
         }
+        if (typeof s.liquid_glass !== 'undefined') {
+          localStorage.setItem('k_liquid_glass', s.liquid_glass ? '1' : '0');
+          // Use skipSave to avoid redundant PUT after just loading
+          K.settings.setLiquidGlass(!!s.liquid_glass, true);
+          const cb = $('liquidGlassMode'); if (cb) cb.checked = !!s.liquid_glass;
+        }
+        // Re-apply actual theme after liquid glass handling to respect forced dark
+        if (s.theme) {
+          K.settings._applyTheme(s.theme === 'dark', true);
+          // If glass is on, it will have forced dark regardless
+        }
       }
-    } catch(e) { K.ui.toast('Failed to load settings', 'error'); }
+    } catch(e) { /* silent if not authenticated yet */ }
   },
   _saveTimer: null,
   async saveToServer() {
@@ -387,7 +445,8 @@ if (typeof s.read_receipts !== 'undefined') {
       saved_themes: K.settings._savedThemes(),
       music_tracks: K.music._tracks || [],
       show_peer_ids: K.settings._showPeerIds(),
-      read_receipts: localStorage.getItem('k_read_receipts') === 'true'
+      read_receipts: localStorage.getItem('k_read_receipts') === 'true',
+      liquid_glass: localStorage.getItem('k_liquid_glass') === '1'
     };
     try {
       await K.api.put(V2 + '/k/settings', {settings});
@@ -395,6 +454,21 @@ if (typeof s.read_receipts !== 'undefined') {
     }, 300);
   },
   importTheme(input) {
+    // Allow calling via hidden file input click without args: if no input provied, trigger file picker
+    if (!input || !input.files) {
+      let picker = document.getElementById('_themeFilePicker');
+      if (!picker) {
+        picker = document.createElement('input');
+        picker.type = 'file';
+        picker.accept = '.json,.ktqh,application/json';
+        picker.id = '_themeFilePicker';
+        picker.style.display = 'none';
+        picker.onchange = () => { K.settings.importTheme(picker); };
+        document.body.appendChild(picker);
+      }
+      picker.click();
+      return;
+    }
     if (!input?.files?.length) return;
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -520,5 +594,143 @@ img.style.height = QR_IMAGE_SIZE + 'px';
     if (!el) return;
     const url = 'https://' + el.textContent;
     navigator.clipboard.writeText(url).then(() => K.ui.toast('Link copied!', 'success')).catch(() => K.ui.toast('Failed to copy', 'error'));
+  },
+  premiumPlan: 'monthly',
+  selectPremiumPlan(plan) {
+    K.settings.premiumPlan = plan;
+    const m = $('premiumPlanMonthly'), y = $('premiumPlanYearly');
+    if (m) m.style.borderColor = plan === 'monthly' ? '#fb6340' : 'var(--border-color)';
+    if (y) y.style.borderColor = plan === 'yearly' ? '#fb6340' : 'var(--border-color)';
+  },
+  async loadPremium() {
+    const statusEl = $('premiumStatus');
+    const priceM = $('premiumPriceMonthly'), priceY = $('premiumPriceYearly');
+    const connId = $('premiumConnectId');
+    try {
+      let uid = K.state.user?.id || K.state.user?.user_id || K.state.user?.userId;
+      if (!uid && K.auth && K.auth.accounts && K.auth.accounts[K.auth.activeIdx]) uid = K.auth.accounts[K.auth.activeIdx].userId;
+      if (connId) connId.textContent = uid || '...';
+      if (!uid) { if (statusEl) { statusEl.style.display=''; statusEl.textContent='Not logged in — switch account (' + (K.auth.accounts?.length||0) + ' accounts)'; } return; }
+      // prices
+      const p = await K.api.get('/telegram-premium/api/prices');
+      if (p.success && priceM) priceM.textContent = p.prices.monthly + ' ⭐';
+      if (p.success && priceY) priceY.textContent = p.prices.yearly + ' ⭐';
+      // status
+      const s = await K.api.get('/telegram-premium/api/check/' + uid);
+      if (statusEl) {
+        statusEl.style.display = '';
+        if (s.success && s.is_premium) {
+          const d = s.expires_at ? new Date(s.expires_at).toLocaleDateString() : '?';
+          statusEl.innerHTML = '<span style="color:var(--online-green)"><i class="fas fa-crown"></i> Premium active</span> until <b>' + esc(d) + '</b> <img src="/static/custom_emoji/kiselgram_premium.webp" style="width:16px;height:16px;vertical-align:middle">';
+          statusEl.style.background = 'rgba(45,206,137,.12)'; statusEl.style.borderColor = 'rgba(45,206,137,.3)';
+        } else {
+          statusEl.textContent = 'No active Premium — pay with Stars';
+          statusEl.style.background = 'var(--bg-surface)'; statusEl.style.borderColor = 'var(--border-color)';
+        }
+      }
+    } catch(e) { if (statusEl) { statusEl.style.display=''; statusEl.textContent='Failed to load'; } }
+  },
+  async payPremium() {
+    const btn = document.querySelector('[onclick="K.settings.payPremium()"]');
+    const statusEl = $('premiumPayStatus');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating invoice...'; }
+    if (statusEl) { statusEl.style.display='none'; }
+    try {
+      const plan = K.settings.premiumPlan || 'monthly';
+      let uid = K.state.user?.id || K.state.user?.user_id || K.state.user?.userId;
+      if (!uid && K.auth && K.auth.accounts && K.auth.accounts[K.auth.activeIdx]) uid = K.auth.accounts[K.auth.activeIdx].userId;
+      const d = await K.api.post('/telegram-premium/api/create-invoice-link', {plan, kiselgram_user_id: uid});
+      if (!d.success) throw new Error(d.error || 'Failed');
+      const link = d.invoice_link;
+      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openInvoice) {
+        window.Telegram.WebApp.openInvoice(link, function(s){ 
+          if (s==='paid') { K.ui.toast('Paid! Premium activated ✨','success'); K.settings.loadPremium(); if(statusEl){statusEl.style.display='';statusEl.textContent='✅ Paid!';statusEl.style.background='rgba(45,206,137,.12)';} }
+          else if (s==='cancelled') K.ui.toast('Cancelled','info');
+          else K.ui.toast('Status: '+s,'info');
+        });
+      } else {
+        // fallback: open link + also show in Kiselgram webapp overlay
+        window.open(link, '_blank');
+        if (statusEl) { statusEl.style.display=''; statusEl.innerHTML='Invoice: <a href="'+esc(link)+'" target="_blank">'+esc(link)+'</a>'; statusEl.style.background='rgba(45,206,137,.12)'; }
+        K.ui.toast('Invoice opened','success');
+      }
+    } catch(e) {
+      const msg = e.body?.error || e.message || 'Error';
+      if (statusEl) { statusEl.style.display=''; statusEl.textContent = msg; statusEl.style.background='rgba(239,68,68,.12)'; }
+      K.ui.toast(msg,'error');
+    } finally {
+      if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-star"></i> Оплатить звёздами'; }
+    }
+  },
+  async checkPremium() {
+    await K.settings.loadPremium();
+    K.ui.toast('Status refreshed','success');
+  },
+  async applyPromo() {
+    const inp = $('premiumPromo'); if (!inp || !inp.value.trim()) { K.ui.toast('Enter promo code','error'); return; }
+    try {
+      const d = await K.api.post('/premium/api/validate-promo', {code: inp.value.trim()});
+      if (d.success) K.ui.toast(d.message || 'Valid! ' + d.duration_days + ' days','success');
+      else K.ui.toast(d.error||'Invalid','error');
+    } catch(e) { K.ui.toast(e.body?.error||'Error','error'); }
+  },
+  async cancelPremium() {
+    if (!confirm('Cancel auto-renew? Premium stays until expiry.')) return;
+    try {
+      const d = await K.api.post('/premium/api/cancel', {});
+      if (d.success) { K.ui.toast('Cancelled','success'); K.settings.loadPremium(); }
+      else K.ui.toast(d.error||'Failed','error');
+    } catch(e) { K.ui.toast('Error','error'); }
+  },
+  openPremiumWebApp() {
+    let uid = K.state.user?.id || K.state.user?.user_id || K.state.user?.userId;
+    if (!uid && K.auth && K.auth.accounts && K.auth.accounts[K.auth.activeIdx]) uid = K.auth.accounts[K.auth.activeIdx].userId;
+    const url = '/telegram-premium/?uid=' + (uid||'') + '&lang=ru';
+    if (window.Telegram && window.Telegram.WebApp) window.Telegram.WebApp.openLink('https://web.kiselgram.ru' + url);
+    else K.webapp.open(url, 'Premium');
+  },
+  async connectTelegram() {
+    let uid = K.state.user?.id || K.state.user?.user_id || K.state.user?.userId;
+    if (!uid && K.auth && typeof K.auth.activeIdx !== 'undefined' && K.auth.accounts && K.auth.accounts[K.auth.activeIdx]) {
+      uid = K.auth.accounts[K.auth.activeIdx].userId || K.auth.accounts[K.auth.activeIdx].user_id;
+    }
+    if (!uid) {
+      try {
+        const me = await K.api.get(V2 + '/auth/me');
+        if (me.success && me.data) uid = me.data.user_id || me.data.id || me.data.userId;
+        else {
+          const p = await K.api.get(V2 + '/profile');
+          if (p.success && p.data) uid = p.data.user_id || p.data.id || p.data.userId;
+        }
+      } catch(e) {}
+    }
+    if (!uid) {
+      // try localStorage fallback for 3 accounts
+      try {
+        const accs = JSON.parse(localStorage.getItem('k_accounts')||'[]');
+        if (accs.length) uid = accs[0].userId || accs[0].user_id;
+      } catch(e) {}
+    }
+    if (!uid) {
+      K.ui.toast('Not logged in — switch account and try again. You have ' + (K.auth.accounts?.length||0) + ' accounts.', 'error');
+      // show which accounts are available
+      if (K.auth.accounts?.length) {
+        const list = K.auth.accounts.map((a,i)=> `${i===K.auth.activeIdx?'→':''}${a.username} (id:${a.userId})`).join(', ');
+        K.ui.toast('Accounts: ' + list, 'info');
+      }
+      return;
+    }
+    const cmd = '/start premium_' + uid;
+    const url = 'https://t.me/kiselgram_bot?start=premium_' + uid;
+    const connId = $('premiumConnectId'); if (connId) connId.textContent = uid;
+    navigator.clipboard.writeText(cmd).catch(()=>{});
+    if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openTelegramLink) {
+      window.Telegram.WebApp.openTelegramLink(url);
+    } else if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.openLink(url);
+    } else {
+      window.open(url, '_blank');
+    }
+    K.ui.toast('Opening Telegram — ' + cmd + ' (copied)', 'success');
   }
 };

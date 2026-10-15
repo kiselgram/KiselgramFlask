@@ -6,12 +6,36 @@ from sqlalchemy.exc import IntegrityError
 from app import db
 from app.models import User, Message, Chat, LoginOtp, UserSession, EmailVerification, PreloadedAvatar, Referral
 from app.utils.helpers import get_current_user
-from app.utils.security import rate_limit, sanitize_string
+from app.utils.security import rate_limit, sanitize_string, account_lockout, note_account_failure, clear_account_failures
 import re
 
 spav2_login_v3_bp = Blueprint('spav2_login_v3', __name__, url_prefix='/api/auth')
 
 KISELGRAM_USER_ID = None
+
+
+def _new_otp_code():
+    """5-digit numeric OTP code (matches the K.otpWidget pill count)."""
+    return str(random.randint(10000, 99999))
+
+
+def _mail_configured():
+    """True when SMTP credentials are actually set (not defaults/empty)."""
+    srv = current_app.config.get('MAIL_SERVER', '') or ''
+    usr = current_app.config.get('MAIL_USERNAME', '') or ''
+    return bool(srv) and srv != 'localhost' and bool(usr)
+
+
+def _send_mail_fast(msg, timeout=8):
+    """Send mail with a hard socket cap so one bad SMTP never hangs workers."""
+    import socket
+    from flask_mail import Mail
+    prev = socket.getdefaulttimeout()
+    socket.setdefaulttimeout(timeout)
+    try:
+        Mail(current_app).send(msg)
+    finally:
+        socket.setdefaulttimeout(prev)
 
 
 def _ensure_kiselgram_user():
@@ -130,7 +154,7 @@ def send_otp():
     if not user:
         return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
 
-    code = str(random.randint(100000, 999999))
+    code = _new_otp_code()
     expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=5)
     db.session.add(LoginOtp(user_id=user.id, code=code, expires_at=expires_at))
     try:
@@ -160,7 +184,7 @@ def send_otp_email():
     if not user:
         return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
 
-    code = str(random.randint(100000, 999999))
+    code = _new_otp_code()
     expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=5)
     db.session.add(LoginOtp(user_id=user.id, code=code, expires_at=expires_at))
     try:
@@ -170,15 +194,17 @@ def send_otp_email():
         return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Failed to save OTP'}}), 500
 
     try:
-        from flask_mail import Mail, Message as MailMessage
-        mail = Mail(current_app)
+        from flask_mail import Message as MailMessage
         msg = MailMessage(
             subject='Your Kiselgram login code',
             sender=current_app.config.get('MAIL_DEFAULT_SENDER'),
             recipients=[email],
         )
         msg.body = f"Your login code: {code}\nIt expires in 5 minutes.\n\nIf you didn't request this, ignore this email."
-        mail.send(msg)
+        if _mail_configured():
+            _send_mail_fast(msg)
+        else:
+            raise RuntimeError('SMTP not configured')
         current_app.logger.info(f"OTP for {email}: {code}")
     except Exception as e:
         current_app.logger.error(f"Failed to send OTP via email: {e}")
@@ -191,6 +217,7 @@ def send_otp_email():
 
 @spav2_login_v3_bp.route('/verify-otp', methods=['POST'])
 @rate_limit('verify_otp', max_requests=10, window=60)
+@account_lockout(lambda req: ((req.get_json(silent=True) or {}).get('email', '') or '').strip().lower())
 def verify_otp():
     data = request.get_json() or {}
     email = sanitize_string(data.get('email', '').strip().lower(), max_length=128)
@@ -202,13 +229,16 @@ def verify_otp():
 
     otp = LoginOtp.query.filter_by(user_id=user.id, code=code, used=False).order_by(LoginOtp.id.desc()).first()
     if not otp:
+        note_account_failure(email)
         return jsonify({'success': False, 'error': {'code': 'INVALID_CODE', 'message': 'Invalid code'}}), 400
     if otp.expires_at < datetime.now(timezone.utc).replace(tzinfo=None):
+        note_account_failure(email)
         return jsonify({'success': False, 'error': {'code': 'EXPIRED_CODE', 'message': 'Code expired'}}), 400
 
     otp.used = True
     try:
         db.session.commit()
+        clear_account_failures(email)
     except Exception:
         db.session.rollback()
         return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Failed to verify code'}}), 500
@@ -220,6 +250,7 @@ def verify_otp():
 
 @spav2_login_v3_bp.route('/login-password', methods=['POST'])
 @rate_limit('login_password', max_requests=5, window=60)
+@account_lockout(lambda req: ((req.get_json(silent=True) or {}).get('email', '') or '').strip().lower())
 def login_password():
     data = request.get_json() or {}
     email = sanitize_string(data.get('email', '').strip().lower(), max_length=128)
@@ -234,11 +265,13 @@ def login_password():
         return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
 
     if not user.password_hash or not user.check_password(password):
+        note_account_failure(email)
         return jsonify({'success': False, 'error': {'code': 'INVALID_CREDENTIALS', 'message': 'Invalid password'}}), 401
 
     session_token = _make_session(user)
     if not session_token:
         return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Session creation failed'}}), 500
+    clear_account_failures(email)
     return jsonify({'success': True, 'data': {'user': _serialize_user(user), 'session_token': session_token}})
 
 
@@ -276,7 +309,7 @@ def register_send_code():
     if User.query.filter_by(email=email, is_deleted=False).first():
         return jsonify({'success': False, 'error': {'code': 'EMAIL_TAKEN', 'message': 'Email already registered'}}), 409
 
-    code = str(random.randint(100000, 999999))
+    code = _new_otp_code()
     expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=10)
 
     existing = EmailVerification.query.filter_by(email=email, verified=False).first()
@@ -292,18 +325,25 @@ def register_send_code():
         return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Failed to send code'}}), 500
 
     try:
-        from flask_mail import Mail, Message as MailMessage
-        mail = Mail(current_app)
+        from flask_mail import Message as MailMessage
         msg = MailMessage(
             subject='Your Kiselgram verification code',
             sender=current_app.config.get('MAIL_DEFAULT_SENDER'),
             recipients=[email],
         )
         msg.body = f"Your verification code: {code}\nThis code expires in 10 minutes.\n\nIf you didn't request this, ignore this email."
-        mail.send(msg)
+        if _mail_configured():
+            _send_mail_fast(msg)
+        else:
+            raise RuntimeError('SMTP not configured')
         current_app.logger.info(f"Registration code for {email}: {code}")
     except Exception as e:
         current_app.logger.error(f"Failed to send registration code via email: {e}")
+        current_app.logger.info(f"Registration code for {email}: {code}")
+        if current_app.debug:
+            # Dev fallback: no SMTP here, hand the code to the caller so the
+            # flow can be completed (never enabled in production).
+            return jsonify({'success': True, 'data': {'message': 'Code sent to email', 'debug_code': code}})
         return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Failed to send email'}}), 500
 
     return jsonify({'success': True, 'data': {'message': 'Code sent to email'}})

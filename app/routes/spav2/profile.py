@@ -3,7 +3,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, session
 from app import db
 from app.models import User
-from app.utils.helpers import get_current_user
+from app.utils.helpers import get_current_user, presence_visible
 from app.utils.security import sanitize_string, rate_limit
 
 spav2_profile_bp = Blueprint('spav2_profile', __name__, url_prefix='/api')
@@ -40,6 +40,33 @@ def get_profile():
     }})
 
 
+@spav2_profile_bp.route('/u/<username>', methods=['GET'])
+def get_user_by_username(username):
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+
+    user = User.query.filter_by(username=username, is_deleted=False).first()
+    if not user:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+
+    is_premium = (user.premium and user.premium.is_premium) or False
+    visible = presence_visible(current_user.id, user)
+
+    return jsonify({'success': True, 'data': {
+        'user_id': user.id,
+        'username': user.username,
+        'display_name': user.display_name or user.username,
+        'avatar_url': user.avatar_url,
+        'bio': getattr(user, 'bio', None),
+        'is_premium': is_premium,
+        'is_bot': getattr(user, 'is_bot', False),
+        'is_online': getattr(user, 'is_online', False) if visible else False,
+        'last_seen': user.last_seen.isoformat() if (user.last_seen and visible) else None,
+        'status_emoji': user.status_emoji or ('\u2b50' if is_premium else '')
+    }})
+
+
 @spav2_profile_bp.route('/users/<int:user_id>', methods=['GET'])
 def get_user(user_id):
     current_user = get_current_user()
@@ -52,6 +79,8 @@ def get_user(user_id):
 
     is_premium = (user.premium and user.premium.is_premium) or False
 
+    visible = presence_visible(current_user.id, user)
+
     return jsonify({'success': True, 'data': {
         'user_id': user.id,
         'username': user.username,
@@ -60,8 +89,8 @@ def get_user(user_id):
         'bio': getattr(user, 'bio', None),
         'is_premium': is_premium,
         'is_bot': getattr(user, 'is_bot', False),
-        'is_online': getattr(user, 'is_online', False),
-        'last_seen': user.last_seen.isoformat() if user.last_seen else None,
+        'is_online': getattr(user, 'is_online', False) if visible else False,
+        'last_seen': user.last_seen.isoformat() if (user.last_seen and visible) else None,
         'status_emoji': user.status_emoji or ('\u2b50' if is_premium else '')
     }})
 
@@ -173,8 +202,11 @@ def upload_avatar():
         return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': 'Invalid file type'}}), 400
     filename = f"avatar_{current_user.id}_{os.urandom(4).hex()}.{ext}"
     upload_dir = os.path.join('uploads', 'avatars')
-    os.makedirs(upload_dir, exist_ok=True)
-    file.save(os.path.join(upload_dir, filename))
+    try:
+        os.makedirs(upload_dir, exist_ok=True)
+        file.save(os.path.join(upload_dir, filename))
+    except Exception:
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Failed to save avatar file'}}), 500
 
     current_user.avatar_url = f"/uploads/avatars/{filename}"
     try:

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{{ (profile.display_name or profile.username) if profile else 'Not found' }} | Kiselgram</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    {% if profile %}
+    <meta property="og:title" content="{{ profile.display_name or profile.username }}">
+    <meta property="og:description" content="{{ profile.bio or 'Kiselgram user' }}">
+    <meta property="og:image" content="{{ profile.avatar_url or url_for('static', filename='img/default-avatar.png') }}">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:type" content="profile">
+    <meta property="og:site_name" content="Kiselgram">
+
+    <meta property="twitter:title" content="{{ profile.display_name or profile.username }}">
+    <meta property="twitter:description" content="{{ profile.bio or 'Kiselgram user' }}">
+    <meta property="twitter:image" content="{{ profile.avatar_url or url_for('static', filename='img/default-avatar.png') }}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@kiselgram">
+
+    <meta property="al:ios:url" content="kiselgram://user/{{ profile.username }}">
+    <meta property="al:android:url" content="kiselgram://user/{{ profile.username }}">
+    {% endif %}
+    
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/favicon.svg') }}">
+    <link rel="preconnect" href="https://cdn.socket.io">
+    <link rel="preconnect" href="https://cdn.socket.io" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/k.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
+    
+    <script>
+        window.KISELGRAM_CONFIG = {
+            user: {{ (profile or {}) | tojson }},
+            liquidGlass: {{ 'true' if liquid_glass else 'false' }},
+            staticPath: "{{ url_for('static', filename='') }}"
+        };
+    </script>
+</head>
+<body class="{% if liquid_glass %}liquid-glass{% endif %}">
+    <div class="profile-page">
+        <div class="profile-header">
+            {% if profile %}
+            <div class="profile-cover">
+                <div class="profile-overlay"></div>
+            </div>
+
+            <div class="profile-content">
+                <div class="profile-avatar">
+                    {% if profile.avatar_url %}
+                        <img src="{{ profile.avatar_url }}" alt="{{ profile.username }}" class="profile-avatar-img">
+                    {% else %}
+                        <div class="profile-avatar-placeholder">{{ profile.username[0].upper() }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="profile-info">
+                    <h1 class="profile-name">{{ profile.display_name or profile.username }}</h1>
+                    <span class="profile-username">@{{ profile.username }}</span>
+
+                    {% if profile.bio %}
+                    <p class="profile-bio">{{ profile.bio }}</p>
+                    {% endif %}
+
+                    <div class="profile-meta">
+                        {% if profile.is_premium %}
+                            <span class="badge premium"><i class="fas fa-crown"></i> Premium</span>
+                        {% endif %}
+                        {% if profile.is_online %}
+                            <span class="badge online"><i class="fas fa-circle"></i> Online</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="profile-stats">
+                        <div class="stat">
+                            <span class="stat-value">{{ profile.followers_count or 0 }}</span>
+                            <span class="stat-label">Followers</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value">{{ profile.following_count or 0 }}</span>
+                            <span class="stat-label">Following</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value">{{ profile.posts_count or 0 }}</span>
+                            <span class="stat-label">Posts</span>
+                        </div>
+                    </div>
+
+                    <div class="profile-actions">
+                        <a href="/k" class="btn btn-primary">
+                            <i class="fas fa-comment"></i> Open in Kiselgram
+                        </a>
+                        <a href="#" class="btn btn-secondary" onclick="shareProfile();return false;">
+                            <i class="fas fa-share"></i> Share
+                        </a>
+                    </div>
+                </div>
+                {% else %}
+                <div class="profile-content">
+                    <h1 class="profile-name">User not found</h1>
+                    <p class="profile-bio">This profile does not exist.</p>
+                    <div class="profile-actions">
+                        <a href="/k" class="btn btn-primary">Open Kiselgram</a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="profile-tabs">
+            <button class="tab-btn active" data-tab="posts"><i class="fas fa-th-large"></i> Posts</button>
+            <button class="tab-btn" data-tab="media"><i class="fas fa-images"></i> Media</button>
+            <button class="tab-btn" data-tab="likes"><i class="fas fa-heart"></i> Likes</button>
+        </div>
+        
+        <div class="profile-content" id="profile-content">
+            <div class="posts-grid" id="posts-grid">
+                <div class="loading">Loading posts...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function shareProfile() {
+            var url = window.location.href;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(url).catch(function(){});
+            }
+            alert('Profile link copied:\n' + url);
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.tab-btn').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+                    btn.classList.add('active');
+                    var grid = document.getElementById('posts-grid');
+                    if (grid) grid.innerHTML = '<div class="loading">Coming soon</div>';
+                });
+            });
+            if (window.K && K.profile && typeof K.profile.init === 'function') {
+                K.profile.init(window.KISELGRAM_CONFIG.user);
+            }
+        });
+    </script>
+</body>
+</html>

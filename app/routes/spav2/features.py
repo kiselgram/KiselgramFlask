@@ -1,10 +1,29 @@
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
 from app import db
-from app.models import User, Message, Poll, PollVote, Pin, Forward, Chat, ChatMember, InviteLink, File, Archive, SavedMessage
+from app.models import User, Message, Poll, PollVote, Pin, Forward, Chat, ChatMember, ChatSubscriber, InviteLink, File, Archive, SavedMessage
 from app.utils.helpers import get_current_user_id, get_current_user, message_to_dict
 
 spav2_features_bp = Blueprint('spav2_features', __name__, url_prefix='/api')
+
+
+def _chat_access(user_id, chat_id):
+    """Sputnik-style participation check: is user allowed in this chat?"""
+    from app.models import ChannelAdmin
+    chat = Chat.query.get(chat_id)
+    if not chat or not user_id:
+        return None
+    if chat.chat_type == 'channel':
+        if chat.owner_id == user_id:
+            return chat
+        if ChatSubscriber.query.filter_by(chat_id=chat.id, user_id=user_id).first():
+            return chat
+        if ChannelAdmin.query.filter_by(chat_id=chat.id, user_id=user_id).first():
+            return chat
+        return None
+    if ChatMember.query.filter_by(chat_id=chat.id, user_id=user_id).first():
+        return chat
+    return None
 
 
 # ── Polls ───────────────────────────────────────────────────
@@ -102,6 +121,9 @@ def forward_message():
     if not orig:
         return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Message not found'}}), 404
 
+    if not target_chat_id or not _chat_access(current_user_id, target_chat_id):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'You are not in the target chat'}}), 403
+
     new_msg = Message(
         sender_id=current_user_id,
         content=orig.content,
@@ -193,6 +215,13 @@ def pin_message():
     msg_id = data.get('message_id')
     chat_id = data.get('chat_id')
 
+    if not chat_id or not _chat_access(current_user_id, chat_id):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'You are not in this chat'}}), 403
+
+    msg = Message.query.get(msg_id)
+    if not msg or msg.chat_id != chat_id:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Message not found in this chat'}}), 404
+
     existing = Pin.query.filter_by(message_id=msg_id).first()
     if existing:
         db.session.delete(existing)
@@ -213,9 +242,15 @@ def pin_message():
 
 @spav2_features_bp.route('/messages/pinned', methods=['GET'])
 def get_pinned():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+
     chat_id = request.args.get('chat_id', type=int)
     if not chat_id:
         return jsonify({'success': False, 'error': {'code': 'VALIDATION', 'message': 'chat_id required'}}), 400
+    if not _chat_access(current_user_id, chat_id):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'You are not in this chat'}}), 403
 
     pins = Pin.query.filter_by(chat_id=chat_id).order_by(Pin.pinned_at.desc()).all()
     msgs = []
@@ -228,7 +263,12 @@ def get_pinned():
 
 @spav2_features_bp.route('/messages/pinned/dismiss', methods=['POST'])
 def dismiss_pinned():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
     chat_id = (request.get_json() or {}).get('chat_id')
+    if not chat_id or not _chat_access(current_user_id, chat_id):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'You are not in this chat'}}), 403
     Pin.query.filter_by(chat_id=chat_id).delete()
     db.session.commit()
     return jsonify({'success': True})

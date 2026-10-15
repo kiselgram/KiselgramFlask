@@ -69,9 +69,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const savedTheme = localStorage.getItem('k_theme');
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  K.settings._applyTheme(savedTheme === 'dark' || (!savedTheme && prefersDark));
+  K.settings._applyTheme(savedTheme === 'dark' || (!savedTheme && prefersDark), true);
   const fs = localStorage.getItem('k_font_size') || 'medium';
-  K.settings.setFontSize(fs);
+  K.settings.setFontSize(fs, true);
   const myColor = localStorage.getItem('k_color_my') || '#5e72e4';
   const theirColor = localStorage.getItem('k_color_their') || '#e8e8e8';
   document.documentElement.style.setProperty('--bubble-my', myColor);
@@ -79,6 +79,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.documentElement.style.setProperty('--primary-color', myColor);
   const myInput = $('myColor'); if (myInput) myInput.value = myColor;
   const theirInput = $('theirColor'); if (theirInput) theirInput.value = theirColor;
+  const cpMyInput = $('cpMyColor'); if (cpMyInput) cpMyInput.value = myColor;
+  const cpTheirInput = $('cpTheirColor'); if (cpTheirInput) cpTheirInput.value = theirColor;
+  // Apply liquid glass state early (before server load) without server save
+  if (localStorage.getItem('k_liquid_glass') === '1') {
+    document.body.classList.add('liquid-glass');
+    const cb = $('liquidGlassMode'); if (cb) cb.checked = true;
+    const sw = $('themeSwitch'); if (sw) sw.disabled = true;
+    const cpSw = $('cpThemeSwitch'); if (cpSw) cpSw.disabled = true;
+  }
 
   await K.auth.init();
 

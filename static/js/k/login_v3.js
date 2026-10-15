@@ -99,14 +99,50 @@ K.loginV3 = {
   _stepOtp() {
     $('modalContent').innerHTML = `
       <div class="k-modal-header"><h3>Check your chat</h3>${K.loginV3._closeBtn()}</div>
+      <div class="k-modal-body">
+        <div id="v3OtpWidget"></div>
+      </div>`;
+    K.loginV3._sendOtp();
+    if (window.K && K.otpWidget) {
+      K.otpWidget.mount($('v3OtpWidget'), {
+        digits: 5,
+        bare: true,
+        texts: {
+          title: 'Enter login code',
+          loadingTitle: 'Verifying...',
+          loadingSubtitle: 'Checking the code.',
+          successTitle: 'Verified',
+          successSubtitle: 'Welcome back!',
+          errorTitle: 'Wrong code',
+          badge: 'OK',
+          errorText: 'Incorrect code. Please try again.',
+          resend: "Didn't get it? <span>Resend</span>",
+          resendWait: "Didn't get it? <span>Wait…</span>",
+        },
+        subtitle: 'A 5-digit code was sent to your Kiselgram chat',
+        verify: async (code) => {
+          try {
+            const d = await K.api.post(K.loginV3._v3Url('/auth/verify-otp'), {email: K.loginV3._state.email, code});
+            if (!d.success) return {ok: false, error: d.error?.message || 'Invalid code'};
+            K.loginV3._state.otp_verified = true;
+            return {ok: true};
+          } catch(e) { return {ok: false, error: 'Connection error'}; }
+        },
+        resend: () => K.loginV3._sendOtp(),
+        onSuccess: () => K.loginV3._stepPass(),
+      });
+      return;
+    }
+    // Fallback when the widget script is not loaded.
+    $('modalContent').innerHTML = `
+      <div class="k-modal-header"><h3>Check your chat</h3>${K.loginV3._closeBtn()}</div>
       <div class="k-modal-body" style="text-align:center">
         <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">We sent a code to your Kiselgram chat</p>
-        <input class="k-input" id="v3Otp" type="text" inputmode="numeric" maxlength="6" placeholder="000000" style="text-align:center;font-size:24px;letter-spacing:8px;font-family:monospace">
+        <input class="k-input" id="v3Otp" type="text" inputmode="numeric" maxlength="5" placeholder="00000" style="text-align:center;font-size:24px;letter-spacing:8px;font-family:monospace">
         <div id="v3OtpError" style="font-size:12px;color:var(--error);margin-bottom:8px;display:none"></div>
         <button class="k-btn k-btn-primary" id="v3OtpBtn" style="width:100%;padding:12px;font-size:14px" onclick="K.loginV3._submitOtp()">Verify Code</button>
         <p style="margin-top:8px;font-size:12px"><a href="#" onclick="K.loginV3._sendOtp();return false" style="color:var(--accent-blue)">Resend code</a></p>
       </div>`;
-    K.loginV3._sendOtp();
     setTimeout(() => $('v3Otp')?.focus(), 100);
     $('v3Otp').addEventListener('keydown', (e) => { if (e.key === 'Enter') K.loginV3._submitOtp(); });
   },
@@ -194,11 +230,45 @@ K.loginV3 = {
 
   _stepRegVerify() {
     K.loginV3._sendRegCode();
+    const email = K.loginV3._state.email;
+    if (window.K && K.otpWidget) {
+      $('modalContent').innerHTML = `
+        <div class="k-modal-header"><h3>Verify email</h3>${K.loginV3._closeBtn()}</div>
+        <div class="k-modal-body"><div id="v3RegWidget"></div></div>`;
+      K.otpWidget.mount($('v3RegWidget'), {
+        digits: 5,
+        bare: true,
+        texts: {
+          title: 'Check your email',
+          loadingTitle: 'Verifying...',
+          loadingSubtitle: 'Checking the code.',
+          successTitle: 'Email verified',
+          successSubtitle: 'Creating your account…',
+          errorTitle: 'Wrong code',
+          badge: 'OK',
+          errorText: 'Incorrect code. Please try again.',
+          resend: "Didn't get it? <span>Resend</span>",
+          resendWait: "Didn't get it? <span>Wait…</span>",
+        },
+        subtitle: 'A 5-digit code was sent to ' + email,
+        verify: async (code) => {
+          try {
+            const d = await K.api.post(K.loginV3._v3Url('/auth/register-verify-code'), {email, code});
+            if (!d.success) return {ok: false, error: d.error?.message || 'Invalid code'};
+            K.loginV3._state.email_verified = true;
+            return {ok: true};
+          } catch(e) { return {ok: false, error: 'Connection error'}; }
+        },
+        resend: () => K.loginV3._sendRegCode(),
+        onSuccess: () => K.loginV3._stepRegFinish(),
+      });
+      return;
+    }
     $('modalContent').innerHTML = `
-      <div class="k-modal-header"><h3>Create account</h3>${K.loginV3._closeBtn()}</div>
+      <div class="k-modal-header"><h3>Verify email</h3>${K.loginV3._closeBtn()}</div>
       <div class="k-modal-body" style="text-align:center">
         <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">We sent a code to <b>${esc(K.loginV3._state.email)}</b></p>
-        <input class="k-input" id="v3RegCode" type="text" inputmode="numeric" maxlength="6" placeholder="000000" style="text-align:center;font-size:24px;letter-spacing:8px;font-family:monospace">
+        <input class="k-input" id="v3RegCode" type="text" inputmode="numeric" maxlength="5" placeholder="00000" style="text-align:center;font-size:24px;letter-spacing:8px;font-family:monospace">
         <div id="v3RegCodeError" style="font-size:12px;color:var(--error);margin-bottom:8px;display:none"></div>
         <button class="k-btn k-btn-primary" id="v3RegCodeBtn" style="width:100%;padding:12px;font-size:14px" onclick="K.loginV3._submitRegCode()">Verify Email</button>
         <p style="margin-top:8px;font-size:12px"><a href="#" onclick="K.loginV3._sendRegCode();return false" style="color:var(--accent-blue)">Resend code</a></p>
@@ -208,7 +278,12 @@ K.loginV3 = {
   },
 
   async _sendRegCode() {
-    try { await K.api.post(K.loginV3._v3Url('/auth/register-send-code'), {email: K.loginV3._state.email}); } catch(_) { K.ui.toast('Failed to send code', 'error'); }
+    try {
+      const d = await K.api.post(K.loginV3._v3Url('/auth/register-send-code'), {email: K.loginV3._state.email});
+      if (d && d.success && d.data && d.data.debug_code && K.ui && K.ui.toast) {
+        K.ui.toast('Dev code: ' + d.data.debug_code, 'success');
+      }
+    } catch(_) { K.ui.toast('Failed to send code', 'error'); }
   },
 
   async _submitRegCode() {

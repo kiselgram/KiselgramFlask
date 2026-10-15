@@ -1,0 +1,164 @@
+========================================================
+  KISELGRAM — Messenger
+  CHANGELOG / RECOMMENDATIONS
+========================================================
+Last updated: 15.10.2026
+
+--------------------------------------------------------
+CURRENT VERSION: v4.7.0
+--------------------------------------------------------
+
+IMPORTANT: This file is updated automatically on every change
+to the project (rule in AGENTS.md). Do not delete it.
+
+========================================================
+1. WHAT IS ALREADY IMPLEMENTED
+========================================================
+
+Personal chats
+  - 1-on-1 dialogs, group chats, broadcast channels
+  - Replies, forwards with attribution, emoji reactions
+  - Typing indicator, read receipts, per-message read-by
+  - Scheduled messages, message search in chat, search by date
+  - File uploads (images/video/audio/documents), translation
+
+Groups & channels
+  - Create / join (invite link) / leave / update, roles owner/admin/member
+  - Role permissions, promote/demote, remove members
+  - Channel admins with granular rights, subscribe/unsubscribe
+  - Group invites (create/revoke), public/private chats, discover showcase
+  - Join requests for private groups (request/approve/reject + system-chat notify)
+  - Per-member permission overrides, bans/mutes with expiry
+
+Stories / calls / music
+  - Stories: create/view/like/reaction/reply/stats, share, replace
+  - Audio/video calls, WebRTC + video integration, call history
+  - Personal music playlist, add audio from messages
+
+Account & social
+  - Register/login (password, OTP, QR, Google OAuth), sessions per device
+  - Contacts (add/rename/delete, import), blocked users
+  - Premium (promos, status emoji, stickers), referrals, bots + webhooks
+  - Saved messages, archive, pinned chats, chat folders (Sputnik pack)
+  - Data export (JSON), admin DB backup (sqlite)
+
+Sputnik ideas pack (app/routes/spav2/sputnik.py, /api.v2/api/sputnik/*)
+  - Edit history, message trash (move/restore/clear), SSRF-safe link preview
+  - Albums + reorder + bulk lookup, video circles (1-60s), deduped views
+  - Custom stickers (upload/favorite/from-message/send, canvas editor),
+    chat folders, drafts, profile banners, profile media grid, discover
+  - Cloud 2FA password + app-lock PIN (bcrypt) + email recovery
+  - Frontend: self-mounting nav, formatting toolbar, gestures, album grid,
+    round player, spoiler reveal, scheduled/sticker composer buttons
+
+Security (Sputnik v0.60-v0.64 class fixes applied)
+  - Chat participation checks on pin/forward/dismiss
+  - Presence honors privacy_last_seen; /u/<username> requires auth
+  - Upload path traversal closed; per-account brute-force lockout
+
+========================================================
+2. KNOWN PROBLEMS (TO FIX)
+========================================================
+
+[!] Tests run against the FILE database instance/kiselgram.db (conftest URI
+    override happens after engine creation) and truncate all tables per test.
+    Never run pytest against production data. Fix: bind the engine after the
+    config override or use a separate test database file.
+[!] tests/test_auth.py, tests/test_chats.py fail on the pristine tree
+    (legacy SPA expectations). Parts of test_spav2_admin.py and
+    test_spav2_search.py fail the same way.
+[!] tests/test_client_api.py hangs order-dependently at
+    test_activate_premium_already_premium (passes standalone).
+[!] RateLimiter._store and _ACCOUNT_FAILURES are in-memory: they persist
+    across tests in one pytest process and do not work across workers
+    (Redis/DB needed for production multi-worker).
+[!] require_csrf() exists but is opt-in; enabling globally breaks
+    cookie-authenticated clients and tests.
+[?] mypy reports repo-wide patterns (db.Model dynamic base, missing stubs).
+
+========================================================
+3. WHAT WAS ADDED THIS TIME
+========================================================
+
+[15.10.2026] — v4.1.0: Sputnik ideas pack + security hardening
+  Files: app/routes/spav2/sputnik.py (new, ~1300 lines),
+         app/models.py (14 Sputnik* models), app/routes/spav2/__init__.py,
+         app/__init__.py (sputnik_pages_bp), templates/sputnik_join.html,
+         static/js/k/sputnik.js (new, auto-mounted), static/css/k.css,
+         templates/k.html (script hook), tests/test_sputnik{,2,3}.py (new,
+         44 tests), docs/sputnik-pack.md (new), AGENTS.md, CHANGELOG.txt.
+
+  Backend (all under /api.v2/api/sputnik/*, duplicated under /api.v3):
+    edits/trash/link-preview/albums (+lookup)/round+views/stickers/folders/
+    cloud+applock (+lockout, +email recovery)/contacts-import/linked-accounts/
+    scheduled-list/poll-close+results/drafts/banner/profile-media/discover/
+    join-requests (+direct join, +system-chat notifications via kiselgram bot)/
+    member-perms/restrict/story-share+replace/export/db-backup+health+cleanup/
+    raw image upload; invite landing pages /join/<code>, /c/<code>.
+
+  Security fixes (existing files, minimal diffs):
+    features.py (_chat_access on pin/pinned/dismiss/forward),
+    profile.py + contacts.py (presence_visible, auth on /u/),
+    files.py (traversal prefix fix),
+    security.py (per-account lockout) wired into auth.login,
+    login_v3 verify-otp/login-password, cloud/applock verify.
+
+  Frontend: nav section, discover/sticker/trash/scheduled/edit modals,
+    sticker canvas editor, formatting toolbar, gestures, album grid,
+    round player, edit markers, composer buttons, story share, idleLock.
+
+  Verified: 144 passed (sputnik suites + neighbours), ruff clean,
+    node --check clean, mypy shows only pre-existing patterns. Full-suite
+    reds and the client_api hang reproduce identically on the pristine tree.
+
+[15.10.2026] — docs only (no version bump): new docs/models.md reference
+  covering all 56 models (tables, columns, relations, methods);
+  AGENTS.md model count corrected 42 -> 56.
+
+[15.10.2026] — v4.2.0: OTP widget from tmp/OTP Verification + 5-digit codes
+  Files: static/js/k/otp_widget.js (new, K.otpWidget), static/css/otp_widget.css
+         (new, k-otp- scope), static/js/k/login_v3.js (_stepOtp/_stepRegVerify),
+         templates/k.html (asset hooks), app/routes/spav2/login_v3.py.
+  Widget design ported (orbit, loading %, success explosion, resend cooldown),
+  but: 5 pills (was 4), REAL server verification instead of Math.random(),
+  paste support, Russian default texts, reduced-motion support. Wired into
+  both login OTP and registration email-code steps (with plain-input fallback).
+  All OTP codes shortened 6 -> 5 digits (_new_otp_code in login_v3, used by
+  send-otp/send-otp-email/register-send-code). Animations lengthened:
+  orbit 2.6s, loading min 1.8s, success celebration ~2.2s + delayed continue.
+  Verified live in Playwright: full email -> 5-digit code -> password login.
+  test_spav2_login_v3: 22 passed. Attribution: MIT CodeByGaurav, see file
+  headers. Demo source left untouched in tmp/OTP Verification/.
+  Restyle: bare embed mode (no card-in-card, title hidden), pills match
+  .k-input (2px border, radius 12, bg-secondary tint), ?v=2 cache-busting
+  on otp_widget assets.
+  Hotfix (same version): registration email-code hung the single-threaded
+  dev server — SMTP mail.kiselgram.ru unreachable, mail.send blocked forever.
+  Added _mail_configured() + _send_mail_fast() (8s socket cap, skip without
+  credentials) in login_v3.py, applied to send-otp-email and
+  register-send-code. UI toasts the dev debug_code so registration completes
+  without SMTP.
+  Prod mail verified end-to-end over SSH: docker-mailserver 14.0 healthy,
+  auth@mail.kiselgram.ru AUTH OK from kiselgram-app-1, test message delivered
+  to postmaster INBOX (amavis + LMTP). No prod changes needed.
+
+[15.10.2026] — dedup + merge (no version bump, no API change):
+  Removed SputnikLinkedAccount (model, /accounts/link, /accounts/linked) —
+  duplicate of the client-side K.auth.accounts multi-account; removed its
+  test asserts. Merged SputnikProfile into User.banner_color/banner_image
+  (ALTER TABLE on instance/kiselgram.db, tables dropped, endpoints now use
+  User). Files: app/models.py, app/routes/spav2/sputnik.py,
+  static/js/k/sputnik.js, tests/test_sputnik.py, docs/models.md,
+  docs/sputnik-pack.md, AGENTS.md (54 models: 42 core + 12 Sputnik*).
+
+========================================================
+4. WHAT TO ADD NEXT
+========================================================
+
+- Fix conftest.py test isolation (separate test DB file, rebind engine).
+- Repair legacy failing suites (test_auth, test_chats) or mark xfail.
+- Investigate the order-dependent hang in test_client_api.py.
+- Move lockout/rate-limit stores to Redis/DB for multi-worker.
+- Settings UI for app-lock idle timer (backend + localStorage key ready).
+- Global CSRF rollout plan for cookie-authenticated clients.
+- Alembic migrations for the sputnik_* tables (currently via create_all).

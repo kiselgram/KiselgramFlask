@@ -10,12 +10,12 @@ from flask import request, jsonify, session, current_app, g
 
 CSP_POLICY = (
     "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline' https://kit.fontawesome.com https://cdn.jsdelivr.net; "
+    "script-src 'self' 'unsafe-inline' https://kit.fontawesome.com https://cdn.jsdelivr.net https://cdn.socket.io; "
+    "connect-src 'self' ws: wss: https://cdn.socket.io https://cdn.jsdelivr.net; "
     "style-src 'self' 'unsafe-inline' https://kit.fontawesome.com https://cdn.jsdelivr.net https://fonts.googleapis.com https://cdnjs.cloudflare.com https://p.typekit.net https://use.typekit.net; "
     "font-src 'self' data: https://kit.fontawesome.com https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
     "img-src 'self' data: blob: https: http:; "
     "media-src 'self' blob: https:; "
-    "connect-src 'self' ws: wss:; "
     "frame-src 'self' https: http:; "
     "object-src 'none'; "
     "base-uri 'self'; "
@@ -74,6 +74,67 @@ class RateLimiter:
             del self._store[k]
 
 rate_limiter = RateLimiter()
+
+# ─── PER-ACCOUNT LOCKOUT (Sputnik anti-bruteforce idea) ────────────────────
+# In-memory: 5 failures -> block key for 5 minutes. Tracks the *account*
+# identifier (username/email/user id), so rotating IPs does not bypass it.
+# Note: in-memory, like RateLimiter above — use Redis/db for multi-worker.
+_ACCOUNT_FAILURES = {}
+_ACCOUNT_MAX = 5
+_ACCOUNT_WINDOW = 300
+
+
+def account_locked(key):
+    if not key:
+        return False
+    entry = _ACCOUNT_FAILURES.get(str(key))
+    if not entry:
+        return False
+    if time.time() > entry['reset']:
+        _ACCOUNT_FAILURES.pop(str(key), None)
+        return False
+    return entry['count'] >= _ACCOUNT_MAX
+
+
+def note_account_failure(key):
+    if not key:
+        return
+    now = time.time()
+    entry = _ACCOUNT_FAILURES.get(str(key))
+    if entry is None or now > entry['reset']:
+        _ACCOUNT_FAILURES[str(key)] = {'count': 1, 'reset': now + _ACCOUNT_WINDOW}
+    else:
+        entry['count'] += 1
+
+
+def clear_account_failures(key):
+    if key:
+        _ACCOUNT_FAILURES.pop(str(key), None)
+
+
+def account_lockout(key_fn, limit=_ACCOUNT_MAX):
+    """Decorator: 429 when the account key is locked; counts failures.
+
+    key_fn(request) -> account identifier string. The wrapped view must call
+    clear_account_failures(key) on success and note_account_failure(key) on
+    bad credentials (use the same key_fn(request) value).
+    """
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            try:
+                key = key_fn(request)
+            except Exception:
+                key = None
+            if account_locked(key):
+                return jsonify({
+                    'success': False,
+                    'error': {'code': 'ACCOUNT_LOCKED',
+                              'message': 'Too many failed attempts. Try again in 5 minutes.'}
+                }), 429
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
 
 def rate_limit(route, max_requests=10, window=60):
     def decorator(f):

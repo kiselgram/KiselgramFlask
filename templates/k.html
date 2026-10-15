@@ -5,6 +5,7 @@
 {% endblock %}
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/k.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/otp_widget.css') }}?v=2">
 {% endblock %}
 {% block content %}
 <div id="splashScreen" class="k-splash">
@@ -12,6 +13,12 @@
   <div class="k-splash-bar"><div class="k-splash-fill" id="splashFill"></div></div>
 </div>
 <div class="k-app" id="app">
+<svg style="position: absolute; width: 0; height: 0;" aria-hidden="true">
+  <filter id="liquid-refraction">
+    <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="3" result="noise" />
+    <feDisplacementMap in="SourceGraphic" in2="noise" scale="25" xChannelSelector="R" yChannelSelector="G" />
+  </filter>
+</svg>
   <button class="k-menu-btn" id="menuBtn" aria-label="Menu">
     <span></span><span></span><span></span>
   </button>
@@ -136,9 +143,17 @@
         <button class="k-stab" data-tab="bots" onclick="K.settings.switchTab('bots')">Bots</button>
         <button class="k-stab" data-tab="qrlogin" onclick="K.settings.switchTab('qrlogin');K.qrlogin.showQR()">QR Login</button>
         <button class="k-stab" data-tab="invite" onclick="K.settings.switchTab('invite');K.settings.loadInvite()">Invite</button>
+        <button class="k-stab" data-tab="premium" onclick="K.settings.switchTab('premium');K.settings.loadPremium()"><i class="fas fa-crown" style="color:#f0c040"></i> Premium</button>
 
       </div>
       <div class="k-settings-tab-content" data-tab="appearance">
+        <div class="k-settings-section">
+          <h3>Theme</h3>
+          <div class="k-theme-toggle" onclick="if(event.target.closest('.k-switch')) return; K.settings.toggleTheme()">
+            <span><i class="fas fa-moon" id="themeIcon"></i> <span id="themeLabel">Dark Mode</span></span>
+            <label class="k-switch" onclick="event.stopPropagation()"><input type="checkbox" id="themeSwitch" onchange="K.settings.toggleTheme()"><span class="k-slider"></span></label>
+          </div>
+        </div>
         <div class="k-settings-section">
           <h3>Font Size</h3>
           <div class="k-font-options">
@@ -158,9 +173,14 @@
           </div>
         </div>
         <div class="k-settings-section">
+          <h3>Sunset Glass</h3>
+          <div class="k-settings-item"><span>🌅 Sunset Glass Mode</span><input type="checkbox" id="liquidGlassMode" onchange="K.settings.setLiquidGlass(this.checked)"></div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Lake sunset + liquid glass + forced dark mode — toggle on/off</div>
+        </div>
+        <div class="k-settings-section">
           <h3>Developer</h3>
           <div class="k-settings-item"><span>Show peer / user IDs</span><input type="checkbox" id="showPeerIds" onchange="K.settings.setShowPeerIds(this.checked)"></div>
-          <div class="k-settings-item"><span>Dynamic Lake Backgrounds</span><input type="checkbox" id="lakeBackgrounds" onchange="K.settings.startLakeBackgrounds()"></div>
+          <div class="k-settings-item" style="opacity:0.6"><span>🌅 Dynamic Lake Backgrounds <small style="background:linear-gradient(90deg,#ff7a00,#ff00c8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:700">· Coming in Kiselgram 5</small></span><input type="checkbox" disabled title="Coming soon in Kiselgram 5 — live weather &amp; 24h lake cycle"></div>
         </div>
       </div>
       <div class="k-settings-tab-content" data-tab="colors" style="display:none">
@@ -219,11 +239,12 @@
         <div class="k-settings-tab-content" data-tab="themes" style="display:none">
           <div class="k-settings-section">
             <div class="k-settings-title">Saved Themes</div>
-            <div id="savedThemes"></div>
+            <div id="themeList"></div>
+            <div id="savedThemes" style="display:none"></div>
           </div>
           <div class="k-settings-section">
             <div class="k-settings-title">Export / Import</div>
-            <div class="k-settings-row"><button class="k-btn k-btn-secondary" onclick="K.settings.exportTheme()" style="flex:1"><i class="fas fa-file-export"></i> Export</button><button class="k-btn k-btn-secondary" onclick="K.settings.importTheme()" style="flex:1"><i class="fas fa-file-import"></i> Import</button></div>
+            <div class="k-settings-row" style="display:flex;gap:8px"><button class="k-btn k-btn-secondary" onclick="K.settings.exportTheme()" style="flex:1"><i class="fas fa-file-export"></i> Export</button><button class="k-btn k-btn-secondary" onclick="K.settings.importTheme()" style="flex:1"><i class="fas fa-file-import"></i> Import</button></div>
           </div>
           <div class="k-settings-section">
             <div class="k-settings-title">Default Theme</div>
@@ -276,6 +297,45 @@
             </div>
           </div>
         </div>
+        <div class="k-settings-tab-content" data-tab="premium" style="display:none">
+          <div class="k-settings-section" style="text-align:center;padding:16px 0">
+            <h3 style="margin:10px 0 4px;background:linear-gradient(135deg,#fb6340,#2dce89);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:22px;font-weight:800">Kiselgram Premium</h3>
+            <div style="font-size:12px;color:var(--text-muted)">Stars • WebApp • <code style="font-size:10px">5285476321705633458</code> <img src="/static/custom_emoji/kiselgram_premium.webp" style="width:18px;height:18px;vertical-align:middle" alt="⭐"></div>
+            <div id="premiumStatus" style="margin:12px 0;padding:10px;border-radius:12px;background:var(--bg-surface);border:1px solid var(--border-color);font-size:13px;display:none"></div>
+          </div>
+          <div class="k-settings-section">
+            <div class="k-settings-title">Perks</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0">
+              <div style="background:var(--bg-surface);border:1px solid var(--border-color);border-radius:12px;padding:10px;text-align:center"><div style="font-size:20px">🎨</div><div style="font-size:11px;font-weight:600">Fonts</div></div>
+              <div style="background:var(--bg-surface);border:1px solid var(--border-color);border-radius:12px;padding:10px;text-align:center"><div style="font-size:20px">📸</div><div style="font-size:11px;font-weight:600">Stories</div></div>
+              <div style="background:var(--bg-surface);border:1px solid var(--border-color);border-radius:12px;padding:10px;text-align:center"><div style="font-size:20px">🖼️</div><div style="font-size:11px;font-weight:600">Wallpapers</div></div>
+              <div style="background:var(--bg-surface);border:1px solid var(--border-color);border-radius:12px;padding:10px;text-align:center"><div style="font-size:20px">🤖</div><div style="font-size:11px;font-weight:600">Bots API</div></div>
+            </div>
+          </div>
+          <div class="k-settings-section">
+            <div class="k-settings-title">Plans — Telegram Stars (XTR)</div>
+            <div style="display:flex;gap:10px;margin:10px 0">
+              <div id="premiumPlanMonthly" class="k-settings-item" style="flex:1;flex-direction:column;align-items:center;gap:4px;padding:14px;border:2px solid var(--border-color);border-radius:14px;cursor:pointer" onclick="K.settings.selectPremiumPlan('monthly')">
+                <div style="font-weight:700">1 месяц</div><div style="font-size:22px;font-weight:800;background:linear-gradient(135deg,#fb6340,#2dce89);-webkit-background-clip:text;-webkit-text-fill-color:transparent" id="premiumPriceMonthly">150 ⭐</div><div style="font-size:11px;color:var(--text-muted)">300₽</div>
+              </div>
+              <div id="premiumPlanYearly" class="k-settings-item" style="flex:1;flex-direction:column;align-items:center;gap:4px;padding:14px;border:2px solid var(--border-color);border-radius:14px;cursor:pointer;position:relative" onclick="K.settings.selectPremiumPlan('yearly')">
+                <div style="position:absolute;top:-8px;background:linear-gradient(135deg,#fb6340,#2dce89);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">−17%</div>
+                <div style="font-weight:700">12 месяцев</div><div style="font-size:22px;font-weight:800;background:linear-gradient(135deg,#fb6340,#2dce89);-webkit-background-clip:text;-webkit-text-fill-color:transparent" id="premiumPriceYearly">1200 ⭐</div><div style="font-size:11px;color:var(--text-muted)">2990₽ • save 660₽</div>
+              </div>
+            </div>
+            <button class="k-btn k-btn-primary" style="width:100%;padding:12px;font-weight:700" onclick="K.settings.payPremium()"><i class="fas fa-star"></i> Оплатить звёздами</button>
+            <button class="k-btn" style="width:100%;margin-top:8px;padding:12px;font-weight:700;background:#229ED9;color:white;border:none" onclick="K.settings.connectTelegram()"><i class="fab fa-telegram"></i> Connect Telegram — send /start premium_<span id="premiumConnectId">...</span></button>
+            <button class="k-btn k-btn-secondary" style="width:100%;margin-top:8px;padding:10px" onclick="K.settings.checkPremium()"><i class="fas fa-sync"></i> Проверить статус</button>
+            <div id="premiumPayStatus" style="margin-top:10px;padding:10px;border-radius:10px;font-size:12px;display:none"></div>
+            <div style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:8px">Спишет Stars via <code>@kiselgram_bot</code> • <a href="#" onclick="K.settings.openPremiumWebApp();return false">Open WebApp</a> • <a href="#" onclick="K.settings.connectTelegram();return false">Telegram bot</a></div>
+          </div>
+          <div class="k-settings-section">
+            <div class="k-settings-title">Manage</div>
+            <div class="k-settings-item"><span>Промокод</span><div style="display:flex;gap:6px"><input class="k-input" id="premiumPromo" placeholder="KISEL-..." style="flex:1"><button class="k-btn k-btn-secondary" style="padding:6px 12px;font-size:12px" onclick="K.settings.applyPromo()">Apply</button></div></div>
+            <div class="k-settings-item"><span>Auto-renew</span><button class="k-btn k-btn-secondary" style="padding:6px 12px;font-size:12px" onclick="K.settings.cancelPremium()"><i class="fas fa-times"></i> Cancel</button></div>
+            <div class="k-settings-item" style="flex-direction:column;align-items:stretch"><span style="font-size:12px;color:var(--text-muted)">Logo: <code>/static/img/premium/logo.svg</code> • emoji <code>5285476321705633458</code> <img src="/static/custom_emoji/kiselgram_premium.webp" style="width:16px;height:16px;vertical-align:middle"> • locales <code>config/locales.toml</code></span></div>
+          </div>
+        </div>
     </div>
 
     <div class="k-chat-view" id="chatView">
@@ -292,9 +352,9 @@
           </div>
           <div class="k-cp-section">
             <label class="k-cp-label">Theme</label>
-            <div class="k-theme-toggle" onclick="K.settings.toggleTheme()">
+            <div class="k-theme-toggle" onclick="if(event.target.closest('.k-switch')) return; K.settings.toggleTheme()">
               <span><i class="fas fa-moon" id="cpThemeIcon"></i> <span id="cpThemeLabel">Dark Mode</span></span>
-              <label class="k-switch"><input type="checkbox" id="cpThemeSwitch" onchange="K.settings.toggleTheme()"><span class="k-slider"></span></label>
+              <label class="k-switch" onclick="event.stopPropagation()"><input type="checkbox" id="cpThemeSwitch" onchange="K.settings.toggleTheme()"><span class="k-slider"></span></label>
             </div>
           </div>
           <div class="k-cp-section">
@@ -481,16 +541,18 @@
 <script src="{{ url_for('static', filename='js/k/groups.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/stories.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/saved.js') }}"></script>
-<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script src="{{ url_for('static', filename='js/k/calls.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/music.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/webapp.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/search.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/features.js') }}"></script>
-<script src="{{ url_for('static', filename='js/k/settings.js') }}"></script>
+<script src="{{ url_for('static', filename='js/k/sputnik.js') }}"></script>
+<script src="{{ url_for('static', filename='js/k/settings.js') }}?v=premium3"></script>
 <script src="{{ url_for('static', filename='js/k/profile.js') }}"></script>
 <script src="{{ url_for('static', filename='js/lib/qrcode.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/qrlogin.js') }}"></script>
+<script src="{{ url_for('static', filename='js/k/otp_widget.js') }}?v=2"></script>
 <script src="{{ url_for('static', filename='js/k/login_v3.js') }}"></script>
 <script>
 if (K.isDesktop) {

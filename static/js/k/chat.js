@@ -317,7 +317,7 @@ K.chat = {
     if (m.emoji_file) {
       const size = m.emoji_size || 96;
       const count = m.emoji_count || 1;
-      const url = m.emoji_url || `/static/stickers/animatedemojies/${m.emoji_file}`;
+      const url = m.emoji_url || `/uploads/animated_emojis/${m.emoji_file}`;
       emojiHtml = `<div class="k-msg-emoji" style="width:${size}px;height:${size}px"><img src="${esc(url)}" alt="emoji" style="width:${size}px;height:${size}px" onclick="K.features.showMediaViewer([{file_url:'${esc(url)}',file_type:'image',file_name:'emoji'}],0)"></div>`;
       if (count > 1) emojiHtml = emojiHtml.replace('</div>', `<span class="k-emoji-count">${count}</span></div>`);
     }

@@ -3,7 +3,7 @@ import os
 import threading
 import time
 from datetime import datetime, timedelta
-from flask import Flask, redirect, request, session, render_template, make_response, url_for
+from flask import Flask, redirect, request, session, render_template, make_response, url_for, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
@@ -141,6 +141,11 @@ def create_app():
     app.register_blueprint(premium.premium_bp)
     app.register_blueprint(files.files_bp)
     app.register_blueprint(utils_api_bp)
+    try:
+        from app.routes.spav2.sputnik import sputnik_pages_bp
+        app.register_blueprint(sputnik_pages_bp)
+    except ImportError as e:
+        app.logger.warning(f"Sputnik pages blueprint not loaded: {e}")
 
     # Register admin and push blueprints (new features)
     try:
@@ -162,6 +167,13 @@ def create_app():
         except ImportError as e:
             app.logger.warning(f"Video blueprint not loaded: {e}")
 
+    # Telegram Stars premium (WebApp + Stars payments via VLESS)
+    try:
+        from app.routes.telegram_stars import telegram_stars_bp
+        app.register_blueprint(telegram_stars_bp)
+    except Exception as e:
+        app.logger.warning(f"Telegram Stars blueprint not loaded: {e}")
+
     # ================================================================
     # Nginx reverse proxy internal endpoint – returns the current user ID
     # ================================================================
@@ -173,6 +185,11 @@ def create_app():
         resp = make_response('', 204)
         resp.headers['X-User-Id'] = str(user_id)
         return resp
+
+    @app.route('/image/<path:filename>')
+    def serve_image(filename):
+        from flask import send_from_directory
+        return send_from_directory(os.path.join(basedir, 'image'), filename)
 
     @app.route('/health')
     def health():
@@ -195,6 +212,38 @@ def create_app():
                 db.session.commit()
         session.clear()
         return redirect('/auth/login')
+
+    @app.route('/u/<username>', methods=['GET'])
+    def user_profile_by_username(username):
+        """Public profile page for short links like /u/username (JSON with ?format=json)"""
+        user = User.query.filter_by(username=username, is_deleted=False).first()
+        if not user:
+            if request.args.get('format') == 'json' or 'application/json' in (request.headers.get('Accept') or ''):
+                return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+            return render_template('profile.html', profile=None, liquid_glass=True), 404
+
+        is_premium = (user.premium and user.premium.is_premium) or False
+
+        profile = {
+            'user_id': user.id,
+            'username': user.username,
+            'display_name': user.display_name or user.username,
+            'avatar_url': user.avatar_url,
+            'bio': getattr(user, 'bio', None),
+            'is_premium': is_premium,
+            'is_bot': getattr(user, 'is_bot', False),
+            'is_online': getattr(user, 'is_online', False),
+            'last_seen': user.last_seen.isoformat() if user.last_seen else None,
+            'status_emoji': user.status_emoji or ('\u2b50' if is_premium else ''),
+            'followers_count': 0,
+            'following_count': 0,
+            'posts_count': 0,
+        }
+
+        if request.args.get('format') == 'json' or 'application/json' in (request.headers.get('Accept') or ''):
+            return jsonify({'success': True, 'data': profile})
+
+        return render_template('profile.html', profile=profile, liquid_glass=True)
 
     @app.route('/qr/<token>')
     def qr_login_page(token):
@@ -243,5 +292,18 @@ def create_app():
 
     t = threading.Thread(target=story_cleanup_loop, daemon=True)
     t.start()
+
+    # Kiselgram internal bots (kiselgram, weather, news, calc) with premium emoji 5285476321705633458
+    try:
+        from app.utils.bot_utils import setup_bots, simulate_bot_interaction
+        with app.app_context():
+            try:
+                setup_bots()
+            except Exception as e:
+                app.logger.warning(f"setup_bots: {e}")
+        threading.Thread(target=simulate_bot_interaction, args=(app,), daemon=True).start()
+        app.logger.info("Kiselgram bots started (incl. premium emoji)")
+    except Exception as e:
+        app.logger.warning(f"Kiselgram bots not started: {e}")
 
     return app
