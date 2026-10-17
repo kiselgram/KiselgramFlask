@@ -77,3 +77,14 @@ emojitest/
 *.tar.gz
 
 
+/docs_telegram_stars.md
+/app/utils/i18n.py
+/templates/telegram_premium/index.html
+/ki-link.conf
+/static/custom_emoji/kiselgram_premium.png
+/static/custom_emoji/kiselgram_premium.webp
+/config/locales.toml
+/static/img/premium/logo.svg
+/static/img/premium/logo-128.png
+/static/img/premium/logo-256.png
+/static/img/premium/logo-512.png
