@@ -1,15 +1,15 @@
 .
 ├── AGENTS.md
+├── CHANGELOG.txt
 ├── Dockerfile
 ├── LICENSE
 ├── NEW.md
+├── OTP code.http
 ├── README.md
 ├── Users
 │   └── dkisel
 ├── Why_Kiselgram_EN.md
 ├── Why_Kiselgram_RU.md
-├── __pycache__
-│   └── manage.cpython-310.pyc
 ├── app
 │   ├── __init__.py
 │   ├── __main__.py
@@ -19,6 +19,12 @@
 │   │   ├── config.cpython-310.pyc
 │   │   ├── models.cpython-310.pyc
 │   │   └── notify_ws.cpython-310.pyc
+│   ├── bot
+│   │   ├── __init__.py
+│   │   ├── __pycache__
+│   │   │   ├── __init__.cpython-310.pyc
+│   │   │   └── telegram_api.cpython-310.pyc
+│   │   └── telegram_api.py
 │   ├── config.py
 │   ├── models.py
 │   ├── notify_ws.py
@@ -26,11 +32,9 @@
 │   │   ├── __init__.py
 │   │   ├── __pycache__
 │   │   │   ├── __init__.cpython-310.pyc
-│   │   │   ├── auth.cpython-310.pyc
-│   │   │   ├── chats.cpython-310.pyc
 │   │   │   ├── files.cpython-310.pyc
 │   │   │   ├── premium.cpython-310.pyc
-│   │   │   ├── spa_app.cpython-310.pyc
+│   │   │   ├── telegram_stars.cpython-310.pyc
 │   │   │   ├── utils_api.cpython-310.pyc
 │   │   │   └── video_integration.cpython-310.pyc
 │   │   ├── files.py
@@ -91,7 +95,9 @@
 │   │   │   │   ├── saved.cpython-310.pyc
 │   │   │   │   ├── search.cpython-310.pyc
 │   │   │   │   ├── sessions.cpython-310.pyc
-│   │   │   │   └── stories.cpython-310.pyc
+│   │   │   │   ├── sputnik.cpython-310.pyc
+│   │   │   │   ├── stories.cpython-310.pyc
+│   │   │   │   └── telegram.cpython-310.pyc
 │   │   │   ├── admin.py
 │   │   │   ├── auth.py
 │   │   │   ├── bot_webhook.py
@@ -113,7 +119,10 @@
 │   │   │   ├── saved.py
 │   │   │   ├── search.py
 │   │   │   ├── sessions.py
-│   │   │   └── stories.py
+│   │   │   ├── sputnik.py
+│   │   │   ├── stories.py
+│   │   │   └── telegram.py
+│   │   ├── telegram_stars.py
 │   │   ├── utils_api.py
 │   │   └── video_integration.py
 │   ├── uploads
@@ -123,13 +132,14 @@
 │       │   ├── __init__.cpython-310.pyc
 │       │   ├── bot_utils.cpython-310.pyc
 │       │   ├── crypto.cpython-310.pyc
-│       │   ├── email.cpython-310.pyc
 │       │   ├── helpers.cpython-310.pyc
+│       │   ├── i18n.cpython-310.pyc
 │       │   ├── logging_utils.cpython-310.pyc
 │       │   └── security.cpython-310.pyc
 │       ├── bot_utils.py
 │       ├── crypto.py
 │       ├── helpers.py
+│       ├── i18n.py
 │       ├── logging_utils.py
 │       ├── push.py
 │       └── security.py
@@ -142,15 +152,24 @@
 │   └── tmp
 │       └── compileGroovy
 │           └── groovy-java-stubs
-├── comp_slide1.jpeg
 ├── config
 │   ├── banner-file.txt
 │   ├── banner.png
 │   ├── banner.txt
 │   ├── intro-motd.txt
 │   ├── kis.toml
-│   └── promo.txt
-├── dashboard_fixed.jpeg
+│   ├── locales.toml
+│   ├── promo.txt
+│   └── vless.json
+├── config copy
+│   ├── banner-file.txt
+│   ├── banner.png
+│   ├── banner.txt
+│   ├── intro-motd.txt
+│   ├── kis.toml
+│   ├── locales.toml
+│   ├── promo.txt
+│   └── vless.json
 ├── docker-compose.prod.yml
 ├── docker-compose.yml
 ├── docs
@@ -159,7 +178,11 @@
 │   ├── desktop.html
 │   ├── domain.md
 │   ├── index.html
+│   ├── models.md
+│   ├── sputnik-pack.md
+│   ├── telegram.md
 │   └── user-guide.html
+├── docs_telegram_stars.md
 ├── edited_slide.html
 ├── emojitest
 │   ├── app.py
@@ -176,34 +199,29 @@
 │   └── kiselgram_dev.db
 ├── ki-link.conf
 ├── kiselgram.md
-├── logo-preview.png
 ├── logs
 │   ├── kis_main.log
 │   ├── kis_vid.log
 │   └── kiselgram.log
 ├── mailadmin
 │   ├── Dockerfile
-│   ├── __pycache__
-│   │   └── app.cpython-310.pyc
 │   ├── app.py
 │   ├── requirements.txt
 │   └── templates
 │       ├── accounts.html
 │       └── login.html
-├── maildata.tar.gz
-├── mailstate.tar.gz
 ├── manage.py
 ├── nginx.conf
 ├── opencode.json
-├── phone_ui_view.jpeg
+├── profile-example.html
 ├── prompts.md
 ├── pytest.ini
 ├── requirements.txt
+├── routes.txt
 ├── ruff.toml
 ├── screens.html
-├── slide1_check.jpeg
-├── slide1_check.png
-├── slide_preview.png
+├── scripts
+│   └── run_vless.sh
 ├── static
 │   ├── banner.jpg
 │   ├── banner.png
@@ -221,7 +239,12 @@
 │   │   ├── desktop.css
 │   │   ├── k.css
 │   │   ├── mobile-layout.css
-│   │   └── mobile.css
+│   │   ├── mobile.css
+│   │   ├── otp_widget.css
+│   │   └── profile.css
+│   ├── custom_emoji
+│   │   ├── kiselgram_premium.png
+│   │   └── kiselgram_premium.webp
 │   ├── favicon.ico
 │   ├── favicon.svg
 │   ├── image
@@ -230,6 +253,15 @@
 │   │   ├── google-signin-button.png
 │   │   ├── hero.png
 │   │   ├── img.png
+│   │   ├── premium
+│   │   │   ├── banner-hero.png
+│   │   │   ├── banner-pay.png
+│   │   │   ├── banner-success.png
+│   │   │   ├── banner-webapp.png
+│   │   │   ├── logo-128.png
+│   │   │   ├── logo-256.png
+│   │   │   ├── logo-512.png
+│   │   │   └── logo.svg
 │   │   └── sunset.png
 │   ├── js
 │   │   ├── free.js
@@ -244,16 +276,20 @@
 │   │   │   ├── features.js
 │   │   │   ├── groups.js
 │   │   │   ├── init.js
+│   │   │   ├── invite.js
 │   │   │   ├── login_v3.js
 │   │   │   ├── markdown.js
 │   │   │   ├── modals.js
 │   │   │   ├── music.js
+│   │   │   ├── otp_widget.js
 │   │   │   ├── profile.js
 │   │   │   ├── qrlogin.js
 │   │   │   ├── saved.js
 │   │   │   ├── search.js
 │   │   │   ├── settings.js
+│   │   │   ├── sputnik.js
 │   │   │   ├── stories.js
+│   │   │   ├── tg.js
 │   │   │   ├── ui.js
 │   │   │   ├── views.js
 │   │   │   └── webapp.js
@@ -1035,6 +1071,7 @@
 │   │   │   ├── emoji_2764_fe0f_200d_1fa79.webp
 │   │   │   ├── emoji_2b50.webp
 │   │   │   ├── emoji_2b50_fe0f.webp
+│   │   │   ├── kiselgram_premium.webp
 │   │   │   ├── sticker_0000.tgs
 │   │   │   ├── sticker_0001.tgs
 │   │   │   ├── sticker_0002.tgs
@@ -12653,7 +12690,7 @@
 │   └── sw.js
 ├── status
 │   └── kiselgram.json
-├── telegram_chats.md
+├── telegram_premium_bot.py
 ├── templates
 │   ├── admin.html
 │   ├── auth
@@ -12674,13 +12711,70 @@
 │   │   └── success.html
 │   ├── profile
 │   │   └── public.html
+│   ├── profile.html
 │   ├── qr_login.html
 │   ├── register.html
+│   ├── sputnik_join.html
+│   ├── telegram_premium
+│   │   └── index.html
 │   ├── video_embed.html
 │   ├── video_integration.html
 │   └── video_server_down.html
 ├── tests
 │   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-310.pyc
+│   │   ├── __init__.cpython-312.pyc
+│   │   ├── conftest.cpython-310-pytest-9.0.3.pyc
+│   │   ├── conftest.cpython-312-pytest-9.1.1.pyc
+│   │   ├── test_api_spa.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_auth.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_bot_api.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_chats.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_client_api.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_dbg_ddl.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_files.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_frontend.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_helpers.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_helpers_ext.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_invites_qr.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_models.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_models_ext.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_performance.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_referrals.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_security.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spa_groups_channels.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spa_messages_stories.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spa_profile_calls.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_admin.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_auth.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_bot_webhook.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_calls.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_channels.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_chat.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_contacts.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_groups.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_ksettings.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_login_v3.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_messages.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_music.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_oauth.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_profile.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_push.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_qr_login.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_saved.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_search.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_sessions.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_spav2_stories.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_sputnik.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_sputnik2.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_sputnik3.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_sputnik4.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_telegram.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_telegram.cpython-310.pyc
+│   │   ├── test_telegram2.cpython-310-pytest-9.0.3.pyc
+│   │   ├── test_utils_api.cpython-310-pytest-9.0.3.pyc
+│   │   └── test_video_integration.cpython-310-pytest-9.0.3.pyc
 │   ├── conftest.py
 │   ├── test_api_spa.py
 │   ├── test_auth.py
@@ -12688,11 +12782,14 @@
 │   ├── test_chats.py
 │   ├── test_client_api.py
 │   ├── test_files.py
+│   ├── test_frontend.py
 │   ├── test_helpers.py
 │   ├── test_helpers_ext.py
+│   ├── test_invites_qr.py
 │   ├── test_models.py
 │   ├── test_models_ext.py
 │   ├── test_performance.py
+│   ├── test_referrals.py
 │   ├── test_security.py
 │   ├── test_spa_groups_channels.py
 │   ├── test_spa_messages_stories.py
@@ -12717,1867 +12814,22 @@
 │   ├── test_spav2_search.py
 │   ├── test_spav2_sessions.py
 │   ├── test_spav2_stories.py
+│   ├── test_sputnik.py
+│   ├── test_sputnik2.py
+│   ├── test_sputnik3.py
+│   ├── test_sputnik4.py
+│   ├── test_telegram.py
+│   ├── test_telegram2.py
 │   ├── test_utils_api.py
 │   └── test_video_integration.py
 ├── tgsview.py
 ├── tmp
-│   └── feature_vids
-│       ├── comps
-│       │   ├── _render.html
-│       │   ├── screens_bare.html
-│       │   ├── slide1.html
-│       │   ├── slide10.html
-│       │   ├── slide11.html
-│       │   ├── slide14.html
-│       │   ├── slide2.html
-│       │   ├── slide3.html
-│       │   ├── slide4.html
-│       │   ├── slide5.html
-│       │   ├── slide6.html
-│       │   ├── slide7.html
-│       │   ├── slide8.html
-│       │   └── slide9.html
-│       ├── dashboard.html
-│       ├── gen.sh
-│       ├── gen_serif.sh
-│       ├── gifs
-│       │   ├── slide1.gif
-│       │   ├── slide10.gif
-│       │   ├── slide11.gif
-│       │   ├── slide2.gif
-│       │   ├── slide3.gif
-│       │   ├── slide4.gif
-│       │   ├── slide5.gif
-│       │   ├── slide6.gif
-│       │   ├── slide7.gif
-│       │   ├── slide8.gif
-│       │   └── slide9.gif
-│       ├── k.css
-│       ├── make_ui.py
-│       ├── mp4
-│       │   ├── slide1.mp4
-│       │   ├── slide10_frames
-│       │   │   ├── frame_0000.png
-│       │   │   ├── frame_0001.png
-│       │   │   ├── frame_0002.png
-│       │   │   ├── frame_0003.png
-│       │   │   ├── frame_0004.png
-│       │   │   ├── frame_0005.png
-│       │   │   ├── frame_0006.png
-│       │   │   ├── frame_0007.png
-│       │   │   ├── frame_0008.png
-│       │   │   ├── frame_0009.png
-│       │   │   ├── frame_0010.png
-│       │   │   ├── frame_0011.png
-│       │   │   ├── frame_0012.png
-│       │   │   ├── frame_0013.png
-│       │   │   ├── frame_0014.png
-│       │   │   ├── frame_0015.png
-│       │   │   ├── frame_0016.png
-│       │   │   ├── frame_0017.png
-│       │   │   ├── frame_0018.png
-│       │   │   ├── frame_0019.png
-│       │   │   ├── frame_0020.png
-│       │   │   ├── frame_0021.png
-│       │   │   ├── frame_0022.png
-│       │   │   ├── frame_0023.png
-│       │   │   └── frame_0024.png
-│       │   ├── slide11_frames
-│       │   │   ├── frame_0000.png
-│       │   │   ├── frame_0001.png
-│       │   │   ├── frame_0002.png
-│       │   │   ├── frame_0003.png
-│       │   │   ├── frame_0004.png
-│       │   │   ├── frame_0005.png
-│       │   │   ├── frame_0006.png
-│       │   │   ├── frame_0007.png
-│       │   │   ├── frame_0008.png
-│       │   │   ├── frame_0009.png
-│       │   │   ├── frame_0010.png
-│       │   │   ├── frame_0011.png
-│       │   │   ├── frame_0012.png
-│       │   │   ├── frame_0013.png
-│       │   │   ├── frame_0014.png
-│       │   │   ├── frame_0015.png
-│       │   │   ├── frame_0016.png
-│       │   │   ├── frame_0017.png
-│       │   │   ├── frame_0018.png
-│       │   │   ├── frame_0019.png
-│       │   │   ├── frame_0020.png
-│       │   │   ├── frame_0021.png
-│       │   │   ├── frame_0022.png
-│       │   │   ├── frame_0023.png
-│       │   │   └── frame_0024.png
-│       │   ├── slide1_frames
-│       │   │   ├── frame_0000.png
-│       │   │   ├── frame_0001.png
-│       │   │   ├── frame_0002.png
-│       │   │   ├── frame_0003.png
-│       │   │   ├── frame_0004.png
-│       │   │   ├── frame_0005.png
-│       │   │   ├── frame_0006.png
-│       │   │   ├── frame_0007.png
-│       │   │   ├── frame_0008.png
-│       │   │   ├── frame_0009.png
-│       │   │   ├── frame_0010.png
-│       │   │   ├── frame_0011.png
-│       │   │   ├── frame_0012.png
-│       │   │   ├── frame_0013.png
-│       │   │   ├── frame_0014.png
-│       │   │   ├── frame_0015.png
-│       │   │   ├── frame_0016.png
-│       │   │   ├── frame_0017.png
-│       │   │   ├── frame_0018.png
-│       │   │   ├── frame_0019.png
-│       │   │   ├── frame_0020.png
-│       │   │   ├── frame_0021.png
-│       │   │   ├── frame_0022.png
-│       │   │   ├── frame_0023.png
-│       │   │   ├── frame_0024.png
-│       │   │   ├── frame_0025.png
-│       │   │   ├── frame_0026.png
-│       │   │   ├── frame_0027.png
-│       │   │   ├── frame_0028.png
-│       │   │   ├── frame_0029.png
-│       │   │   ├── frame_0030.png
-│       │   │   ├── frame_0031.png
-│       │   │   ├── frame_0032.png
-│       │   │   ├── frame_0033.png
-│       │   │   ├── frame_0034.png
-│       │   │   ├── frame_0035.png
-│       │   │   ├── frame_0036.png
-│       │   │   ├── frame_0037.png
-│       │   │   ├── frame_0038.png
-│       │   │   ├── frame_0039.png
-│       │   │   ├── frame_0040.png
-│       │   │   ├── frame_0041.png
-│       │   │   ├── frame_0042.png
-│       │   │   ├── frame_0043.png
-│       │   │   ├── frame_0044.png
-│       │   │   ├── frame_0045.png
-│       │   │   ├── frame_0046.png
-│       │   │   ├── frame_0047.png
-│       │   │   ├── frame_0048.png
-│       │   │   ├── frame_0049.png
-│       │   │   ├── frame_0050.png
-│       │   │   ├── frame_0051.png
-│       │   │   ├── frame_0052.png
-│       │   │   ├── frame_0053.png
-│       │   │   ├── frame_0054.png
-│       │   │   ├── frame_0055.png
-│       │   │   ├── frame_0056.png
-│       │   │   ├── frame_0057.png
-│       │   │   ├── frame_0058.png
-│       │   │   ├── frame_0059.png
-│       │   │   ├── frame_0060.png
-│       │   │   ├── frame_0061.png
-│       │   │   ├── frame_0062.png
-│       │   │   ├── frame_0063.png
-│       │   │   ├── frame_0064.png
-│       │   │   ├── frame_0065.png
-│       │   │   ├── frame_0066.png
-│       │   │   ├── frame_0067.png
-│       │   │   ├── frame_0068.png
-│       │   │   ├── frame_0069.png
-│       │   │   ├── frame_0070.png
-│       │   │   ├── frame_0071.png
-│       │   │   ├── frame_0072.png
-│       │   │   ├── frame_0073.png
-│       │   │   ├── frame_0074.png
-│       │   │   ├── frame_0075.png
-│       │   │   ├── frame_0076.png
-│       │   │   ├── frame_0077.png
-│       │   │   ├── frame_0078.png
-│       │   │   ├── frame_0079.png
-│       │   │   ├── frame_0080.png
-│       │   │   ├── frame_0081.png
-│       │   │   ├── frame_0082.png
-│       │   │   ├── frame_0083.png
-│       │   │   ├── frame_0084.png
-│       │   │   ├── frame_0085.png
-│       │   │   ├── frame_0086.png
-│       │   │   ├── frame_0087.png
-│       │   │   ├── frame_0088.png
-│       │   │   ├── frame_0089.png
-│       │   │   ├── frame_0090.png
-│       │   │   ├── frame_0091.png
-│       │   │   ├── frame_0092.png
-│       │   │   ├── frame_0093.png
-│       │   │   ├── frame_0094.png
-│       │   │   ├── frame_0095.png
-│       │   │   ├── frame_0096.png
-│       │   │   ├── frame_0097.png
-│       │   │   ├── frame_0098.png
-│       │   │   ├── frame_0099.png
-│       │   │   ├── frame_0100.png
-│       │   │   ├── frame_0101.png
-│       │   │   ├── frame_0102.png
-│       │   │   ├── frame_0103.png
-│       │   │   ├── frame_0104.png
-│       │   │   ├── frame_0105.png
-│       │   │   ├── frame_0106.png
-│       │   │   ├── frame_0107.png
-│       │   │   ├── frame_0108.png
-│       │   │   ├── frame_0109.png
-│       │   │   ├── frame_0110.png
-│       │   │   ├── frame_0111.png
-│       │   │   ├── frame_0112.png
-│       │   │   ├── frame_0113.png
-│       │   │   ├── frame_0114.png
-│       │   │   ├── frame_0115.png
-│       │   │   ├── frame_0116.png
-│       │   │   ├── frame_0117.png
-│       │   │   ├── frame_0118.png
-│       │   │   ├── frame_0119.png
-│       │   │   ├── frame_0120.png
-│       │   │   ├── frame_0121.png
-│       │   │   ├── frame_0122.png
-│       │   │   ├── frame_0123.png
-│       │   │   └── frame_0124.png
-│       │   ├── slide1_hf
-│       │   │   ├── frame_0000.png
-│       │   │   ├── frame_0001.png
-│       │   │   ├── frame_0002.png
-│       │   │   ├── frame_0003.png
-│       │   │   ├── frame_0004.png
-│       │   │   ├── frame_0005.png
-│       │   │   ├── frame_0006.png
-│       │   │   ├── frame_0007.png
-│       │   │   ├── frame_0008.png
-│       │   │   ├── frame_0009.png
-│       │   │   ├── frame_0010.png
-│       │   │   ├── frame_0011.png
-│       │   │   ├── frame_0012.png
-│       │   │   ├── frame_0013.png
-│       │   │   ├── frame_0014.png
-│       │   │   ├── frame_0015.png
-│       │   │   ├── frame_0016.png
-│       │   │   ├── frame_0017.png
-│       │   │   ├── frame_0018.png
-│       │   │   ├── frame_0019.png
-│       │   │   ├── frame_0020.png
-│       │   │   ├── frame_0021.png
-│       │   │   ├── frame_0022.png
-│       │   │   ├── frame_0023.png
-│       │   │   ├── frame_0024.png
-│       │   │   ├── frame_0025.png
-│       │   │   ├── frame_0026.png
-│       │   │   ├── frame_0027.png
-│       │   │   ├── frame_0028.png
-│       │   │   ├── frame_0029.png
-│       │   │   ├── frame_0030.png
-│       │   │   ├── frame_0031.png
-│       │   │   ├── frame_0032.png
-│       │   │   ├── frame_0033.png
-│       │   │   ├── frame_0034.png
-│       │   │   ├── frame_0035.png
-│       │   │   ├── frame_0036.png
-│       │   │   ├── frame_0037.png
-│       │   │   ├── frame_0038.png
-│       │   │   ├── frame_0039.png
-│       │   │   ├── frame_0040.png
-│       │   │   ├── frame_0041.png
-│       │   │   ├── frame_0042.png
-│       │   │   ├── frame_0043.png
-│       │   │   ├── frame_0044.png
-│       │   │   ├── frame_0045.png
-│       │   │   ├── frame_0046.png
-│       │   │   ├── frame_0047.png
-│       │   │   ├── frame_0048.png
-│       │   │   ├── frame_0049.png
-│       │   │   ├── frame_0050.png
-│       │   │   ├── frame_0051.png
-│       │   │   ├── frame_0052.png
-│       │   │   ├── frame_0053.png
-│       │   │   ├── frame_0054.png
-│       │   │   ├── frame_0055.png
-│       │   │   ├── frame_0056.png
-│       │   │   ├── frame_0057.png
-│       │   │   ├── frame_0058.png
-│       │   │   ├── frame_0059.png
-│       │   │   ├── frame_0060.png
-│       │   │   ├── frame_0061.png
-│       │   │   ├── frame_0062.png
-│       │   │   ├── frame_0063.png
-│       │   │   ├── frame_0064.png
-│       │   │   ├── frame_0065.png
-│       │   │   ├── frame_0066.png
-│       │   │   ├── frame_0067.png
-│       │   │   ├── frame_0068.png
-│       │   │   ├── frame_0069.png
-│       │   │   ├── frame_0070.png
-│       │   │   ├── frame_0071.png
-│       │   │   ├── frame_0072.png
-│       │   │   ├── frame_0073.png
-│       │   │   ├── frame_0074.png
-│       │   │   ├── frame_0075.png
-│       │   │   ├── frame_0076.png
-│       │   │   ├── frame_0077.png
-│       │   │   ├── frame_0078.png
-│       │   │   ├── frame_0079.png
-│       │   │   ├── frame_0080.png
-│       │   │   ├── frame_0081.png
-│       │   │   ├── frame_0082.png
-│       │   │   ├── frame_0083.png
-│       │   │   ├── frame_0084.png
-│       │   │   ├── frame_0085.png
-│       │   │   ├── frame_0086.png
-│       │   │   ├── frame_0087.png
-│       │   │   ├── frame_0088.png
-│       │   │   ├── frame_0089.png
-│       │   │   ├── frame_0090.png
-│       │   │   ├── frame_0091.png
-│       │   │   ├── frame_0092.png
-│       │   │   ├── frame_0093.png
-│       │   │   ├── frame_0094.png
-│       │   │   ├── frame_0095.png
-│       │   │   ├── frame_0096.png
-│       │   │   ├── frame_0097.png
-│       │   │   ├── frame_0098.png
-│       │   │   ├── frame_0099.png
-│       │   │   ├── frame_0100.png
-│       │   │   ├── frame_0101.png
-│       │   │   ├── frame_0102.png
-│       │   │   ├── frame_0103.png
-│       │   │   ├── frame_0104.png
-│       │   │   ├── frame_0105.png
-│       │   │   ├── frame_0106.png
-│       │   │   ├── frame_0107.png
-│       │   │   ├── frame_0108.png
-│       │   │   ├── frame_0109.png
-│       │   │   ├── frame_0110.png
-│       │   │   ├── frame_0111.png
-│       │   │   ├── frame_0112.png
-│       │   │   ├── frame_0113.png
-│       │   │   ├── frame_0114.png
-│       │   │   ├── frame_0115.png
-│       │   │   ├── frame_0116.png
-│       │   │   ├── frame_0117.png
-│       │   │   ├── frame_0118.png
-│       │   │   ├── frame_0119.png
-│       │   │   ├── frame_0120.png
-│       │   │   ├── frame_0121.png
-│       │   │   ├── frame_0122.png
-│       │   │   ├── frame_0123.png
-│       │   │   └── frame_0124.png
-│       │   ├── slide2_frames
-│       │   │   ├── frame_0000.png
-│       │   │   ├── frame_0001.png
-│       │   │   ├── frame_0002.png
-│       │   │   ├── frame_0003.png
-│       │   │   ├── frame_0004.png
-│       │   │   ├── frame_0005.png
-│       │   │   ├── frame_0006.png
-│       │   │   ├── frame_0007.png
-│       │   │   ├── frame_0008.png
-│       │   │   ├── frame_0009.png
-│       │   │   ├── frame_0010.png
-│       │   │   ├── frame_0011.png
-│       │   │   ├── frame_0012.png
-│       │   │   ├── frame_0013.png
-│       │   │   ├── frame_0014.png
-│       │   │   ├── frame_0015.png
-│       │   │   ├── frame_0016.png
-│       │   │   ├── frame_0017.png
-│       │   │   ├── frame_0018.png
-│       │   │   ├── frame_0019.png
-│       │   │   ├── frame_0020.png
-│       │   │   ├── frame_0021.png
-│       │   │   ├── frame_0022.png
-│       │   │   ├── frame_0023.png
-│       │   │   ├── frame_0024.png
-│       │   │   ├── frame_0025.png
-│       │   │   ├── frame_0026.png
-│       │   │   ├── frame_0027.png
-│       │   │   ├── frame_0028.png
-│       │   │   ├── frame_0029.png
-│       │   │   ├── frame_0030.png
-│       │   │   ├── frame_0031.png
-│       │   │   ├── frame_0032.png
-│       │   │   ├── frame_0033.png
-│       │   │   ├── frame_0034.png
-│       │   │   ├── frame_0035.png
-│       │   │   ├── frame_0036.png
-│       │   │   ├── frame_0037.png
-│       │   │   ├── frame_0038.png
-│       │   │   ├── frame_0039.png
-│       │   │   ├── frame_0040.png
-│       │   │   ├── frame_0041.png
-│       │   │   ├── frame_0042.png
-│       │   │   ├── frame_0043.png
-│       │   │   ├── frame_0044.png
-│       │   │   ├── frame_0045.png
-│       │   │   ├── frame_0046.png
-│       │   │   ├── frame_0047.png
-│       │   │   ├── frame_0048.png
-│       │   │   ├── frame_0049.png
-│       │   │   ├── frame_0050.png
-│       │   │   ├── frame_0051.png
-│       │   │   ├── frame_0052.png
-│       │   │   ├── frame_0053.png
-│       │   │   ├── frame_0054.png
-│       │   │   ├── frame_0055.png
-│       │   │   ├── frame_0056.png
-│       │   │   ├── frame_0057.png
-│       │   │   ├── frame_0058.png
-│       │   │   ├── frame_0059.png
-│       │   │   ├── frame_0060.png
-│       │   │   ├── frame_0061.png
-│       │   │   ├── frame_0062.png
-│       │   │   ├── frame_0063.png
-│       │   │   ├── frame_0064.png
-│       │   │   ├── frame_0065.png
-│       │   │   ├── frame_0066.png
-│       │   │   ├── frame_0067.png
-│       │   │   ├── frame_0068.png
-│       │   │   ├── frame_0069.png
-│       │   │   ├── frame_0070.png
-│       │   │   ├── frame_0071.png
-│       │   │   ├── frame_0072.png
-│       │   │   ├── frame_0073.png
-│       │   │   ├── frame_0074.png
-│       │   │   ├── frame_0075.png
-│       │   │   ├── frame_0076.png
-│       │   │   ├── frame_0077.png
-│       │   │   ├── frame_0078.png
-│       │   │   ├── frame_0079.png
-│       │   │   ├── frame_0080.png
-│       │   │   ├── frame_0081.png
-│       │   │   ├── frame_0082.png
-│       │   │   ├── frame_0083.png
-│       │   │   ├── frame_0084.png
-│       │   │   ├── frame_0085.png
-│       │   │   ├── frame_0086.png
-│       │   │   ├── frame_0087.png
-│       │   │   ├── frame_0088.png
-│       │   │   ├── frame_0089.png
-│       │   │   ├── frame_0090.png
-│       │   │   ├── frame_0091.png
-│       │   │   ├── frame_0092.png
-│       │   │   ├── frame_0093.png
-│       │   │   ├── frame_0094.png
-│       │   │   ├── frame_0095.png
-│       │   │   ├── frame_0096.png
-│       │   │   ├── frame_0097.png
-│       │   │   ├── frame_0098.png
-│       │   │   ├── frame_0099.png
-│       │   │   ├── frame_0100.png
-│       │   │   ├── frame_0101.png
-│       │   │   ├── frame_0102.png
-│       │   │   ├── frame_0103.png
-│       │   │   ├── frame_0104.png
-│       │   │   ├── frame_0105.png
-│       │   │   ├── frame_0106.png
-│       │   │   ├── frame_0107.png
-│       │   │   ├── frame_0108.png
-│       │   │   ├── frame_0109.png
-│       │   │   ├── frame_0110.png
-│       │   │   ├── frame_0111.png
-│       │   │   ├── frame_0112.png
-│       │   │   ├── frame_0113.png
-│       │   │   ├── frame_0114.png
-│       │   │   ├── frame_0115.png
-│       │   │   ├── frame_0116.png
-│       │   │   ├── frame_0117.png
-│       │   │   ├── frame_0118.png
-│       │   │   ├── frame_0119.png
-│       │   │   ├── frame_0120.png
-│       │   │   ├── frame_0121.png
-│       │   │   ├── frame_0122.png
-│       │   │   ├── frame_0123.png
-│       │   │   └── frame_0124.png
-│       │   ├── slide2_hf
-│       │   │   ├── frame_0000.png
-│       │   │   ├── frame_0001.png
-│       │   │   ├── frame_0002.png
-│       │   │   ├── frame_0003.png
-│       │   │   ├── frame_0004.png
-│       │   │   ├── frame_0005.png
-│       │   │   ├── frame_0006.png
-│       │   │   ├── frame_0007.png
-│       │   │   ├── frame_0008.png
-│       │   │   ├── frame_0009.png
-│       │   │   ├── frame_0010.png
-│       │   │   ├── frame_0011.png
-│       │   │   ├── frame_0012.png
-│       │   │   ├── frame_0013.png
-│       │   │   ├── frame_0014.png
-│       │   │   ├── frame_0015.png
-│       │   │   ├── frame_0016.png
-│       │   │   ├── frame_0017.png
-│       │   │   ├── frame_0018.png
-│       │   │   ├── frame_0019.png
-│       │   │   ├── frame_0020.png
-│       │   │   ├── frame_0021.png
-│       │   │   ├── frame_0022.png
-│       │   │   ├── frame_0023.png
-│       │   │   ├── frame_0024.png
-│       │   │   ├── frame_0025.png
-│       │   │   ├── frame_0026.png
-│       │   │   ├── frame_0027.png
-│       │   │   ├── frame_0028.png
-│       │   │   ├── frame_0029.png
-│       │   │   ├── frame_0030.png
-│       │   │   ├── frame_0031.png
-│       │   │   ├── frame_0032.png
-│       │   │   ├── frame_0033.png
-│       │   │   ├── frame_0034.png
-│       │   │   ├── frame_0035.png
-│       │   │   ├── frame_0036.png
-│       │   │   ├── frame_0037.png
-│       │   │   ├── frame_0038.png
-│       │   │   ├── frame_0039.png
-│       │   │   ├── frame_0040.png
-│       │   │   ├── frame_0041.png
-│       │   │   ├── frame_0042.png
-│       │   │   ├── frame_0043.png
-│       │   │   ├── frame_0044.png
-│       │   │   ├── frame_0045.png
-│       │   │   ├── frame_0046.png
-│       │   │   ├── frame_0047.png
-│       │   │   ├── frame_0048.png
-│       │   │   ├── frame_0049.png
-│       │   │   ├── frame_0050.png
-│       │   │   ├── frame_0051.png
-│       │   │   ├── frame_0052.png
-│       │   │   ├── frame_0053.png
-│       │   │   ├── frame_0054.png
-│       │   │   ├── frame_0055.png
-│       │   │   ├── frame_0056.png
-│       │   │   ├── frame_0057.png
-│       │   │   ├── frame_0058.png
-│       │   │   ├── frame_0059.png
-│       │   │   ├── frame_0060.png
-│       │   │   ├── frame_0061.png
-│       │   │   ├── frame_0062.png
-│       │   │   ├── frame_0063.png
-│       │   │   ├── frame_0064.png
-│       │   │   ├── frame_0065.png
-│       │   │   ├── frame_0066.png
-│       │   │   ├── frame_0067.png
-│       │   │   ├── frame_0068.png
-│       │   │   ├── frame_0069.png
-│       │   │   ├── frame_0070.png
-│       │   │   ├── frame_0071.png
-│       │   │   ├── frame_0072.png
-│       │   │   ├── frame_0073.png
-│       │   │   ├── frame_0074.png
-│       │   │   ├── frame_0075.png
-│       │   │   ├── frame_0076.png
-│       │   │   ├── frame_0077.png
-│       │   │   ├── frame_0078.png
-│       │   │   ├── frame_0079.png
-│       │   │   ├── frame_0080.png
-│       │   │   ├── frame_0081.png
-│       │   │   ├── frame_0082.png
-│       │   │   ├── frame_0083.png
-│       │   │   ├── frame_0084.png
-│       │   │   ├── frame_0085.png
-│       │   │   ├── frame_0086.png
-│       │   │   ├── frame_0087.png
-│       │   │   ├── frame_0088.png
-│       │   │   ├── frame_0089.png
-│       │   │   ├── frame_0090.png
-│       │   │   ├── frame_0091.png
-│       │   │   ├── frame_0092.png
-│       │   │   ├── frame_0093.png
-│       │   │   ├── frame_0094.png
-│       │   │   ├── frame_0095.png
-│       │   │   ├── frame_0096.png
-│       │   │   ├── frame_0097.png
-│       │   │   ├── frame_0098.png
-│       │   │   ├── frame_0099.png
-│       │   │   ├── frame_0100.png
-│       │   │   ├── frame_0101.png
-│       │   │   ├── frame_0102.png
-│       │   │   ├── frame_0103.png
-│       │   │   ├── frame_0104.png
-│       │   │   ├── frame_0105.png
-│       │   │   ├── frame_0106.png
-│       │   │   ├── frame_0107.png
-│       │   │   ├── frame_0108.png
-│       │   │   ├── frame_0109.png
-│       │   │   ├── frame_0110.png
-│       │   │   ├── frame_0111.png
-│       │   │   ├── frame_0112.png
-│       │   │   ├── frame_0113.png
-│       │   │   ├── frame_0114.png
-│       │   │   ├── frame_0115.png
-│       │   │   ├── frame_0116.png
-│       │   │   ├── frame_0117.png
-│       │   │   ├── frame_0118.png
-│       │   │   ├── frame_0119.png
-│       │   │   ├── frame_0120.png
-│       │   │   ├── frame_0121.png
-│       │   │   ├── frame_0122.png
-│       │   │   ├── frame_0123.png
-│       │   │   └── frame_0124.png
-│       │   ├── slide3_frames
-│       │   │   ├── frame_0000.png
-│       │   │   ├── frame_0001.png
-│       │   │   ├── frame_0002.png
-│       │   │   ├── frame_0003.png
-│       │   │   ├── frame_0004.png
-│       │   │   ├── frame_0005.png
-│       │   │   ├── frame_0006.png
-│       │   │   ├── frame_0007.png
-│       │   │   ├── frame_0008.png
-│       │   │   ├── frame_0009.png
-│       │   │   ├── frame_0010.png
-│       │   │   ├── frame_0011.png
-│       │   │   ├── frame_0012.png
-│       │   │   ├── frame_0013.png
-│       │   │   ├── frame_0014.png
-│       │   │   ├── frame_0015.png
-│       │   │   ├── frame_0016.png
-│       │   │   ├── frame_0017.png
-│       │   │   ├── frame_0018.png
-│       │   │   ├── frame_0019.png
-│       │   │   ├── frame_0020.png
-│       │   │   ├── frame_0021.png
-│       │   │   ├── frame_0022.png
-│       │   │   ├── frame_0023.png
-│       │   │   ├── frame_0024.png
-│       │   │   ├── frame_0025.png
-│       │   │   ├── frame_0026.png
-│       │   │   ├── frame_0027.png
-│       │   │   ├── frame_0028.png
-│       │   │   ├── frame_0029.png
-│       │   │   ├── frame_0030.png
-│       │   │   ├── frame_0031.png
-│       │   │   ├── frame_0032.png
-│       │   │   ├── frame_0033.png
-│       │   │   ├── frame_0034.png
-│       │   │   ├── frame_0035.png
-│       │   │   ├── frame_0036.png
-│       │   │   ├── frame_0037.png
-│       │   │   ├── frame_0038.png
-│       │   │   ├── frame_0039.png
-│       │   │   ├── frame_0040.png
-│       │   │   ├── frame_0041.png
-│       │   │   ├── frame_0042.png
-│       │   │   ├── frame_0043.png
-│       │   │   ├── frame_0044.png
-│       │   │   ├── frame_0045.png
-│       │   │   ├── frame_0046.png
-│       │   │   ├── frame_0047.png
-│       │   │   ├── frame_0048.png
-│       │   │   ├── frame_0049.png
-│       │   │   ├── frame_0050.png
-│       │   │   ├── frame_0051.png
-│       │   │   ├── frame_0052.png
-│       │   │   ├── frame_0053.png
-│       │   │   ├── frame_0054.png
-│       │   │   ├── frame_0055.png
-│       │   │   ├── frame_0056.png
-│       │   │   ├── frame_0057.png
-│       │   │   ├── frame_0058.png
-│       │   │   ├── frame_0059.png
-│       │   │   ├── frame_0060.png
-│       │   │   ├── frame_0061.png
-│       │   │   ├── frame_0062.png
-│       │   │   ├── frame_0063.png
-│       │   │   ├── frame_0064.png
-│       │   │   ├── frame_0065.png
-│       │   │   ├── frame_0066.png
-│       │   │   ├── frame_0067.png
-│       │   │   ├── frame_0068.png
-│       │   │   ├── frame_0069.png
-│       │   │   ├── frame_0070.png
-│       │   │   ├── frame_0071.png
-│       │   │   ├── frame_0072.png
-│       │   │   ├── frame_0073.png
-│       │   │   ├── frame_0074.png
-│       │   │   ├── frame_0075.png
-│       │   │   ├── frame_0076.png
-│       │   │   ├── frame_0077.png
-│       │   │   ├── frame_0078.png
-│       │   │   ├── frame_0079.png
-│       │   │   ├── frame_0080.png
-│       │   │   ├── frame_0081.png
-│       │   │   ├── frame_0082.png
-│       │   │   ├── frame_0083.png
-│       │   │   ├── frame_0084.png
-│       │   │   ├── frame_0085.png
-│       │   │   ├── frame_0086.png
-│       │   │   ├── frame_0087.png
-│       │   │   ├── frame_0088.png
-│       │   │   ├── frame_0089.png
-│       │   │   ├── frame_0090.png
-│       │   │   ├── frame_0091.png
-│       │   │   ├── frame_0092.png
-│       │   │   ├── frame_0093.png
-│       │   │   ├── frame_0094.png
-│       │   │   ├── frame_0095.png
-│       │   │   ├── frame_0096.png
-│       │   │   ├── frame_0097.png
-│       │   │   ├── frame_0098.png
-│       │   │   ├── frame_0099.png
-│       │   │   ├── frame_0100.png
-│       │   │   ├── frame_0101.png
-│       │   │   ├── frame_0102.png
-│       │   │   ├── frame_0103.png
-│       │   │   ├── frame_0104.png
-│       │   │   ├── frame_0105.png
-│       │   │   ├── frame_0106.png
-│       │   │   ├── frame_0107.png
-│       │   │   ├── frame_0108.png
-│       │   │   ├── frame_0109.png
-│       │   │   ├── frame_0110.png
-│       │   │   ├── frame_0111.png
-│       │   │   ├── frame_0112.png
-│       │   │   ├── frame_0113.png
-│       │   │   ├── frame_0114.png
-│       │   │   ├── frame_0115.png
-│       │   │   ├── frame_0116.png
-│       │   │   ├── frame_0117.png
-│       │   │   ├── frame_0118.png
-│       │   │   ├── frame_0119.png
-│       │   │   ├── frame_0120.png
-│       │   │   ├── frame_0121.png
-│       │   │   ├── frame_0122.png
-│       │   │   ├── frame_0123.png
-│       │   │   └── frame_0124.png
-│       │   ├── slide3_hf
-│       │   │   ├── frame_0000.png
-│       │   │   ├── frame_0001.png
-│       │   │   ├── frame_0002.png
-│       │   │   ├── frame_0003.png
-│       │   │   ├── frame_0004.png
-│       │   │   ├── frame_0005.png
-│       │   │   ├── frame_0006.png
-│       │   │   ├── frame_0007.png
-│       │   │   ├── frame_0008.png
-│       │   │   ├── frame_0009.png
-│       │   │   ├── frame_0010.png
-│       │   │   ├── frame_0011.png
-│       │   │   ├── frame_0012.png
-│       │   │   ├── frame_0013.png
-│       │   │   ├── frame_0014.png
-│       │   │   ├── frame_0015.png
-│       │   │   ├── frame_0016.png
-│       │   │   ├── frame_0017.png
-│       │   │   ├── frame_0018.png
-│       │   │   ├── frame_0019.png
-│       │   │   ├── frame_0020.png
-│       │   │   ├── frame_0021.png
-│       │   │   ├── frame_0022.png
-│       │   │   ├── frame_0023.png
-│       │   │   ├── frame_0024.png
-│       │   │   ├── frame_0025.png
-│       │   │   ├── frame_0026.png
-│       │   │   ├── frame_0027.png
-│       │   │   ├── frame_0028.png
-│       │   │   ├── frame_0029.png
-│       │   │   ├── frame_0030.png
-│       │   │   ├── frame_0031.png
-│       │   │   ├── frame_0032.png
-│       │   │   ├── frame_0033.png
-│       │   │   ├── frame_0034.png
-│       │   │   ├── frame_0035.png
-│       │   │   ├── frame_0036.png
-│       │   │   ├── frame_0037.png
-│       │   │   ├── frame_0038.png
-│       │   │   ├── frame_0039.png
-│       │   │   ├── frame_0040.png
-│       │   │   ├── frame_0041.png
-│       │   │   ├── frame_0042.png
-│       │   │   ├── frame_0043.png
-│       │   │   ├── frame_0044.png
-│       │   │   ├── frame_0045.png
-│       │   │   ├── frame_0046.png
-│       │   │   ├── frame_0047.png
-│       │   │   ├── frame_0048.png
-│       │   │   ├── frame_0049.png
-│       │   │   ├── frame_0050.png
-│       │   │   ├── frame_0051.png
-│       │   │   ├── frame_0052.png
-│       │   │   ├── frame_0053.png
-│       │   │   ├── frame_0054.png
-│       │   │   ├── frame_0055.png
-│       │   │   ├── frame_0056.png
-│       │   │   ├── frame_0057.png
-│       │   │   ├── frame_0058.png
-│       │   │   ├── frame_0059.png
-│       │   │   ├── frame_0060.png
-│       │   │   ├── frame_0061.png
-│       │   │   ├── frame_0062.png
-│       │   │   ├── frame_0063.png
-│       │   │   ├── frame_0064.png
-│       │   │   ├── frame_0065.png
-│       │   │   ├── frame_0066.png
-│       │   │   ├── frame_0067.png
-│       │   │   ├── frame_0068.png
-│       │   │   ├── frame_0069.png
-│       │   │   ├── frame_0070.png
-│       │   │   ├── frame_0071.png
-│       │   │   ├── frame_0072.png
-│       │   │   ├── frame_0073.png
-│       │   │   ├── frame_0074.png
-│       │   │   ├── frame_0075.png
-│       │   │   ├── frame_0076.png
-│       │   │   ├── frame_0077.png
-│       │   │   ├── frame_0078.png
-│       │   │   ├── frame_0079.png
-│       │   │   ├── frame_0080.png
-│       │   │   ├── frame_0081.png
-│       │   │   ├── frame_0082.png
-│       │   │   ├── frame_0083.png
-│       │   │   ├── frame_0084.png
-│       │   │   ├── frame_0085.png
-│       │   │   ├── frame_0086.png
-│       │   │   ├── frame_0087.png
-│       │   │   ├── frame_0088.png
-│       │   │   ├── frame_0089.png
-│       │   │   ├── frame_0090.png
-│       │   │   ├── frame_0091.png
-│       │   │   ├── frame_0092.png
-│       │   │   ├── frame_0093.png
-│       │   │   ├── frame_0094.png
-│       │   │   ├── frame_0095.png
-│       │   │   ├── frame_0096.png
-│       │   │   ├── frame_0097.png
-│       │   │   ├── frame_0098.png
-│       │   │   ├── frame_0099.png
-│       │   │   ├── frame_0100.png
-│       │   │   ├── frame_0101.png
-│       │   │   ├── frame_0102.png
-│       │   │   ├── frame_0103.png
-│       │   │   ├── frame_0104.png
-│       │   │   ├── frame_0105.png
-│       │   │   ├── frame_0106.png
-│       │   │   ├── frame_0107.png
-│       │   │   ├── frame_0108.png
-│       │   │   ├── frame_0109.png
-│       │   │   ├── frame_0110.png
-│       │   │   ├── frame_0111.png
-│       │   │   ├── frame_0112.png
-│       │   │   ├── frame_0113.png
-│       │   │   ├── frame_0114.png
-│       │   │   ├── frame_0115.png
-│       │   │   ├── frame_0116.png
-│       │   │   ├── frame_0117.png
-│       │   │   ├── frame_0118.png
-│       │   │   ├── frame_0119.png
-│       │   │   ├── frame_0120.png
-│       │   │   ├── frame_0121.png
-│       │   │   ├── frame_0122.png
-│       │   │   ├── frame_0123.png
-│       │   │   └── frame_0124.png
-│       │   ├── slide4_frames
-│       │   │   ├── frame_0000.png
-│       │   │   ├── frame_0001.png
-│       │   │   ├── frame_0002.png
-│       │   │   ├── frame_0003.png
-│       │   │   ├── frame_0004.png
-│       │   │   ├── frame_0005.png
-│       │   │   ├── frame_0006.png
-│       │   │   ├── frame_0007.png
-│       │   │   ├── frame_0008.png
-│       │   │   ├── frame_0009.png
-│       │   │   ├── frame_0010.png
-│       │   │   ├── frame_0011.png
-│       │   │   ├── frame_0012.png
-│       │   │   ├── frame_0013.png
-│       │   │   ├── frame_0014.png
-│       │   │   ├── frame_0015.png
-│       │   │   ├── frame_0016.png
-│       │   │   ├── frame_0017.png
-│       │   │   ├── frame_0018.png
-│       │   │   ├── frame_0019.png
-│       │   │   ├── frame_0020.png
-│       │   │   ├── frame_0021.png
-│       │   │   ├── frame_0022.png
-│       │   │   ├── frame_0023.png
-│       │   │   ├── frame_0024.png
-│       │   │   ├── frame_0025.png
-│       │   │   ├── frame_0026.png
-│       │   │   ├── frame_0027.png
-│       │   │   ├── frame_0028.png
-│       │   │   ├── frame_0029.png
-│       │   │   ├── frame_0030.png
-│       │   │   ├── frame_0031.png
-│       │   │   ├── frame_0032.png
-│       │   │   ├── frame_0033.png
-│       │   │   ├── frame_0034.png
-│       │   │   ├── frame_0035.png
-│       │   │   ├── frame_0036.png
-│       │   │   ├── frame_0037.png
-│       │   │   ├── frame_0038.png
-│       │   │   ├── frame_0039.png
-│       │   │   ├── frame_0040.png
-│       │   │   ├── frame_0041.png
-│       │   │   ├── frame_0042.png
-│       │   │   ├── frame_0043.png
-│       │   │   ├── frame_0044.png
-│       │   │   ├── frame_0045.png
-│       │   │   ├── frame_0046.png
-│       │   │   ├── frame_0047.png
-│       │   │   ├── frame_0048.png
-│       │   │   ├── frame_0049.png
-│       │   │   ├── frame_0050.png
-│       │   │   ├── frame_0051.png
-│       │   │   ├── frame_0052.png
-│       │   │   ├── frame_0053.png
-│       │   │   ├── frame_0054.png
-│       │   │   ├── frame_0055.png
-│       │   │   ├── frame_0056.png
-│       │   │   ├── frame_0057.png
-│       │   │   ├── frame_0058.png
-│       │   │   ├── frame_0059.png
-│       │   │   ├── frame_0060.png
-│       │   │   ├── frame_0061.png
-│       │   │   ├── frame_0062.png
-│       │   │   ├── frame_0063.png
-│       │   │   ├── frame_0064.png
-│       │   │   ├── frame_0065.png
-│       │   │   ├── frame_0066.png
-│       │   │   ├── frame_0067.png
-│       │   │   ├── frame_0068.png
-│       │   │   ├── frame_0069.png
-│       │   │   ├── frame_0070.png
-│       │   │   ├── frame_0071.png
-│       │   │   ├── frame_0072.png
-│       │   │   ├── frame_0073.png
-│       │   │   ├── frame_0074.png
-│       │   │   ├── frame_0075.png
-│       │   │   ├── frame_0076.png
-│       │   │   ├── frame_0077.png
-│       │   │   ├── frame_0078.png
-│       │   │   ├── frame_0079.png
-│       │   │   ├── frame_0080.png
-│       │   │   ├── frame_0081.png
-│       │   │   ├── frame_0082.png
-│       │   │   ├── frame_0083.png
-│       │   │   ├── frame_0084.png
-│       │   │   ├── frame_0085.png
-│       │   │   ├── frame_0086.png
-│       │   │   ├── frame_0087.png
-│       │   │   ├── frame_0088.png
-│       │   │   ├── frame_0089.png
-│       │   │   ├── frame_0090.png
-│       │   │   ├── frame_0091.png
-│       │   │   ├── frame_0092.png
-│       │   │   ├── frame_0093.png
-│       │   │   ├── frame_0094.png
-│       │   │   ├── frame_0095.png
-│       │   │   ├── frame_0096.png
-│       │   │   ├── frame_0097.png
-│       │   │   ├── frame_0098.png
-│       │   │   ├── frame_0099.png
-│       │   │   ├── frame_0100.png
-│       │   │   ├── frame_0101.png
-│       │   │   ├── frame_0102.png
-│       │   │   ├── frame_0103.png
-│       │   │   ├── frame_0104.png
-│       │   │   ├── frame_0105.png
-│       │   │   ├── frame_0106.png
-│       │   │   ├── frame_0107.png
-│       │   │   ├── frame_0108.png
-│       │   │   ├── frame_0109.png
-│       │   │   ├── frame_0110.png
-│       │   │   ├── frame_0111.png
-│       │   │   ├── frame_0112.png
-│       │   │   ├── frame_0113.png
-│       │   │   ├── frame_0114.png
-│       │   │   ├── frame_0115.png
-│       │   │   ├── frame_0116.png
-│       │   │   ├── frame_0117.png
-│       │   │   ├── frame_0118.png
-│       │   │   ├── frame_0119.png
-│       │   │   ├── frame_0120.png
-│       │   │   ├── frame_0121.png
-│       │   │   ├── frame_0122.png
-│       │   │   ├── frame_0123.png
-│       │   │   └── frame_0124.png
-│       │   ├── slide4_hf
-│       │   │   ├── frame_0000.png
-│       │   │   ├── frame_0001.png
-│       │   │   ├── frame_0002.png
-│       │   │   ├── frame_0003.png
-│       │   │   ├── frame_0004.png
-│       │   │   ├── frame_0005.png
-│       │   │   ├── frame_0006.png
-│       │   │   ├── frame_0007.png
-│       │   │   ├── frame_0008.png
-│       │   │   ├── frame_0009.png
-│       │   │   ├── frame_0010.png
-│       │   │   ├── frame_0011.png
-│       │   │   ├── frame_0012.png
-│       │   │   ├── frame_0013.png
-│       │   │   ├── frame_0014.png
-│       │   │   ├── frame_0015.png
-│       │   │   ├── frame_0016.png
-│       │   │   ├── frame_0017.png
-│       │   │   ├── frame_0018.png
-│       │   │   ├── frame_0019.png
-│       │   │   ├── frame_0020.png
-│       │   │   ├── frame_0021.png
-│       │   │   ├── frame_0022.png
-│       │   │   ├── frame_0023.png
-│       │   │   ├── frame_0024.png
-│       │   │   ├── frame_0025.png
-│       │   │   ├── frame_0026.png
-│       │   │   ├── frame_0027.png
-│       │   │   ├── frame_0028.png
-│       │   │   ├── frame_0029.png
-│       │   │   ├── frame_0030.png
-│       │   │   ├── frame_0031.png
-│       │   │   ├── frame_0032.png
-│       │   │   ├── frame_0033.png
-│       │   │   ├── frame_0034.png
-│       │   │   ├── frame_0035.png
-│       │   │   ├── frame_0036.png
-│       │   │   ├── frame_0037.png
-│       │   │   ├── frame_0038.png
-│       │   │   ├── frame_0039.png
-│       │   │   ├── frame_0040.png
-│       │   │   ├── frame_0041.png
-│       │   │   ├── frame_0042.png
-│       │   │   ├── frame_0043.png
-│       │   │   ├── frame_0044.png
-│       │   │   ├── frame_0045.png
-│       │   │   ├── frame_0046.png
-│       │   │   ├── frame_0047.png
-│       │   │   ├── frame_0048.png
-│       │   │   ├── frame_0049.png
-│       │   │   ├── frame_0050.png
-│       │   │   ├── frame_0051.png
-│       │   │   ├── frame_0052.png
-│       │   │   ├── frame_0053.png
-│       │   │   ├── frame_0054.png
-│       │   │   ├── frame_0055.png
-│       │   │   ├── frame_0056.png
-│       │   │   ├── frame_0057.png
-│       │   │   ├── frame_0058.png
-│       │   │   ├── frame_0059.png
-│       │   │   ├── frame_0060.png
-│       │   │   ├── frame_0061.png
-│       │   │   ├── frame_0062.png
-│       │   │   ├── frame_0063.png
-│       │   │   ├── frame_0064.png
-│       │   │   ├── frame_0065.png
-│       │   │   ├── frame_0066.png
-│       │   │   ├── frame_0067.png
-│       │   │   ├── frame_0068.png
-│       │   │   ├── frame_0069.png
-│       │   │   ├── frame_0070.png
-│       │   │   ├── frame_0071.png
-│       │   │   ├── frame_0072.png
-│       │   │   ├── frame_0073.png
-│       │   │   ├── frame_0074.png
-│       │   │   ├── frame_0075.png
-│       │   │   ├── frame_0076.png
-│       │   │   ├── frame_0077.png
-│       │   │   ├── frame_0078.png
-│       │   │   ├── frame_0079.png
-│       │   │   ├── frame_0080.png
-│       │   │   ├── frame_0081.png
-│       │   │   ├── frame_0082.png
-│       │   │   ├── frame_0083.png
-│       │   │   ├── frame_0084.png
-│       │   │   ├── frame_0085.png
-│       │   │   ├── frame_0086.png
-│       │   │   ├── frame_0087.png
-│       │   │   ├── frame_0088.png
-│       │   │   ├── frame_0089.png
-│       │   │   ├── frame_0090.png
-│       │   │   ├── frame_0091.png
-│       │   │   ├── frame_0092.png
-│       │   │   ├── frame_0093.png
-│       │   │   ├── frame_0094.png
-│       │   │   ├── frame_0095.png
-│       │   │   ├── frame_0096.png
-│       │   │   ├── frame_0097.png
-│       │   │   ├── frame_0098.png
-│       │   │   ├── frame_0099.png
-│       │   │   ├── frame_0100.png
-│       │   │   ├── frame_0101.png
-│       │   │   ├── frame_0102.png
-│       │   │   ├── frame_0103.png
-│       │   │   ├── frame_0104.png
-│       │   │   ├── frame_0105.png
-│       │   │   ├── frame_0106.png
-│       │   │   ├── frame_0107.png
-│       │   │   ├── frame_0108.png
-│       │   │   ├── frame_0109.png
-│       │   │   ├── frame_0110.png
-│       │   │   ├── frame_0111.png
-│       │   │   ├── frame_0112.png
-│       │   │   ├── frame_0113.png
-│       │   │   ├── frame_0114.png
-│       │   │   ├── frame_0115.png
-│       │   │   ├── frame_0116.png
-│       │   │   ├── frame_0117.png
-│       │   │   ├── frame_0118.png
-│       │   │   ├── frame_0119.png
-│       │   │   ├── frame_0120.png
-│       │   │   ├── frame_0121.png
-│       │   │   ├── frame_0122.png
-│       │   │   ├── frame_0123.png
-│       │   │   └── frame_0124.png
-│       │   ├── slide5_frames
-│       │   │   ├── frame_0000.png
-│       │   │   ├── frame_0001.png
-│       │   │   ├── frame_0002.png
-│       │   │   ├── frame_0003.png
-│       │   │   ├── frame_0004.png
-│       │   │   ├── frame_0005.png
-│       │   │   ├── frame_0006.png
-│       │   │   ├── frame_0007.png
-│       │   │   ├── frame_0008.png
-│       │   │   ├── frame_0009.png
-│       │   │   ├── frame_0010.png
-│       │   │   ├── frame_0011.png
-│       │   │   ├── frame_0012.png
-│       │   │   ├── frame_0013.png
-│       │   │   ├── frame_0014.png
-│       │   │   ├── frame_0015.png
-│       │   │   ├── frame_0016.png
-│       │   │   ├── frame_0017.png
-│       │   │   ├── frame_0018.png
-│       │   │   ├── frame_0019.png
-│       │   │   ├── frame_0020.png
-│       │   │   ├── frame_0021.png
-│       │   │   ├── frame_0022.png
-│       │   │   ├── frame_0023.png
-│       │   │   ├── frame_0024.png
-│       │   │   ├── frame_0025.png
-│       │   │   ├── frame_0026.png
-│       │   │   ├── frame_0027.png
-│       │   │   ├── frame_0028.png
-│       │   │   ├── frame_0029.png
-│       │   │   ├── frame_0030.png
-│       │   │   ├── frame_0031.png
-│       │   │   ├── frame_0032.png
-│       │   │   ├── frame_0033.png
-│       │   │   ├── frame_0034.png
-│       │   │   ├── frame_0035.png
-│       │   │   ├── frame_0036.png
-│       │   │   ├── frame_0037.png
-│       │   │   ├── frame_0038.png
-│       │   │   ├── frame_0039.png
-│       │   │   ├── frame_0040.png
-│       │   │   ├── frame_0041.png
-│       │   │   ├── frame_0042.png
-│       │   │   ├── frame_0043.png
-│       │   │   ├── frame_0044.png
-│       │   │   ├── frame_0045.png
-│       │   │   ├── frame_0046.png
-│       │   │   ├── frame_0047.png
-│       │   │   ├── frame_0048.png
-│       │   │   ├── frame_0049.png
-│       │   │   ├── frame_0050.png
-│       │   │   ├── frame_0051.png
-│       │   │   ├── frame_0052.png
-│       │   │   ├── frame_0053.png
-│       │   │   ├── frame_0054.png
-│       │   │   ├── frame_0055.png
-│       │   │   ├── frame_0056.png
-│       │   │   ├── frame_0057.png
-│       │   │   ├── frame_0058.png
-│       │   │   ├── frame_0059.png
-│       │   │   ├── frame_0060.png
-│       │   │   ├── frame_0061.png
-│       │   │   ├── frame_0062.png
-│       │   │   ├── frame_0063.png
-│       │   │   ├── frame_0064.png
-│       │   │   ├── frame_0065.png
-│       │   │   ├── frame_0066.png
-│       │   │   ├── frame_0067.png
-│       │   │   ├── frame_0068.png
-│       │   │   ├── frame_0069.png
-│       │   │   ├── frame_0070.png
-│       │   │   ├── frame_0071.png
-│       │   │   ├── frame_0072.png
-│       │   │   ├── frame_0073.png
-│       │   │   ├── frame_0074.png
-│       │   │   ├── frame_0075.png
-│       │   │   ├── frame_0076.png
-│       │   │   ├── frame_0077.png
-│       │   │   ├── frame_0078.png
-│       │   │   ├── frame_0079.png
-│       │   │   ├── frame_0080.png
-│       │   │   ├── frame_0081.png
-│       │   │   ├── frame_0082.png
-│       │   │   ├── frame_0083.png
-│       │   │   ├── frame_0084.png
-│       │   │   ├── frame_0085.png
-│       │   │   ├── frame_0086.png
-│       │   │   ├── frame_0087.png
-│       │   │   ├── frame_0088.png
-│       │   │   ├── frame_0089.png
-│       │   │   ├── frame_0090.png
-│       │   │   ├── frame_0091.png
-│       │   │   ├── frame_0092.png
-│       │   │   ├── frame_0093.png
-│       │   │   ├── frame_0094.png
-│       │   │   ├── frame_0095.png
-│       │   │   ├── frame_0096.png
-│       │   │   ├── frame_0097.png
-│       │   │   ├── frame_0098.png
-│       │   │   ├── frame_0099.png
-│       │   │   ├── frame_0100.png
-│       │   │   ├── frame_0101.png
-│       │   │   ├── frame_0102.png
-│       │   │   ├── frame_0103.png
-│       │   │   ├── frame_0104.png
-│       │   │   ├── frame_0105.png
-│       │   │   ├── frame_0106.png
-│       │   │   ├── frame_0107.png
-│       │   │   ├── frame_0108.png
-│       │   │   ├── frame_0109.png
-│       │   │   ├── frame_0110.png
-│       │   │   ├── frame_0111.png
-│       │   │   ├── frame_0112.png
-│       │   │   ├── frame_0113.png
-│       │   │   ├── frame_0114.png
-│       │   │   ├── frame_0115.png
-│       │   │   ├── frame_0116.png
-│       │   │   ├── frame_0117.png
-│       │   │   ├── frame_0118.png
-│       │   │   ├── frame_0119.png
-│       │   │   ├── frame_0120.png
-│       │   │   ├── frame_0121.png
-│       │   │   ├── frame_0122.png
-│       │   │   ├── frame_0123.png
-│       │   │   └── frame_0124.png
-│       │   ├── slide5_hf
-│       │   │   ├── frame_0000.png
-│       │   │   ├── frame_0001.png
-│       │   │   ├── frame_0002.png
-│       │   │   ├── frame_0003.png
-│       │   │   ├── frame_0004.png
-│       │   │   ├── frame_0005.png
-│       │   │   ├── frame_0006.png
-│       │   │   ├── frame_0007.png
-│       │   │   ├── frame_0008.png
-│       │   │   ├── frame_0009.png
-│       │   │   ├── frame_0010.png
-│       │   │   ├── frame_0011.png
-│       │   │   ├── frame_0012.png
-│       │   │   ├── frame_0013.png
-│       │   │   ├── frame_0014.png
-│       │   │   ├── frame_0015.png
-│       │   │   ├── frame_0016.png
-│       │   │   ├── frame_0017.png
-│       │   │   ├── frame_0018.png
-│       │   │   ├── frame_0019.png
-│       │   │   ├── frame_0020.png
-│       │   │   ├── frame_0021.png
-│       │   │   ├── frame_0022.png
-│       │   │   ├── frame_0023.png
-│       │   │   ├── frame_0024.png
-│       │   │   ├── frame_0025.png
-│       │   │   ├── frame_0026.png
-│       │   │   ├── frame_0027.png
-│       │   │   ├── frame_0028.png
-│       │   │   ├── frame_0029.png
-│       │   │   ├── frame_0030.png
-│       │   │   ├── frame_0031.png
-│       │   │   ├── frame_0032.png
-│       │   │   ├── frame_0033.png
-│       │   │   ├── frame_0034.png
-│       │   │   ├── frame_0035.png
-│       │   │   ├── frame_0036.png
-│       │   │   ├── frame_0037.png
-│       │   │   ├── frame_0038.png
-│       │   │   ├── frame_0039.png
-│       │   │   ├── frame_0040.png
-│       │   │   ├── frame_0041.png
-│       │   │   ├── frame_0042.png
-│       │   │   ├── frame_0043.png
-│       │   │   ├── frame_0044.png
-│       │   │   ├── frame_0045.png
-│       │   │   ├── frame_0046.png
-│       │   │   ├── frame_0047.png
-│       │   │   ├── frame_0048.png
-│       │   │   ├── frame_0049.png
-│       │   │   ├── frame_0050.png
-│       │   │   ├── frame_0051.png
-│       │   │   ├── frame_0052.png
-│       │   │   ├── frame_0053.png
-│       │   │   ├── frame_0054.png
-│       │   │   ├── frame_0055.png
-│       │   │   ├── frame_0056.png
-│       │   │   ├── frame_0057.png
-│       │   │   ├── frame_0058.png
-│       │   │   ├── frame_0059.png
-│       │   │   ├── frame_0060.png
-│       │   │   ├── frame_0061.png
-│       │   │   ├── frame_0062.png
-│       │   │   ├── frame_0063.png
-│       │   │   ├── frame_0064.png
-│       │   │   ├── frame_0065.png
-│       │   │   ├── frame_0066.png
-│       │   │   ├── frame_0067.png
-│       │   │   ├── frame_0068.png
-│       │   │   ├── frame_0069.png
-│       │   │   ├── frame_0070.png
-│       │   │   ├── frame_0071.png
-│       │   │   ├── frame_0072.png
-│       │   │   ├── frame_0073.png
-│       │   │   ├── frame_0074.png
-│       │   │   ├── frame_0075.png
-│       │   │   ├── frame_0076.png
-│       │   │   ├── frame_0077.png
-│       │   │   ├── frame_0078.png
-│       │   │   ├── frame_0079.png
-│       │   │   ├── frame_0080.png
-│       │   │   ├── frame_0081.png
-│       │   │   ├── frame_0082.png
-│       │   │   ├── frame_0083.png
-│       │   │   ├── frame_0084.png
-│       │   │   ├── frame_0085.png
-│       │   │   ├── frame_0086.png
-│       │   │   ├── frame_0087.png
-│       │   │   ├── frame_0088.png
-│       │   │   ├── frame_0089.png
-│       │   │   ├── frame_0090.png
-│       │   │   ├── frame_0091.png
-│       │   │   ├── frame_0092.png
-│       │   │   ├── frame_0093.png
-│       │   │   ├── frame_0094.png
-│       │   │   ├── frame_0095.png
-│       │   │   ├── frame_0096.png
-│       │   │   ├── frame_0097.png
-│       │   │   ├── frame_0098.png
-│       │   │   ├── frame_0099.png
-│       │   │   ├── frame_0100.png
-│       │   │   ├── frame_0101.png
-│       │   │   ├── frame_0102.png
-│       │   │   ├── frame_0103.png
-│       │   │   ├── frame_0104.png
-│       │   │   ├── frame_0105.png
-│       │   │   ├── frame_0106.png
-│       │   │   ├── frame_0107.png
-│       │   │   ├── frame_0108.png
-│       │   │   ├── frame_0109.png
-│       │   │   ├── frame_0110.png
-│       │   │   ├── frame_0111.png
-│       │   │   ├── frame_0112.png
-│       │   │   ├── frame_0113.png
-│       │   │   ├── frame_0114.png
-│       │   │   ├── frame_0115.png
-│       │   │   ├── frame_0116.png
-│       │   │   ├── frame_0117.png
-│       │   │   ├── frame_0118.png
-│       │   │   ├── frame_0119.png
-│       │   │   ├── frame_0120.png
-│       │   │   ├── frame_0121.png
-│       │   │   ├── frame_0122.png
-│       │   │   ├── frame_0123.png
-│       │   │   └── frame_0124.png
-│       │   ├── slide6_frames
-│       │   │   ├── frame_0000.png
-│       │   │   ├── frame_0001.png
-│       │   │   ├── frame_0002.png
-│       │   │   ├── frame_0003.png
-│       │   │   ├── frame_0004.png
-│       │   │   ├── frame_0005.png
-│       │   │   ├── frame_0006.png
-│       │   │   ├── frame_0007.png
-│       │   │   ├── frame_0008.png
-│       │   │   ├── frame_0009.png
-│       │   │   ├── frame_0010.png
-│       │   │   ├── frame_0011.png
-│       │   │   ├── frame_0012.png
-│       │   │   ├── frame_0013.png
-│       │   │   ├── frame_0014.png
-│       │   │   ├── frame_0015.png
-│       │   │   ├── frame_0016.png
-│       │   │   ├── frame_0017.png
-│       │   │   ├── frame_0018.png
-│       │   │   ├── frame_0019.png
-│       │   │   ├── frame_0020.png
-│       │   │   ├── frame_0021.png
-│       │   │   ├── frame_0022.png
-│       │   │   ├── frame_0023.png
-│       │   │   ├── frame_0024.png
-│       │   │   ├── frame_0025.png
-│       │   │   ├── frame_0026.png
-│       │   │   ├── frame_0027.png
-│       │   │   ├── frame_0028.png
-│       │   │   ├── frame_0029.png
-│       │   │   ├── frame_0030.png
-│       │   │   ├── frame_0031.png
-│       │   │   ├── frame_0032.png
-│       │   │   ├── frame_0033.png
-│       │   │   ├── frame_0034.png
-│       │   │   ├── frame_0035.png
-│       │   │   ├── frame_0036.png
-│       │   │   ├── frame_0037.png
-│       │   │   ├── frame_0038.png
-│       │   │   ├── frame_0039.png
-│       │   │   ├── frame_0040.png
-│       │   │   ├── frame_0041.png
-│       │   │   ├── frame_0042.png
-│       │   │   ├── frame_0043.png
-│       │   │   ├── frame_0044.png
-│       │   │   ├── frame_0045.png
-│       │   │   ├── frame_0046.png
-│       │   │   ├── frame_0047.png
-│       │   │   ├── frame_0048.png
-│       │   │   ├── frame_0049.png
-│       │   │   ├── frame_0050.png
-│       │   │   ├── frame_0051.png
-│       │   │   ├── frame_0052.png
-│       │   │   ├── frame_0053.png
-│       │   │   ├── frame_0054.png
-│       │   │   ├── frame_0055.png
-│       │   │   ├── frame_0056.png
-│       │   │   ├── frame_0057.png
-│       │   │   ├── frame_0058.png
-│       │   │   ├── frame_0059.png
-│       │   │   ├── frame_0060.png
-│       │   │   ├── frame_0061.png
-│       │   │   ├── frame_0062.png
-│       │   │   ├── frame_0063.png
-│       │   │   ├── frame_0064.png
-│       │   │   ├── frame_0065.png
-│       │   │   ├── frame_0066.png
-│       │   │   ├── frame_0067.png
-│       │   │   ├── frame_0068.png
-│       │   │   ├── frame_0069.png
-│       │   │   ├── frame_0070.png
-│       │   │   ├── frame_0071.png
-│       │   │   ├── frame_0072.png
-│       │   │   ├── frame_0073.png
-│       │   │   ├── frame_0074.png
-│       │   │   ├── frame_0075.png
-│       │   │   ├── frame_0076.png
-│       │   │   ├── frame_0077.png
-│       │   │   ├── frame_0078.png
-│       │   │   ├── frame_0079.png
-│       │   │   ├── frame_0080.png
-│       │   │   ├── frame_0081.png
-│       │   │   ├── frame_0082.png
-│       │   │   ├── frame_0083.png
-│       │   │   ├── frame_0084.png
-│       │   │   ├── frame_0085.png
-│       │   │   ├── frame_0086.png
-│       │   │   ├── frame_0087.png
-│       │   │   ├── frame_0088.png
-│       │   │   ├── frame_0089.png
-│       │   │   ├── frame_0090.png
-│       │   │   ├── frame_0091.png
-│       │   │   ├── frame_0092.png
-│       │   │   ├── frame_0093.png
-│       │   │   ├── frame_0094.png
-│       │   │   ├── frame_0095.png
-│       │   │   ├── frame_0096.png
-│       │   │   ├── frame_0097.png
-│       │   │   ├── frame_0098.png
-│       │   │   ├── frame_0099.png
-│       │   │   ├── frame_0100.png
-│       │   │   ├── frame_0101.png
-│       │   │   ├── frame_0102.png
-│       │   │   ├── frame_0103.png
-│       │   │   ├── frame_0104.png
-│       │   │   ├── frame_0105.png
-│       │   │   ├── frame_0106.png
-│       │   │   ├── frame_0107.png
-│       │   │   ├── frame_0108.png
-│       │   │   ├── frame_0109.png
-│       │   │   ├── frame_0110.png
-│       │   │   ├── frame_0111.png
-│       │   │   ├── frame_0112.png
-│       │   │   ├── frame_0113.png
-│       │   │   ├── frame_0114.png
-│       │   │   ├── frame_0115.png
-│       │   │   ├── frame_0116.png
-│       │   │   ├── frame_0117.png
-│       │   │   ├── frame_0118.png
-│       │   │   ├── frame_0119.png
-│       │   │   ├── frame_0120.png
-│       │   │   ├── frame_0121.png
-│       │   │   ├── frame_0122.png
-│       │   │   ├── frame_0123.png
-│       │   │   └── frame_0124.png
-│       │   ├── slide6_hf
-│       │   │   ├── frame_0000.png
-│       │   │   ├── frame_0001.png
-│       │   │   ├── frame_0002.png
-│       │   │   ├── frame_0003.png
-│       │   │   ├── frame_0004.png
-│       │   │   ├── frame_0005.png
-│       │   │   ├── frame_0006.png
-│       │   │   ├── frame_0007.png
-│       │   │   ├── frame_0008.png
-│       │   │   ├── frame_0009.png
-│       │   │   ├── frame_0010.png
-│       │   │   ├── frame_0011.png
-│       │   │   ├── frame_0012.png
-│       │   │   ├── frame_0013.png
-│       │   │   ├── frame_0014.png
-│       │   │   ├── frame_0015.png
-│       │   │   ├── frame_0016.png
-│       │   │   ├── frame_0017.png
-│       │   │   ├── frame_0018.png
-│       │   │   ├── frame_0019.png
-│       │   │   ├── frame_0020.png
-│       │   │   ├── frame_0021.png
-│       │   │   ├── frame_0022.png
-│       │   │   ├── frame_0023.png
-│       │   │   ├── frame_0024.png
-│       │   │   ├── frame_0025.png
-│       │   │   ├── frame_0026.png
-│       │   │   ├── frame_0027.png
-│       │   │   ├── frame_0028.png
-│       │   │   ├── frame_0029.png
-│       │   │   ├── frame_0030.png
-│       │   │   ├── frame_0031.png
-│       │   │   ├── frame_0032.png
-│       │   │   ├── frame_0033.png
-│       │   │   ├── frame_0034.png
-│       │   │   ├── frame_0035.png
-│       │   │   ├── frame_0036.png
-│       │   │   ├── frame_0037.png
-│       │   │   ├── frame_0038.png
-│       │   │   ├── frame_0039.png
-│       │   │   ├── frame_0040.png
-│       │   │   ├── frame_0041.png
-│       │   │   ├── frame_0042.png
-│       │   │   ├── frame_0043.png
-│       │   │   ├── frame_0044.png
-│       │   │   ├── frame_0045.png
-│       │   │   ├── frame_0046.png
-│       │   │   ├── frame_0047.png
-│       │   │   ├── frame_0048.png
-│       │   │   ├── frame_0049.png
-│       │   │   ├── frame_0050.png
-│       │   │   ├── frame_0051.png
-│       │   │   ├── frame_0052.png
-│       │   │   ├── frame_0053.png
-│       │   │   ├── frame_0054.png
-│       │   │   ├── frame_0055.png
-│       │   │   ├── frame_0056.png
-│       │   │   ├── frame_0057.png
-│       │   │   ├── frame_0058.png
-│       │   │   ├── frame_0059.png
-│       │   │   ├── frame_0060.png
-│       │   │   ├── frame_0061.png
-│       │   │   ├── frame_0062.png
-│       │   │   ├── frame_0063.png
-│       │   │   ├── frame_0064.png
-│       │   │   ├── frame_0065.png
-│       │   │   ├── frame_0066.png
-│       │   │   ├── frame_0067.png
-│       │   │   ├── frame_0068.png
-│       │   │   ├── frame_0069.png
-│       │   │   ├── frame_0070.png
-│       │   │   ├── frame_0071.png
-│       │   │   ├── frame_0072.png
-│       │   │   ├── frame_0073.png
-│       │   │   ├── frame_0074.png
-│       │   │   ├── frame_0075.png
-│       │   │   ├── frame_0076.png
-│       │   │   ├── frame_0077.png
-│       │   │   ├── frame_0078.png
-│       │   │   ├── frame_0079.png
-│       │   │   ├── frame_0080.png
-│       │   │   ├── frame_0081.png
-│       │   │   ├── frame_0082.png
-│       │   │   ├── frame_0083.png
-│       │   │   ├── frame_0084.png
-│       │   │   ├── frame_0085.png
-│       │   │   ├── frame_0086.png
-│       │   │   ├── frame_0087.png
-│       │   │   ├── frame_0088.png
-│       │   │   ├── frame_0089.png
-│       │   │   ├── frame_0090.png
-│       │   │   ├── frame_0091.png
-│       │   │   ├── frame_0092.png
-│       │   │   ├── frame_0093.png
-│       │   │   ├── frame_0094.png
-│       │   │   ├── frame_0095.png
-│       │   │   ├── frame_0096.png
-│       │   │   ├── frame_0097.png
-│       │   │   ├── frame_0098.png
-│       │   │   ├── frame_0099.png
-│       │   │   ├── frame_0100.png
-│       │   │   ├── frame_0101.png
-│       │   │   ├── frame_0102.png
-│       │   │   ├── frame_0103.png
-│       │   │   ├── frame_0104.png
-│       │   │   ├── frame_0105.png
-│       │   │   ├── frame_0106.png
-│       │   │   ├── frame_0107.png
-│       │   │   ├── frame_0108.png
-│       │   │   ├── frame_0109.png
-│       │   │   ├── frame_0110.png
-│       │   │   ├── frame_0111.png
-│       │   │   ├── frame_0112.png
-│       │   │   ├── frame_0113.png
-│       │   │   ├── frame_0114.png
-│       │   │   ├── frame_0115.png
-│       │   │   ├── frame_0116.png
-│       │   │   ├── frame_0117.png
-│       │   │   ├── frame_0118.png
-│       │   │   ├── frame_0119.png
-│       │   │   ├── frame_0120.png
-│       │   │   ├── frame_0121.png
-│       │   │   ├── frame_0122.png
-│       │   │   ├── frame_0123.png
-│       │   │   └── frame_0124.png
-│       │   ├── slide7_frames
-│       │   │   ├── frame_0000.png
-│       │   │   ├── frame_0001.png
-│       │   │   ├── frame_0002.png
-│       │   │   ├── frame_0003.png
-│       │   │   ├── frame_0004.png
-│       │   │   ├── frame_0005.png
-│       │   │   ├── frame_0006.png
-│       │   │   ├── frame_0007.png
-│       │   │   ├── frame_0008.png
-│       │   │   ├── frame_0009.png
-│       │   │   ├── frame_0010.png
-│       │   │   ├── frame_0011.png
-│       │   │   ├── frame_0012.png
-│       │   │   ├── frame_0013.png
-│       │   │   ├── frame_0014.png
-│       │   │   ├── frame_0015.png
-│       │   │   ├── frame_0016.png
-│       │   │   ├── frame_0017.png
-│       │   │   ├── frame_0018.png
-│       │   │   ├── frame_0019.png
-│       │   │   ├── frame_0020.png
-│       │   │   ├── frame_0021.png
-│       │   │   ├── frame_0022.png
-│       │   │   ├── frame_0023.png
-│       │   │   ├── frame_0024.png
-│       │   │   ├── frame_0025.png
-│       │   │   ├── frame_0026.png
-│       │   │   ├── frame_0027.png
-│       │   │   ├── frame_0028.png
-│       │   │   ├── frame_0029.png
-│       │   │   ├── frame_0030.png
-│       │   │   ├── frame_0031.png
-│       │   │   ├── frame_0032.png
-│       │   │   ├── frame_0033.png
-│       │   │   ├── frame_0034.png
-│       │   │   ├── frame_0035.png
-│       │   │   └── frame_0036.png
-│       │   ├── slide7_hf
-│       │   │   ├── frame_0000.png
-│       │   │   ├── frame_0001.png
-│       │   │   ├── frame_0002.png
-│       │   │   ├── frame_0003.png
-│       │   │   ├── frame_0004.png
-│       │   │   ├── frame_0005.png
-│       │   │   ├── frame_0006.png
-│       │   │   ├── frame_0007.png
-│       │   │   ├── frame_0008.png
-│       │   │   ├── frame_0009.png
-│       │   │   ├── frame_0010.png
-│       │   │   ├── frame_0011.png
-│       │   │   ├── frame_0012.png
-│       │   │   ├── frame_0013.png
-│       │   │   ├── frame_0014.png
-│       │   │   ├── frame_0015.png
-│       │   │   ├── frame_0016.png
-│       │   │   ├── frame_0017.png
-│       │   │   ├── frame_0018.png
-│       │   │   ├── frame_0019.png
-│       │   │   ├── frame_0020.png
-│       │   │   ├── frame_0021.png
-│       │   │   ├── frame_0022.png
-│       │   │   ├── frame_0023.png
-│       │   │   ├── frame_0024.png
-│       │   │   ├── frame_0025.png
-│       │   │   ├── frame_0026.png
-│       │   │   ├── frame_0027.png
-│       │   │   ├── frame_0028.png
-│       │   │   ├── frame_0029.png
-│       │   │   ├── frame_0030.png
-│       │   │   ├── frame_0031.png
-│       │   │   ├── frame_0032.png
-│       │   │   ├── frame_0033.png
-│       │   │   ├── frame_0034.png
-│       │   │   ├── frame_0035.png
-│       │   │   ├── frame_0036.png
-│       │   │   ├── frame_0037.png
-│       │   │   ├── frame_0038.png
-│       │   │   ├── frame_0039.png
-│       │   │   ├── frame_0040.png
-│       │   │   ├── frame_0041.png
-│       │   │   ├── frame_0042.png
-│       │   │   ├── frame_0043.png
-│       │   │   ├── frame_0044.png
-│       │   │   ├── frame_0045.png
-│       │   │   ├── frame_0046.png
-│       │   │   ├── frame_0047.png
-│       │   │   ├── frame_0048.png
-│       │   │   ├── frame_0049.png
-│       │   │   ├── frame_0050.png
-│       │   │   ├── frame_0051.png
-│       │   │   ├── frame_0052.png
-│       │   │   ├── frame_0053.png
-│       │   │   ├── frame_0054.png
-│       │   │   ├── frame_0055.png
-│       │   │   ├── frame_0056.png
-│       │   │   ├── frame_0057.png
-│       │   │   ├── frame_0058.png
-│       │   │   ├── frame_0059.png
-│       │   │   ├── frame_0060.png
-│       │   │   ├── frame_0061.png
-│       │   │   ├── frame_0062.png
-│       │   │   ├── frame_0063.png
-│       │   │   ├── frame_0064.png
-│       │   │   ├── frame_0065.png
-│       │   │   ├── frame_0066.png
-│       │   │   ├── frame_0067.png
-│       │   │   ├── frame_0068.png
-│       │   │   ├── frame_0069.png
-│       │   │   ├── frame_0070.png
-│       │   │   ├── frame_0071.png
-│       │   │   ├── frame_0072.png
-│       │   │   ├── frame_0073.png
-│       │   │   ├── frame_0074.png
-│       │   │   ├── frame_0075.png
-│       │   │   ├── frame_0076.png
-│       │   │   ├── frame_0077.png
-│       │   │   ├── frame_0078.png
-│       │   │   ├── frame_0079.png
-│       │   │   ├── frame_0080.png
-│       │   │   ├── frame_0081.png
-│       │   │   ├── frame_0082.png
-│       │   │   ├── frame_0083.png
-│       │   │   ├── frame_0084.png
-│       │   │   ├── frame_0085.png
-│       │   │   ├── frame_0086.png
-│       │   │   ├── frame_0087.png
-│       │   │   ├── frame_0088.png
-│       │   │   ├── frame_0089.png
-│       │   │   ├── frame_0090.png
-│       │   │   ├── frame_0091.png
-│       │   │   ├── frame_0092.png
-│       │   │   ├── frame_0093.png
-│       │   │   ├── frame_0094.png
-│       │   │   ├── frame_0095.png
-│       │   │   ├── frame_0096.png
-│       │   │   ├── frame_0097.png
-│       │   │   ├── frame_0098.png
-│       │   │   ├── frame_0099.png
-│       │   │   ├── frame_0100.png
-│       │   │   ├── frame_0101.png
-│       │   │   ├── frame_0102.png
-│       │   │   ├── frame_0103.png
-│       │   │   ├── frame_0104.png
-│       │   │   ├── frame_0105.png
-│       │   │   ├── frame_0106.png
-│       │   │   ├── frame_0107.png
-│       │   │   ├── frame_0108.png
-│       │   │   ├── frame_0109.png
-│       │   │   ├── frame_0110.png
-│       │   │   ├── frame_0111.png
-│       │   │   └── frame_0112.png
-│       │   ├── slide8_frames
-│       │   │   ├── frame_0000.png
-│       │   │   ├── frame_0001.png
-│       │   │   ├── frame_0002.png
-│       │   │   ├── frame_0003.png
-│       │   │   ├── frame_0004.png
-│       │   │   ├── frame_0005.png
-│       │   │   ├── frame_0006.png
-│       │   │   ├── frame_0007.png
-│       │   │   ├── frame_0008.png
-│       │   │   ├── frame_0009.png
-│       │   │   ├── frame_0010.png
-│       │   │   ├── frame_0011.png
-│       │   │   ├── frame_0012.png
-│       │   │   ├── frame_0013.png
-│       │   │   ├── frame_0014.png
-│       │   │   ├── frame_0015.png
-│       │   │   ├── frame_0016.png
-│       │   │   ├── frame_0017.png
-│       │   │   ├── frame_0018.png
-│       │   │   ├── frame_0019.png
-│       │   │   ├── frame_0020.png
-│       │   │   ├── frame_0021.png
-│       │   │   ├── frame_0022.png
-│       │   │   ├── frame_0023.png
-│       │   │   └── frame_0024.png
-│       │   └── slide9_frames
-│       │       ├── frame_0000.png
-│       │       ├── frame_0001.png
-│       │       ├── frame_0002.png
-│       │       ├── frame_0003.png
-│       │       ├── frame_0004.png
-│       │       ├── frame_0005.png
-│       │       ├── frame_0006.png
-│       │       ├── frame_0007.png
-│       │       ├── frame_0008.png
-│       │       ├── frame_0009.png
-│       │       ├── frame_0010.png
-│       │       ├── frame_0011.png
-│       │       ├── frame_0012.png
-│       │       ├── frame_0013.png
-│       │       ├── frame_0014.png
-│       │       ├── frame_0015.png
-│       │       ├── frame_0016.png
-│       │       ├── frame_0017.png
-│       │       ├── frame_0018.png
-│       │       ├── frame_0019.png
-│       │       ├── frame_0020.png
-│       │       ├── frame_0021.png
-│       │       ├── frame_0022.png
-│       │       ├── frame_0023.png
-│       │       └── frame_0024.png
-│       ├── preview
-│       │   ├── slide.html
-│       │   └── slide_edited.html
-│       ├── render_series.py
-│       ├── screens_bare.html
-│       ├── slides
-│       │   ├── slide1.html
-│       │   ├── slide10.html
-│       │   ├── slide11.html
-│       │   ├── slide12.html
-│       │   ├── slide13.html
-│       │   ├── slide14.html
-│       │   ├── slide2.html
-│       │   ├── slide3.html
-│       │   ├── slide4.html
-│       │   ├── slide5.html
-│       │   ├── slide6.html
-│       │   ├── slide7.html
-│       │   ├── slide8.html
-│       │   └── slide9.html
-│       ├── test.mp4
-│       ├── test_phone_ui.html
-│       ├── ui
-│       │   ├── slide1.html
-│       │   ├── slide10.html
-│       │   ├── slide11.html
-│       │   ├── slide12.html
-│       │   ├── slide13.html
-│       │   ├── slide14.html
-│       │   ├── slide2.html
-│       │   ├── slide3.html
-│       │   ├── slide4.html
-│       │   ├── slide5.html
-│       │   ├── slide6.html
-│       │   ├── slide7.html
-│       │   ├── slide8.html
-│       │   └── slide9.html
-│       ├── vid1.mp4
-│       ├── vid10.mp4
-│       ├── vid11.mp4
-│       ├── vid12.mp4
-│       ├── vid13.mp4
-│       ├── vid14.mp4
-│       ├── vid15.mp4
-│       ├── vid16.mp4
-│       ├── vid17.mp4
-│       ├── vid2.mp4
-│       ├── vid3.mp4
-│       ├── vid4.mp4
-│       ├── vid5.mp4
-│       ├── vid6.mp4
-│       ├── vid7.mp4
-│       ├── vid8.mp4
-│       └── vid9.mp4
+│   └── OTP Verification
+│       ├── README.md
+│       ├── index.html
+│       ├── script.js
+│       └── style.css
+├── tmp1.txt
 ├── tree.txt
 ├── ui_slide4.png
 ├── uploads
@@ -15180,15 +13432,45 @@
 │   │   ├── emoji_2764_fe0f_200d_1f525.webp
 │   │   ├── emoji_2764_fe0f_200d_1fa79.webp
 │   │   ├── emoji_2b50.webp
-│   │   └── emoji_2b50_fe0f.webp
-│   └── documents
+│   │   ├── emoji_2b50_fe0f.webp
+│   │   └── kiselgram_premium.webp
+│   ├── avatars
+│   │   └── avatar_6_b1208e7d.png
+│   ├── circles
+│   │   ├── round_4ce4dfbb577f47beb2f4913c9948c788.webm
+│   │   └── round_89aa86c3204a45279f1335a2cdef576e.webm
+│   ├── documents
+│   ├── images
+│   │   ├── 28aa99e20f1c4409ba16d3537329c41d.jpg
+│   │   ├── 4b789c2b4a764debb847a32beeff2c17.jpg
+│   │   ├── 671756c456ab47ddbcd638eadefb6b5b.jpg
+│   │   └── b2c69f79ffd741d9b0dadd8addeb0a5d.jpeg
+│   ├── stickers
+│   │   ├── sputnik_229145c29487433d85c7e705c708c3e6.png
+│   │   ├── sputnik_506a1dd54f8c4c259daf9e4de81f80f6.png
+│   │   ├── sputnik_5b392620fccc4fa5b5230d8c74912744.png
+│   │   ├── sputnik_74e799364da34e8eac7bd6f2afc5dcb5.png
+│   │   ├── sputnik_91eda6aa63494f41b6285b411907f1c4.png
+│   │   ├── sputnik_b4c7e803016a422594af8642908b908e.png
+│   │   ├── sputnik_b98b0ed75e6e4604aedb3756650eed4b.png
+│   │   ├── sputnik_c6d415d4a414497ca3189ad82007c857.png
+│   │   ├── sputnik_ca9f2b0654fd4b5bbc815cb4e141aa3d.png
+│   │   ├── sputnik_cf979fc7ff95494eae8cb6bd73f92673.png
+│   │   ├── sputnik_d9b2dc9a8ca4430893827972d741621b.png
+│   │   ├── sputnik_da4cfe874244424cb99bc45004dd431d.png
+│   │   └── sputnik_e83b39950d4d40f0a2cccb86e9ea94c9.png
+│   └── stories
+│       ├── story_1_JbEt2jQSbDk.jpg
+│       ├── story_1_erOvb9sk-sc.jpg
+│       ├── story_1_nMmCiJnkmzE.jpg
+│       ├── story_1_pfgbB7cAE58.jpg
+│       ├── story_1_saL42TiOCAY.jpg
+│       ├── story_61bf64155c66429596d397e366efb512.jpg
+│       └── story_9ee074a210f0447ba0fbd5235de12cb7.jpg
 ├── video_server
 │   ├── Dockerfile
 │   ├── __init__.py
 │   ├── __main__.py
-│   ├── __pycache__
-│   │   ├── __init__.cpython-310.pyc
-│   │   └── app.cpython-310.pyc
 │   ├── app.py
 │   ├── requirements.txt
 │   └── templates
@@ -15196,4 +13478,4 @@
 │       └── room.html
 └── wsgi.py
 
-257 directories, 14940 files
+243 directories, 13236 files

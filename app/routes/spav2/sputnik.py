@@ -86,6 +86,33 @@ def sputnik_join_channel_page(code):
     n = ChatSubscriber.query.filter_by(chat_id=chat.id).count()
     return render_template('sputnik_join.html', chat=chat, members=n, code=code)
 
+
+@sputnik_pages_bp.route('/m/<int:chat_id>/<int:msg_id>')
+def sputnik_message_link(chat_id, msg_id):
+    """Telegram-style message deep link (public groups/channels only)."""
+    from flask import render_template, render_template_string
+    from app.models import Message as _Message
+    chat = Chat.query.get(chat_id)
+    if not chat or chat.chat_type not in ('group', 'channel') or not chat.is_public:
+        return render_template('errors/404.html'), 404
+    msg = _Message.query.filter_by(id=msg_id, chat_id=chat_id, is_deleted=False).first()
+    if not msg:
+        return render_template('errors/404.html'), 404
+    sender = User.query.get(msg.sender_id)
+    text = (msg.content or '')[:500]
+    return render_template_string(
+        '<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<title>{{ chat.name }} — Kiselgram</title><style>'
+        'body{font-family:system-ui;background:#0e1621;color:#fff;display:flex;align-items:center;'
+        'justify-content:center;min-height:100vh;margin:0}.card{background:#17212b;border-radius:16px;'
+        'padding:32px;max-width:420px;width:90%}.btn{display:block;background:#2aabee;color:#fff;'
+        'border-radius:10px;padding:12px;text-decoration:none;font-weight:700;text-align:center;margin-top:16px}'
+        '</style></head><body><div class="card"><h2>{{ chat.name }}</h2>'
+        '<p><b>{{ sender }}</b></p><p>{{ text }}</p>'
+        '<a class="btn" href="/k">Open in Kiselgram</a></div></body></html>',
+        chat=chat, sender=sender.username if sender else '?', text=text)
+
 _ROUND_MAX_SECONDS = 60
 _URL_RE = re.compile(r'^https?://', re.IGNORECASE)
 
@@ -929,7 +956,7 @@ def sputnik_drafts_list():
         return err
     rows = SputnikDraft.query.filter_by(user_id=uid).order_by(SputnikDraft.updated_at.desc()).all()
     return jsonify({'success': True, 'data': {'drafts': [
-        {'chat_type': d.chat_type, 'chat_id': d.chat_id, 'text': d.text} for d in rows
+        {'chat_type': d.chat_type, 'chat_id': d.chat_id, 'text': d.text, 'reply_to_id': d.reply_to_id} for d in rows
     ]}})
 
 
@@ -945,6 +972,10 @@ def sputnik_draft_save():
     except (TypeError, ValueError):
         return jsonify({'success': False, 'error': 'chat_id required'}), 400
     text = (data.get('text') or '')[:4000]
+    try:
+        reply_to = int(data.get('reply_to_id')) if data.get('reply_to_id') else None
+    except (TypeError, ValueError):
+        reply_to = None
     row = SputnikDraft.query.filter_by(user_id=uid, chat_type=ctype, chat_id=cid).first()
     if not text:
         if row:
@@ -952,10 +983,11 @@ def sputnik_draft_save():
             db.session.commit()
         return jsonify({'success': True, 'data': {'cleared': True}})
     if not row:
-        row = SputnikDraft(user_id=uid, chat_type=ctype, chat_id=cid, text=text)
+        row = SputnikDraft(user_id=uid, chat_type=ctype, chat_id=cid, text=text, reply_to_id=reply_to)
         db.session.add(row)
     else:
         row.text = text
+        row.reply_to_id = reply_to
     db.session.commit()
     return jsonify({'success': True})
 
@@ -1148,7 +1180,7 @@ def sputnik_join_approve(chat_id):
         db.session.add(ChatMember(chat_id=chat_id, user_id=target, role='member'))
     db.session.commit()
     chat = Chat.query.get(chat_id)
-    _notify_via_system(target, f"Ваша заявка в группу «{chat.name if chat else chat_id}» одобрена.")
+    _notify_via_system(target, f'Your request to join "{chat.name if chat else chat_id}" was approved.')
     return jsonify({'success': True})
 
 
@@ -1169,7 +1201,7 @@ def sputnik_join_reject(chat_id):
     row.status = 'rejected'
     db.session.commit()
     chat = Chat.query.get(chat_id)
-    _notify_via_system(target, f"Ваша заявка в группу «{chat.name if chat else chat_id}» отклонена.")
+    _notify_via_system(target, f'Your request to join "{chat.name if chat else chat_id}" was declined.')
     return jsonify({'success': True})
 
 

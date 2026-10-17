@@ -236,6 +236,12 @@ def upload_file():
             if chat.owner_id != user_id:
                 return jsonify({'success': False, 'error': 'Only channel owner can post'}), 403
 
+        if group_id or channel_id:
+            from app.utils.helpers import slow_mode_ok
+            ok, retry = slow_mode_ok(user_id, int(group_id or channel_id))
+            if not ok:
+                return jsonify({'success': False, 'error': f'Slow mode: wait {retry}s'}), 429
+
         file_ext = file.filename.rsplit('.', 1)[1].lower()
         unique_filename = f"{uuid.uuid4().hex}.{file_ext}"
         file_type = get_file_type(file.filename)

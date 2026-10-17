@@ -265,6 +265,11 @@ def send_group_message():
     if not membership:
         return jsonify({'success': False, 'error': {'code': 'NOT_MEMBER', 'message': 'You are not a member of this group'}}), 403
 
+    from app.utils.helpers import slow_mode_ok
+    ok, retry = slow_mode_ok(current_user_id, group_id)
+    if not ok:
+        return jsonify({'success': False, 'error': {'code': 'SLOW_MODE', 'message': f'Slow mode: wait {retry}s'}}), 429
+
     msg = Message(sender_id=current_user_id, chat_id=group_id, receiver_id=current_user_id, content=content, timestamp=datetime.utcnow())
     if emoji_data:
         msg.emoji = emoji_data['emoji']

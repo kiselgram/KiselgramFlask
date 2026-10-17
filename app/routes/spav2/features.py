@@ -121,6 +121,10 @@ def forward_message():
     if not orig:
         return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Message not found'}}), 404
 
+    src_chat = Chat.query.get(orig.chat_id) if orig.chat_id else None
+    if src_chat is not None and getattr(src_chat, 'no_forwards', False):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'Forwarding is disabled in this chat'}}), 403
+
     if not target_chat_id or not _chat_access(current_user_id, target_chat_id):
         return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'You are not in the target chat'}}), 403
 

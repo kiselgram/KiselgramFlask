@@ -884,3 +884,36 @@ body.liquid-glass .k-msg.outgoing .k-msg-bubble {
 /* --- Sputnik wave 4 UI --- */
 .k-sp-edited { font-size: 10px; opacity: .55; cursor: pointer; margin-left: 6px; }
 .k-sp-edited:hover { opacity: 1; text-decoration: underline; }
+
+/* --- Telegram parity pack (tg.js) --- */
+.k-tg-dice { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 8px; }
+.k-tg-face { font-size: 72px; line-height: 1; }
+.k-tg-topics { display: flex; gap: 4px; padding: 6px 12px; overflow-x: auto; white-space: nowrap; border-bottom: 1px solid var(--border-color); }
+.k-tg-dice-msg { font-size: 48px; line-height: 1; }
+.k-tg-geo a { color: var(--accent-blue); text-decoration: none; font-weight: 600; }
+
+/* --- Telegram parity: recorder + collectibles --- */
+.k-tg-rec { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.k-tg-rec-view { width: 220px; height: 220px; border-radius: 50%; object-fit: cover; background: #000; }
+.k-tg-rec-timer { font-weight: 700; font-size: 16px; }
+
+/* --- Telegram dice cube (value on front + top) --- */
+.k-tg-dice-msg { perspective: 300px; padding: 6px; }
+.k-tg-cube { width: 64px; height: 64px; position: relative; transform-style: preserve-3d; transform: rotateX(-18deg) rotateY(-18deg); }
+.k-tg-cube.k-tg-roll { animation: k-tg-roll 1.1s cubic-bezier(0.2, 0.7, 0.3, 1) forwards; }
+@keyframes k-tg-roll {
+  from { transform: rotateX(-18deg) rotateY(-738deg); }
+  to { transform: rotateX(-18deg) rotateY(-18deg); }
+}
+.k-tg-face {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 30px; font-weight: 800; color: var(--text-primary);
+  background: var(--bg-surface); border: 2px solid var(--border-color); border-radius: 12px;
+  backface-visibility: visible;
+}
+.k-tg-face.k-tg-f0 { transform: translateZ(32px); border-color: var(--accent-blue); box-shadow: 0 0 0 2px var(--accent-blue); }
+.k-tg-face.k-tg-f1 { transform: rotateY(180deg) translateZ(32px); }
+.k-tg-face.k-tg-f2 { transform: rotateY(90deg) translateZ(32px); }
+.k-tg-face.k-tg-f3 { transform: rotateY(-90deg) translateZ(32px); }
+.k-tg-face.k-tg-f4 { transform: rotateX(90deg) translateZ(32px); color: var(--accent-blue); }
+.k-tg-face.k-tg-f5 { transform: rotateX(-90deg) translateZ(32px); }

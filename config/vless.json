@@ -1,0 +1,183 @@
+{
+  "burstObservatory": {
+    "pingConfig": {
+      "connectivity": "",
+      "destination": "http://www.youtube.com/generate_204",
+      "httpMethod": "HEAD",
+      "interval": "90s",
+      "sampling": 2,
+      "timeout": "4s"
+    },
+    "subjectSelector": ["good-bridge", "any-bridge"]
+  },
+  "dns": {
+    "hosts": {
+      "lkfl2.nalog.ru": "213.24.64.175",
+      "lknpd.nalog.ru": "213.24.64.181"
+    },
+    "servers": [
+      {
+        "address": "77.88.8.8",
+        "domain": ["regexp:.*\\.ru$", "regexp:.*\\.su$", "regexp:.*\\.xn--p1ai$"]
+      },
+      "1.1.1.1"
+    ]
+  },
+  "inbounds": [
+    {
+      "listen": "127.0.0.1",
+      "port": 10808,
+      "protocol": "socks",
+      "settings": { "auth": "noauth", "udp": true, "userLevel": 8 },
+      "sniffing": { "destOverride": ["http", "tls", "quic"], "enabled": true },
+      "tag": "socks"
+    },
+    {
+      "listen": "127.0.0.1",
+      "port": 10809,
+      "protocol": "http",
+      "settings": { "allowTransparent": false, "userLevel": 8 },
+      "sniffing": { "destOverride": ["http", "tls", "quic"], "enabled": true },
+      "tag": "http"
+    }
+  ],
+  "log": { "loglevel": "warning" },
+  "meta": { "serverDescription": "мосты: ты - москва - мир" },
+  "outbounds": [
+    {
+      "mux": { "concurrency": -1, "enabled": true, "xudpConcurrency": 16, "xudpProxyUDP443": "reject" },
+      "protocol": "vless",
+      "settings": { "vnext": [{ "address": "171.22.133.34", "port": 443, "users": [{ "encryption": "none", "flow": "", "id": "019e68fb-a825-7bc3-a997-cf4a6e2417b6" }] }] },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "tls",
+        "tlsSettings": { "alpn": ["h2"], "fingerprint": "chrome", "serverName": "ewrmpu9wo8.4burn.org" },
+        "xhttpSettings": { "extra": { "scMaxEachPostBytes": 262144, "scMinPostsIntervalMs": 20, "scStreamUpServerSecs": "30-90", "xmux": { "cMaxReuseTimes": 0, "hKeepAlivePeriod": 0, "hMaxRequestTimes": "2048-4095", "hMaxReusableSecs": "900-1800", "maxConcurrency": "32-128", "maxConnections": 0 }, "xPaddingBytes": "64-512" }, "host": "", "mode": "stream-up", "path": "/qqld" }
+      },
+      "tag": "good-bridge"
+    },
+    {
+      "mux": { "concurrency": -1, "enabled": true, "xudpConcurrency": 16, "xudpProxyUDP443": "reject" },
+      "protocol": "vless",
+      "settings": { "vnext": [{ "address": "connect.4burn.org", "port": 443, "users": [{ "encryption": "none", "flow": "", "id": "019e68fb-a825-7bc3-a997-cf4a6e2417b6" }] }] },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "tls",
+        "tlsSettings": { "alpn": ["h2"], "fingerprint": "chrome", "serverName": "connect.4burn.org" },
+        "xhttpSettings": { "extra": { "scMaxEachPostBytes": 262144, "scMinPostsIntervalMs": 20, "scStreamUpServerSecs": "30-90", "xmux": { "cMaxReuseTimes": 0, "hKeepAlivePeriod": 0, "hMaxRequestTimes": "2048-4095", "hMaxReusableSecs": "900-1800", "maxConcurrency": "32-128", "maxConnections": 0 }, "xPaddingBytes": "64-512" }, "host": "", "mode": "stream-one", "path": "/qql" }
+      },
+      "tag": "good-bridge-2"
+    },
+    {
+      "mux": { "concurrency": -1, "enabled": true, "xudpConcurrency": 16, "xudpProxyUDP443": "reject" },
+      "protocol": "vless",
+      "settings": { "vnext": [{ "address": "176.32.34.58", "port": 443, "users": [{ "encryption": "none", "flow": "", "id": "019e68fb-a825-7bc3-a997-cf4a6e2417b6" }] }] },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "tls",
+        "tlsSettings": { "alpn": ["h2"], "fingerprint": "chrome", "serverName": "cdn.4burn.cloud" },
+        "xhttpSettings": { "extra": { "scMaxEachPostBytes": 262144, "scMinPostsIntervalMs": 20, "scStreamUpServerSecs": "30-90", "xmux": { "cMaxReuseTimes": 0, "hKeepAlivePeriod": 0, "hMaxRequestTimes": "2048-4095", "hMaxReusableSecs": "900-1800", "maxConcurrency": "32-128", "maxConnections": 0 }, "xPaddingBytes": "64-512" }, "host": "", "mode": "stream-one", "path": "/qql" }
+      },
+      "tag": "good-bridge-3"
+    },
+    {
+      "mux": { "concurrency": -1, "enabled": true, "xudpConcurrency": 0, "xudpProxyUDP443": "reject" },
+      "protocol": "vless",
+      "settings": { "vnext": [{ "address": "150.241.85.28", "port": 443, "users": [{ "encryption": "none", "flow": "", "id": "019e68fb-a825-7bc3-a997-cf4a6e2417b6" }] }] },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "tls",
+        "sockopt": { "dialerProxy": "fragment-direct" },
+        "tlsSettings": { "alpn": ["h2"], "fingerprint": "chrome", "serverName": "0z4c23stpm.4burn.org" },
+        "xhttpSettings": { "extra": { "scMaxEachPostBytes": 262144, "scMinPostsIntervalMs": 20, "scStreamUpServerSecs": "30-90", "xmux": { "cMaxReuseTimes": 0, "hKeepAlivePeriod": 0, "hMaxRequestTimes": "2048-4095", "hMaxReusableSecs": "900-1800", "maxConcurrency": "32-128", "maxConnections": 0 }, "xPaddingBytes": "64-512" }, "host": "", "mode": "stream-one", "path": "/qql" }
+      },
+      "tag": "any-bridge"
+    },
+    {
+      "mux": { "concurrency": -1, "enabled": true, "xudpConcurrency": 16, "xudpProxyUDP443": "reject" },
+      "protocol": "vless",
+      "settings": { "vnext": [{ "address": "171.22.133.34", "port": 443, "users": [{ "encryption": "none", "flow": "", "id": "019e68fb-a825-7bc3-a997-cf4a6e2417b6" }] }] },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "tls",
+        "tlsSettings": { "alpn": ["h2"], "fingerprint": "chrome", "serverName": "ewrmpu9wo8.4burn.org" },
+        "xhttpSettings": { "extra": { "scMaxEachPostBytes": 262144, "scMinPostsIntervalMs": 20, "scStreamUpServerSecs": "30-90", "xmux": { "cMaxReuseTimes": 0, "hKeepAlivePeriod": 0, "hMaxRequestTimes": "2048-4095", "hMaxReusableSecs": "900-1800", "maxConcurrency": "32-128", "maxConnections": 0 }, "xPaddingBytes": "64-512" }, "host": "", "mode": "stream-up", "path": "/qqld" }
+      },
+      "tag": "any-bridge-2"
+    },
+    {
+      "mux": { "concurrency": -1, "enabled": true, "xudpConcurrency": 16, "xudpProxyUDP443": "reject" },
+      "protocol": "vless",
+      "settings": { "vnext": [{ "address": "connect.4burn.org", "port": 443, "users": [{ "encryption": "none", "flow": "", "id": "019e68fb-a825-7bc3-a997-cf4a6e2417b6" }] }] },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "tls",
+        "tlsSettings": { "alpn": ["h2"], "fingerprint": "chrome", "serverName": "connect.4burn.org" },
+        "xhttpSettings": { "extra": { "scMaxEachPostBytes": 262144, "scMinPostsIntervalMs": 20, "scStreamUpServerSecs": "30-90", "xmux": { "cMaxReuseTimes": 0, "hKeepAlivePeriod": 0, "hMaxRequestTimes": "2048-4095", "hMaxReusableSecs": "900-1800", "maxConcurrency": "32-128", "maxConnections": 0 }, "xPaddingBytes": "64-512" }, "host": "", "mode": "stream-one", "path": "/qql" }
+      },
+      "tag": "any-bridge-3"
+    },
+    {
+      "mux": { "concurrency": -1, "enabled": true, "xudpConcurrency": 16, "xudpProxyUDP443": "reject" },
+      "protocol": "vless",
+      "settings": { "vnext": [{ "address": "176.32.34.58", "port": 443, "users": [{ "encryption": "none", "flow": "", "id": "019e68fb-a825-7bc3-a997-cf4a6e2417b6" }] }] },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "tls",
+        "tlsSettings": { "alpn": ["h2"], "fingerprint": "chrome", "serverName": "cdn.4burn.cloud" },
+        "xhttpSettings": { "extra": { "scMaxEachPostBytes": 262144, "scMinPostsIntervalMs": 20, "scStreamUpServerSecs": "30-90", "xmux": { "cMaxReuseTimes": 0, "hKeepAlivePeriod": 0, "hMaxRequestTimes": "2048-4095", "hMaxReusableSecs": "900-1800", "maxConcurrency": "32-128", "maxConnections": 0 }, "xPaddingBytes": "64-512" }, "host": "", "mode": "stream-one", "path": "/qql" }
+      },
+      "tag": "any-bridge-4"
+    },
+    {
+      "mux": { "concurrency": -1, "enabled": true, "xudpConcurrency": 16, "xudpProxyUDP443": "reject" },
+      "protocol": "vless",
+      "settings": { "vnext": [{ "address": "46.29.161.187", "port": 443, "users": [{ "encryption": "none", "flow": "", "id": "019e68fb-a825-7bc3-a997-cf4a6e2417b6" }] }] },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "tls",
+        "tlsSettings": { "alpn": ["h2"], "fingerprint": "chrome", "serverName": "b347dvp3x5.cheburn.com" },
+        "xhttpSettings": { "extra": { "scMaxEachPostBytes": 262144, "scMinPostsIntervalMs": 20, "scStreamUpServerSecs": "30-90", "xmux": { "cMaxReuseTimes": 0, "hKeepAlivePeriod": 0, "hMaxRequestTimes": "2048-4095", "hMaxReusableSecs": "900-1800", "maxConcurrency": "32-128", "maxConnections": 0 }, "xPaddingBytes": "64-512" }, "host": "", "mode": "stream-one", "path": "/qql" }
+      },
+      "tag": "any-bridge-5"
+    },
+    {
+      "mux": { "concurrency": -1, "enabled": true, "xudpConcurrency": 16, "xudpProxyUDP443": "reject" },
+      "protocol": "vless",
+      "settings": { "vnext": [{ "address": "45.139.184.187", "port": 443, "users": [{ "encryption": "none", "flow": "", "id": "019e68fb-a825-7bc3-a997-cf4a6e2417b6" }] }] },
+      "streamSettings": {
+        "network": "xhttp",
+        "security": "tls",
+        "tlsSettings": { "alpn": ["h2"], "fingerprint": "chrome", "serverName": "news.cheburn.com" },
+        "xhttpSettings": { "extra": { "scMaxEachPostBytes": 262144, "scMinPostsIntervalMs": 20, "scStreamUpServerSecs": "30-90", "xmux": { "cMaxReuseTimes": 0, "hKeepAlivePeriod": 0, "hMaxRequestTimes": "2048-4095", "hMaxReusableSecs": "900-1800", "maxConcurrency": "32-128", "maxConnections": 0 }, "xPaddingBytes": "64-512" }, "host": "", "mode": "stream-one", "path": "/qql" }
+      },
+      "tag": "any-bridge-6"
+    },
+    { "protocol": "blackhole", "settings": { "response": { "type": "http" } }, "tag": "BLOCK" },
+    { "protocol": "freedom", "settings": { "domainStrategy": "AsIs" }, "tag": "DIRECT" },
+    { "protocol": "freedom", "settings": { "fragment": { "interval": "5-20", "length": "64-256", "packets": "tlshello" } }, "tag": "fragment-direct" }
+  ],
+  "policy": {
+    "0": { "statsUserDownlink": true, "statsUserUplink": true },
+    "8": { "connIdle": 300, "downlinkOnly": 5, "handshake": 4, "uplinkOnly": 1 },
+    "system": { "statsInboundDownlink": true, "statsInboundUplink": true, "statsOutboundDownlink": true, "statsOutboundUplink": true }
+  },
+  "remarks": "🇷🇺 ~ Мосты РФ -> Мир",
+  "routing": {
+    "balancers": [
+      { "fallbackTag": "block", "selector": ["any-bridge"], "strategy": { "settings": { "expected": 3, "maxRTT": "1500ms", "tolerance": 0.25 }, "type": "leastLoad" }, "tag": "BALANCER" },
+      { "fallbackTag": "block", "selector": ["good-bridge"], "strategy": { "settings": { "expected": 2, "maxRTT": "1500ms", "tolerance": 0.25 }, "type": "leastLoad" }, "tag": "GOOD-BALANCER" }
+    ],
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+      { "domain": ["domain:4burn.cloud", "domain:4burn.net", "domain:4burn.online", "domain:4burn.org", "domain:cheburn.com"], "outboundTag": "DIRECT" },
+      { "network": "udp", "outboundTag": "DIRECT", "port": 53 },
+      { "ip": ["geoip:private"], "outboundTag": "DIRECT" },
+      { "domain": ["geosite:private"], "outboundTag": "DIRECT" },
+      { "outboundTag": "BLOCK", "protocol": ["bittorrent"] },
+      { "balancerTag": "GOOD-BALANCER", "domain": ["keyword:youtube", "domain:yt3.googleusercontent.com", "domain:ytimg.com", "domain:youtu.be", "domain:yt.be", "domain:ggpht.com", "domain:googlevideo.com", "domain:ggpht.cn"] },
+      { "balancerTag": "BALANCER", "network": "tcp,udp" }
+    ]
+  },
+  "stats": {}
+}

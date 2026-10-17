@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -22,9 +22,9 @@ h1{font-size:22px;margin:0 0 8px}
   <div class="ava">{% if chat.avatar_url %}<img src="{{ chat.avatar_url }}" alt="">{% else %}{{ chat.name[0] if chat.name else '?' }}{% endif %}</div>
   <h1>{{ chat.name }}</h1>
   {% if chat.description %}<div class="desc">{{ chat.description }}</div>{% endif %}
-  <div class="meta">{{ 'Группа' if chat.chat_type == 'group' else 'Канал' }} · {{ members }} участников · Kiselgram</div>
-  <a class="btn" href="/k#join-{{ chat.chat_type }}-{{ chat.id }}-{{ code }}">Открыть в Kiselgram</a>
-  <div class="note">Идея витрины: groups/channels showcase из Sputnik</div>
+  <div class="meta">{{ 'Group' if chat.chat_type == 'group' else 'Channel' }} · {{ members }} members · Kiselgram</div>
+  <a class="btn" href="/k#join-{{ chat.chat_type }}-{{ chat.id }}-{{ code }}">Open in Kiselgram</a>
+  <div class="note">Public invite landing page</div>
 </div>
 </body>
 </html>

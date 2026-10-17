@@ -15,17 +15,17 @@
  *   });
  */
 (function () {
-  const RU = {
-    title: 'Код подтверждения',
-    loadingTitle: 'Проверяем...',
-    loadingSubtitle: 'Сверяем код с сервером.',
-    successTitle: 'Вход разрешён',
-    successSubtitle: 'Добро пожаловать!',
-    errorTitle: 'Неверный код',
+  const EN = {
+    title: 'Verification code',
+    loadingTitle: 'Verifying...',
+    loadingSubtitle: 'Checking the code with the server.',
+    successTitle: 'Access granted',
+    successSubtitle: 'Welcome!',
+    errorTitle: 'Wrong code',
     badge: 'OK',
-    errorText: 'Неверный код. Попробуйте ещё раз.',
-    resend: 'Не пришло? <span>Отправить снова</span>',
-    resendWait: 'Не пришло? <span>Ждите…</span>',
+    errorText: 'Wrong code. Please try again.',
+    resend: 'Didn\'t get it? <span>Resend</span>',
+    resendWait: 'Didn\'t get it? <span>Wait…</span>',
   };
 
   function el(tag, cls, html) {
@@ -44,7 +44,7 @@
   function mount(container, opts) {
     opts = opts || {};
     const digits = Math.min(8, Math.max(4, opts.digits || 5));
-    const T = Object.assign({}, RU, opts.texts || {});
+    const T = Object.assign({}, EN, opts.texts || {});
     if (opts.title) T.title = opts.title;
     if (opts.subtitle) T.subtitle = opts.subtitle;
 
@@ -217,7 +217,7 @@
         ]);
         res = out[0];
       } catch (e) {
-        res = { ok: false, error: 'Ошибка сети' };
+        res = { ok: false, error: 'Network error' };
       }
       if (state !== 'loading') return;
       if (res && res.ok) win();

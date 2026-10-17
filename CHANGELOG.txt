@@ -5,7 +5,7 @@
 Last updated: 15.10.2026
 
 --------------------------------------------------------
-CURRENT VERSION: v4.7.0
+CURRENT VERSION: v4.9.1
 --------------------------------------------------------
 
 IMPORTANT: This file is updated automatically on every change
@@ -114,6 +114,105 @@ Security (Sputnik v0.60-v0.64 class fixes applied)
 [15.10.2026] — docs only (no version bump): new docs/models.md reference
   covering all 56 models (tables, columns, relations, methods);
   AGENTS.md model count corrected 42 -> 56.
+
+[15.10.2026] — v4.9.0: working referrals (join -> inviter premium)
+  The referral system existed backend-only (nothing captured ?ref=, nothing
+  called /referrals/use). Now: invite.js stashes ?ref= on load,
+  login_v3 calls applyReferral() after register-finish (toast + invited-by
+  hint on the form), use_referral grants +30 stackable premium days per
+  referral (REFERRAL_PREMIUM_DAYS, expiry-aware restart), referral_info
+  threshold 1 + premium_days_per_referral. Files:
+  app/routes/spav2/referrals.py, static/js/k/invite.js,
+  static/js/k/login_v3.js, tests/test_referrals.py (new, 6 tests).
+  Verified live in Playwright: /k?ref=host1 -> register newbie ->
+  referral row + host1 premium until +30d. 10 tests green.
+
+[15.10.2026] — v4.9.0 hotfix: threshold back to 10 + 11th test
+  User asked: premium at 10 referrals. REFERRAL_PREMIUM_THRESHOLD = 10
+  (the +30d per-referral stacking stays). Added
+  test_ten_referrals_grant_premium (10 friend-coded registrations ->
+  premium granted). 11 tests green, ruff clean.
+
+[15.10.2026] — v4.8.0: full English UI
+  The SPA was already mostly English; translated every remaining Russian
+  user-facing string. Files: static/js/k/sputnik.js + tg.js + otp_widget.js
+  (all nav items, modals, toasts, placeholders, recorder, showcase),
+  static/js/k/settings.js (Stars button), templates/k.html (premium block),
+  templates/sputnik_join.html, app/routes/spav2/sputnik.py (join
+  notifications, deep-link page), app/utils/bot_utils.py (bot replies),
+  app/routes/spa/stories.py (story notifications), app/utils/i18n.py
+  (default + fallback language ru -> en).
+  Kept: Russian bot-input triggers (multilingual input still matches),
+  ruble prices, hashtag regex char class. Verified live in Playwright:
+  logged-in app shows zero Cyrillic chars; pytest neighbours green
+  (bot_webhook reds are pre-existing on the pristine tree).
+
+[15.10.2026] — v4.7.1.2: full test coverage wave (57 new tests)
+  Files: tests/test_sputnik4.py (new, 27 tests), tests/test_telegram2.py
+         (new, 30 tests), tests/test_sputnik3.py (hermetic auth-state
+         fixture), app/routes/spav2/sputnik.py (/m/ 404-path import fix).
+  Covers: presence_visible policies, _chat_access, slow_mode_ok throttle +
+    admin bypass, account-lockout lifecycle, OTP/applock lockout over API,
+    5-digit code format, register debug fallback, sticker from_message,
+    scheduled delete, secrets off, folder validation, cloud/applock
+    validation, draft reply roundtrip, export contents, link-preview
+    SSRF unit, topic rename/close/delete/validation, slowmode validation,
+    quiz correctness + errors, geo/voice/discussion/protect/saved/members/
+    bots/story-archive/deeplink/collectibles/round-upload edge cases.
+  The wave caught 1 real bug (/m/ private-chat 404 NameError) + 1 wrong
+  test expectation (slowmode GET is member-visible by design).
+  Verified: 57 new green; ruff clean.
+
+[15.10.2026] — v4.7.1.2 hotfix: round-player duplication (no version bump)
+  Symptom: one sent video circle rendered ~50 players. Cause: sputnik.js
+  and tg.js each wrapped K.chat._messageHtml guarded only by its own flag,
+  so every autoWire() added another layer (11 -> 76 observed live).
+  Fix: shared _spChain layer registry in both decorators (each applies once
+  regardless of order) + once-guard for the delegated click listener.
+  Verified live in Playwright: 1 player, chain stable after 20 autoWires.
+  Regression: tests/test_frontend.py (new, 3 tests). Files:
+  static/js/k/sputnik.js, static/js/k/tg.js.
+
+[15.10.2026] — v4.7.1.2 hotfix #2: 3D dice cube with number on top (no bump)
+  Dice rendered as plain text / generic file block (decorator only matched
+  file attachments, but dice+geo have none). Reworked branches: round
+  replaces the whole attachment block (no leftover File link), dice/geo fall
+  back to replacing the text bubble. Dice is now a CSS 3D cube (roll
+  animation, value on front + top faces). Verified live with screenshot:
+  cubes show 4 and 3, single round player, zero file blocks. Files:
+  static/js/k/tg.js, static/js/k/sputnik.js, static/css/k.css.
+
+[15.10.2026] — v4.4.0: collectible usernames + video-circle recording
+  Files: app/models.py (TgCollectible), app/routes/spav2/telegram.py
+         (claim/mine/showcase/transfer/sell/buy/wear + /tg/round/upload),
+         static/js/k/tg.js (recorder modal, showcase modal, composer 📹
+         button, nav «Имена»), tests/test_telegram.py (+3 tests),
+         docs/telegram.md, docs/models.md (58 models), AGENTS.md.
+  Collectibles (Fragment-style, off-chain): claim unique names, transfer,
+    sell with Stars ask price, buy (transfer primitive, no on-platform
+    settlement — documented), wear swaps User.username with the collectible
+    (old name becomes collectible, invariant holds), showcase + mine views.
+  Circles: in-browser camera recorder (front/back flip, 60s cap, preview)
+    -> /tg/round/upload (mp4/webm ≤15MB) -> round/send to open chat.
+  Verified: 15 telegram tests green, ruff + node --check clean.
+
+[15.10.2026] — v4.3.0: Telegram parity pack (14 features)
+  Files: app/routes/spav2/telegram.py (new, ~700 lines),
+         app/models.py (3 Tg* models + 11 new columns), static/js/k/tg.js
+         (new), static/css/k.css, templates/k.html, app/routes/spav2/__init__.py,
+         app/utils/helpers.py (slow_mode_ok), features.py (no-forwards gate),
+         groups.py/channels.py/files.py (slow-mode gates), sputnik.py
+         (draft reply_to, /m/ deep link), tests/test_telegram.py (new,
+         12 tests), docs/telegram.md (new), docs/models.md, AGENTS.md.
+  Topics/threads, slow mode 0-300s (admins bypass, enforced everywhere),
+  quiz polls, dice, live geo (share/update/stop/live), TTL prune + story
+  archive, group voice chats, channel<->group discussion link + comments,
+  content protection, saved tags, hidden members, bot commands, deep links.
+  DB: ALTERs on instance/kiselgram.db (chats×4, poll×2, message.topic_id,
+  stories.is_archived, saved_message.tag, sputnik_draft.reply_to_id,
+  video_calls.chat_id) + 3 new tables.
+  Verified: 12 new + neighbours green (single pre-existing TestUploadAvatar
+  failure unchanged), ruff clean, node --check clean.
 
 [15.10.2026] — v4.2.0: OTP widget from tmp/OTP Verification + 5-digit codes
   Files: static/js/k/otp_widget.js (new, K.otpWidget), static/css/otp_widget.css

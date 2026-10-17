@@ -104,8 +104,8 @@ def simulate_bot_interaction(app):
                         elif bot.username in ('kiselgram', 'kiselgram_bot', 'kiselgram_help', 'kiselgram_premium'):
                             # For kiselgram_premium, use same Stars workflow as Telegram @kiselgram_bot
                             is_premium_bot = bot.username == 'kiselgram_premium'
-                            # Detect language from sender (fallback ru)
-                            lang = 'ru'
+                            # Detect language from sender (fallback en)
+                            lang = 'en'
                             try:
                                 sender_user = User.query.get(message.sender_id)
                                 # Use sender's language if available via telegram code? default ru
@@ -172,7 +172,7 @@ def simulate_bot_interaction(app):
                             else:
                                 # Original kiselgram help logic (non-premium bot)
                                 if _is_premium_emoji_request(content, incoming_emoji, incoming_file):
-                                    response = "💎 Kiselgram Premium — 150⭐ / месяц, 1200⭐ / год\nНажми /premium в Kiselgram или открой https://web.kiselgram.ru/telegram-premium/?uid={} — оплата звёздами Telegram!".format(message.sender_id)
+                                    response = "💎 Kiselgram Premium — 150⭐ / month, 1200⭐ / year\nTap /premium in Kiselgram or open https://web.kiselgram.ru/telegram-premium/?uid={} — pay with Telegram Stars!".format(message.sender_id)
                                     response_emoji = "⭐"
                                     response_emoji_file = "kiselgram_premium.webp"
                                     response_emoji_size = 128
@@ -191,17 +191,17 @@ def simulate_bot_interaction(app):
                                         response_emoji_size = message.emoji_size or 96
                                         response_emoji_count = message.emoji_count or 1
                                 elif content_lower in ('/start', '/start premium', '/help', 'help', 'привет', 'hi', 'hello'):
-                                    response = "🤖 Welcome to Kiselgram Help! I can assist you with groups, channels, and Premium.\n\n💎 Premium: 150⭐/мес | 1200⭐/год\nОтправь ⭐ или напиши /premium — покажу оплату звёздами!"
+                                    response = "🤖 Welcome to Kiselgram Help! I can assist you with groups, channels, and Premium.\n\n💎 Premium: 150⭐/mo | 1200⭐/yr\nSend ⭐ or type /premium — I'll show the Stars payment!"
                                     response_emoji = "⭐"
                                     response_emoji_file = "kiselgram_premium.webp"
                                     response_emoji_size = 96
                                 elif 'premium' in content_lower or '/premium' in content_lower or 'премиум' in content_lower:
-                                    response = "💎 Kiselgram Premium — оплата звёздами Telegram (XTR)!\n\n• 150⭐ — 1 месяц (300₽)\n• 1200⭐ — 12 месяцев (−17%)\n\nОткрой https://web.kiselgram.ru/telegram-premium/?uid={} или напиши боту @kiselgram_bot в Telegram /premium".format(message.sender_id)
+                                    response = "💎 Kiselgram Premium — pay with Telegram Stars (XTR)!\n\n• 150⭐ — 1 month (300₽)\n• 1200⭐ — 12 months (−17%)\n\nOpen https://web.kiselgram.ru/telegram-premium/?uid={} or message @kiselgram_bot on Telegram /premium".format(message.sender_id)
                                     response_emoji = "⭐"
                                     response_emoji_file = "kiselgram_premium.webp"
                                     response_emoji_size = 128
                                 else:
-                                    response = "🤖 Welcome to Kiselgram Help! I can assist you with using groups, channels, and other features. What do you need help with?\n\nОтправь ⭐ для Premium логотипа ✨"
+                                    response = "🤖 Welcome to Kiselgram Help! I can assist you with using groups, channels, and other features. What do you need help with?\n\nSend ⭐ for the Premium logo ✨"
                         else:
                             response = "🤖 I'm a bot. How can I help you?"
 

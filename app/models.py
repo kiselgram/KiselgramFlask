@@ -68,6 +68,10 @@ class User(db.Model):
     is_deleted = db.Column(db.Boolean, default=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
 
+    # Guest mode
+    is_guest = db.Column(db.Boolean, default=False)
+    guest_expires_at = db.Column(db.DateTime, nullable=True)
+
     # Google OAuth
     google_id = db.Column(db.String(100), unique=True, nullable=True)
     profile_pic = db.Column(db.String(200), nullable=True)
@@ -177,6 +181,10 @@ class Chat(db.Model):
     theme_color = db.Column(db.String(20), nullable=True)
     wallpaper = db.Column(db.String(500), nullable=True)
     auto_delete_ttl = db.Column(db.Integer, nullable=True)  # seconds
+    slow_mode = db.Column(db.Integer, default=0)  # seconds between messages (Telegram slow mode)
+    linked_chat_id = db.Column(db.Integer, db.ForeignKey('chats.id', ondelete='SET NULL'), nullable=True)  # discussion group <-> channel
+    no_forwards = db.Column(db.Boolean, default=False)  # protect content: block forwards
+    hide_members = db.Column(db.Boolean, default=False)  # hide member list from non-admins
 
     __table_args__ = (
         db.CheckConstraint("chat_type IN ('personal', 'group', 'channel')"),
@@ -304,6 +312,7 @@ class Message(db.Model):
 
     poll_id = db.Column(db.Integer, nullable=True)
     poll_question = db.Column(db.String(255), nullable=True)
+    topic_id = db.Column(db.Integer, db.ForeignKey('tg_topic.id', ondelete='SET NULL'), nullable=True, index=True)  # forum topic/thread
     forwarded_from_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=True)
     forwarded_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
 
@@ -401,6 +410,7 @@ class Story(db.Model):
     caption = db.Column(db.Text)
     music_path = db.Column(db.String(500), nullable=True)
     privacy_type = db.Column(db.String(20), default='everyone')
+    is_archived = db.Column(db.Boolean, default=False)  # older than 24h: hidden from feed, visible in archive
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
     views = db.relationship('StoryView', backref='story', lazy='dynamic', cascade='all, delete-orphan')
@@ -520,6 +530,7 @@ class VideoCall(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     room_id = db.Column(db.String(50), unique=True, nullable=False)
     creator_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+    chat_id = db.Column(db.Integer, db.ForeignKey('chats.id', ondelete='CASCADE'), nullable=True, index=True)  # group voice chat scope
     call_type = db.Column(db.String(10), default='video')
     status = db.Column(db.String(20), default='active')
     started_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -784,6 +795,8 @@ class Poll(db.Model):
     chat_type = db.Column(db.String(20), nullable=True)
     chat_id = db.Column(db.Integer, nullable=True)
     closed = db.Column(db.Boolean, default=False)
+    quiz_answer = db.Column(db.Integer, nullable=True)  # correct option_index (Telegram quiz mode)
+    quiz_explanation = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     creator = db.relationship('User', backref='polls', lazy=True)
@@ -839,6 +852,7 @@ class SavedMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
     message_id = db.Column(db.Integer, db.ForeignKey('message.id', ondelete='CASCADE'), nullable=False)
+    tag = db.Column(db.String(40), nullable=True, index=True)  # premium-style saved tags
     saved_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (db.UniqueConstraint('user_id', 'message_id', name='unique_saved_msg'),)
@@ -967,6 +981,7 @@ class SputnikDraft(db.Model):
     chat_type = db.Column(db.String(20), nullable=False, default='personal')
     chat_id = db.Column(db.Integer, nullable=False)
     text = db.Column(db.Text, nullable=True)
+    reply_to_id = db.Column(db.Integer, db.ForeignKey('message.id', ondelete='SET NULL'), nullable=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)
 
     __table_args__ = (db.UniqueConstraint('user_id', 'chat_type', 'chat_id', name='unique_sputnik_draft'),)
@@ -1012,3 +1027,66 @@ class SputnikGroupRestrict(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (db.UniqueConstraint('chat_id', 'user_id', 'kind', name='unique_sputnik_restrict'),)
+
+
+# --- Telegram parity pack (forum topics, live geo, bot commands) ---
+
+
+class TgTopic(db.Model):
+    """Forum topic/thread inside a group (Telegram Topics idea)."""
+
+    __tablename__ = 'tg_topic'
+    id = db.Column(db.Integer, primary_key=True)
+    chat_id = db.Column(db.Integer, db.ForeignKey('chats.id', ondelete='CASCADE'), nullable=False, index=True)
+    title = db.Column(db.String(80), nullable=False)
+    icon = db.Column(db.String(16), nullable=True)
+    is_closed = db.Column(db.Boolean, default=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    messages = db.relationship('Message', backref='topic', lazy='dynamic')
+
+
+class TgLiveLocation(db.Model):
+    """Live location share session (Telegram live location idea)."""
+
+    __tablename__ = 'tg_live_location'
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(db.Integer, db.ForeignKey('message.id', ondelete='CASCADE'), nullable=False, unique=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    chat_id = db.Column(db.Integer, db.ForeignKey('chats.id', ondelete='CASCADE'), nullable=False, index=True)
+    lat = db.Column(db.Float, nullable=False)
+    lon = db.Column(db.Float, nullable=False)
+    until = db.Column(db.DateTime, nullable=False, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TgBotCommand(db.Model):
+    """Bot command menu entries (Telegram Bot API setMyCommands idea)."""
+
+    __tablename__ = 'tg_bot_command'
+    id = db.Column(db.Integer, primary_key=True)
+    bot_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    command = db.Column(db.String(32), nullable=False)
+    description = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('bot_id', 'command', name='unique_tg_bot_cmd'),)
+
+
+class TgCollectible(db.Model):
+    """Ownable username (Telegram Fragment-style collectible, off-chain).
+
+    Invariant: a collectible name is never equal to any User.username.
+    Wearing swaps names so the invariant always holds.
+    """
+
+    __tablename__ = 'tg_collectible'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(32), unique=True, nullable=False, index=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    price = db.Column(db.Integer, nullable=True)  # ask price in Stars (informational; transfers are the primitive)
+    for_sale = db.Column(db.Boolean, default=False, index=True)
+    last_sale_price = db.Column(db.Integer, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

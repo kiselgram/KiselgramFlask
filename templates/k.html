@@ -316,22 +316,22 @@
             <div class="k-settings-title">Plans — Telegram Stars (XTR)</div>
             <div style="display:flex;gap:10px;margin:10px 0">
               <div id="premiumPlanMonthly" class="k-settings-item" style="flex:1;flex-direction:column;align-items:center;gap:4px;padding:14px;border:2px solid var(--border-color);border-radius:14px;cursor:pointer" onclick="K.settings.selectPremiumPlan('monthly')">
-                <div style="font-weight:700">1 месяц</div><div style="font-size:22px;font-weight:800;background:linear-gradient(135deg,#fb6340,#2dce89);-webkit-background-clip:text;-webkit-text-fill-color:transparent" id="premiumPriceMonthly">150 ⭐</div><div style="font-size:11px;color:var(--text-muted)">300₽</div>
+                <div style="font-weight:700">1 month</div><div style="font-size:22px;font-weight:800;background:linear-gradient(135deg,#fb6340,#2dce89);-webkit-background-clip:text;-webkit-text-fill-color:transparent" id="premiumPriceMonthly">150 ⭐</div><div style="font-size:11px;color:var(--text-muted)">300₽</div>
               </div>
               <div id="premiumPlanYearly" class="k-settings-item" style="flex:1;flex-direction:column;align-items:center;gap:4px;padding:14px;border:2px solid var(--border-color);border-radius:14px;cursor:pointer;position:relative" onclick="K.settings.selectPremiumPlan('yearly')">
                 <div style="position:absolute;top:-8px;background:linear-gradient(135deg,#fb6340,#2dce89);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px">−17%</div>
-                <div style="font-weight:700">12 месяцев</div><div style="font-size:22px;font-weight:800;background:linear-gradient(135deg,#fb6340,#2dce89);-webkit-background-clip:text;-webkit-text-fill-color:transparent" id="premiumPriceYearly">1200 ⭐</div><div style="font-size:11px;color:var(--text-muted)">2990₽ • save 660₽</div>
+                <div style="font-weight:700">12 months</div><div style="font-size:22px;font-weight:800;background:linear-gradient(135deg,#fb6340,#2dce89);-webkit-background-clip:text;-webkit-text-fill-color:transparent" id="premiumPriceYearly">1200 ⭐</div><div style="font-size:11px;color:var(--text-muted)">2990₽ • save 660₽</div>
               </div>
             </div>
-            <button class="k-btn k-btn-primary" style="width:100%;padding:12px;font-weight:700" onclick="K.settings.payPremium()"><i class="fas fa-star"></i> Оплатить звёздами</button>
+            <button class="k-btn k-btn-primary" style="width:100%;padding:12px;font-weight:700" onclick="K.settings.payPremium()"><i class="fas fa-star"></i> Pay with Stars</button>
             <button class="k-btn" style="width:100%;margin-top:8px;padding:12px;font-weight:700;background:#229ED9;color:white;border:none" onclick="K.settings.connectTelegram()"><i class="fab fa-telegram"></i> Connect Telegram — send /start premium_<span id="premiumConnectId">...</span></button>
-            <button class="k-btn k-btn-secondary" style="width:100%;margin-top:8px;padding:10px" onclick="K.settings.checkPremium()"><i class="fas fa-sync"></i> Проверить статус</button>
+            <button class="k-btn k-btn-secondary" style="width:100%;margin-top:8px;padding:10px" onclick="K.settings.checkPremium()"><i class="fas fa-sync"></i> Check status</button>
             <div id="premiumPayStatus" style="margin-top:10px;padding:10px;border-radius:10px;font-size:12px;display:none"></div>
-            <div style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:8px">Спишет Stars via <code>@kiselgram_bot</code> • <a href="#" onclick="K.settings.openPremiumWebApp();return false">Open WebApp</a> • <a href="#" onclick="K.settings.connectTelegram();return false">Telegram bot</a></div>
+            <div style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:8px">Charges Stars via <code>@kiselgram_bot</code> • <a href="#" onclick="K.settings.openPremiumWebApp();return false">Open WebApp</a> • <a href="#" onclick="K.settings.connectTelegram();return false">Telegram bot</a></div>
           </div>
           <div class="k-settings-section">
             <div class="k-settings-title">Manage</div>
-            <div class="k-settings-item"><span>Промокод</span><div style="display:flex;gap:6px"><input class="k-input" id="premiumPromo" placeholder="KISEL-..." style="flex:1"><button class="k-btn k-btn-secondary" style="padding:6px 12px;font-size:12px" onclick="K.settings.applyPromo()">Apply</button></div></div>
+            <div class="k-settings-item"><span>Promo code</span><div style="display:flex;gap:6px"><input class="k-input" id="premiumPromo" placeholder="KISEL-..." style="flex:1"><button class="k-btn k-btn-secondary" style="padding:6px 12px;font-size:12px" onclick="K.settings.applyPromo()">Apply</button></div></div>
             <div class="k-settings-item"><span>Auto-renew</span><button class="k-btn k-btn-secondary" style="padding:6px 12px;font-size:12px" onclick="K.settings.cancelPremium()"><i class="fas fa-times"></i> Cancel</button></div>
             <div class="k-settings-item" style="flex-direction:column;align-items:stretch"><span style="font-size:12px;color:var(--text-muted)">Logo: <code>/static/img/premium/logo.svg</code> • emoji <code>5285476321705633458</code> <img src="/static/custom_emoji/kiselgram_premium.webp" style="width:16px;height:16px;vertical-align:middle"> • locales <code>config/locales.toml</code></span></div>
           </div>
@@ -553,6 +553,8 @@
 <script src="{{ url_for('static', filename='js/lib/qrcode.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/qrlogin.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/otp_widget.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/k/invite.js') }}"></script>
+<script src="{{ url_for('static', filename='js/k/tg.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/login_v3.js') }}"></script>
 <script>
 if (K.isDesktop) {

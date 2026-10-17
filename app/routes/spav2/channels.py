@@ -153,6 +153,11 @@ def send_channel_message():
     if chat.owner_id != current_user_id:
         return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'Only admins can post to this channel'}}), 403
 
+    from app.utils.helpers import slow_mode_ok
+    ok, retry = slow_mode_ok(current_user_id, channel_id)
+    if not ok:
+        return jsonify({'success': False, 'error': {'code': 'SLOW_MODE', 'message': f'Slow mode: wait {retry}s'}}), 429
+
     msg = Message(sender_id=current_user_id, chat_id=channel_id, receiver_id=current_user_id, content=content, timestamp=datetime.utcnow())
     if emoji_data:
         msg.emoji = emoji_data['emoji']

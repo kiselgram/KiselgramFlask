@@ -37,7 +37,6 @@ app/config.py
 
 # Cleaned up from repo root
 .kiselgram_token
-AGENTS.md
 API-STANDARD.md
 CONNECT.md
 combined.html

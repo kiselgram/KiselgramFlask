@@ -33,7 +33,7 @@
   function wrapSelection(input, before, after) {
     if (!input || typeof input.selectionStart !== 'number') return;
     const s = input.selectionStart, e = input.selectionEnd, v = input.value;
-    const sel = v.slice(s, e) || 'текст';
+    const sel = v.slice(s, e) || 'text';
     input.value = v.slice(0, s) + before + sel + after + v.slice(e);
     input.focus();
   }
@@ -127,7 +127,7 @@
     if (!mount) return Promise.resolve();
     return api.folders().then(function (r) {
       mount.innerHTML = '';
-      const all = el('button', 'k-folder-chip active', 'Все чаты');
+      const all = el('button', 'k-folder-chip active', 'All chats');
       all.onclick = function () {
         mount.querySelectorAll('.k-folder-chip').forEach(function (c) { c.classList.remove('active'); });
         all.classList.add('active');
@@ -168,7 +168,7 @@
     return api.edits(messageId).then(function (r) {
       const list = el('div', 'k-sp-list');
       const edits = (r && r.data && r.data.edits) || [];
-      if (!edits.length) list.appendChild(el('div', 'k-sp-empty', 'Изменений нет'));
+      if (!edits.length) list.appendChild(el('div', 'k-sp-empty', 'No edits yet'));
       edits.forEach(function (e) {
         const row = el('div', 'k-sp-row');
         const from = el('div', 'k-sp-old', '');
@@ -179,7 +179,7 @@
         row.appendChild(to);
         list.appendChild(row);
       });
-      modal('История изменений', list);
+      modal('Edit history', list);
     });
   }
 
@@ -187,12 +187,12 @@
     return api.trashList().then(function (r) {
       const list = el('div', 'k-sp-list');
       const items = (r && r.data && r.data.trash) || [];
-      if (!items.length) list.appendChild(el('div', 'k-sp-empty', 'Корзина пуста'));
+      if (!items.length) list.appendChild(el('div', 'k-sp-empty', 'Trash is empty'));
       items.forEach(function (t) {
         const row = el('div', 'k-sp-row');
         const tx = el('span', 'k-sp-text', '');
         tx.textContent = t.snapshot || ('#' + t.message_id);
-        const btn = el('button', 'k-sp-btn', 'Восстановить');
+        const btn = el('button', 'k-sp-btn', 'Restore');
         btn.onclick = function () {
           api.trashRestore(t.message_id).then(function () {
             row.remove();
@@ -204,13 +204,13 @@
         list.appendChild(row);
       });
       const foot = el('div', 'k-sp-foot');
-      const clear = el('button', 'k-sp-btn danger', 'Очистить корзину');
+      const clear = el('button', 'k-sp-btn danger', 'Empty trash');
       clear.onclick = function () { api.trashClear().then(function () { list.innerHTML = ''; }); };
       const wrap = el('div', '');
       wrap.appendChild(list);
       foot.appendChild(clear);
       wrap.appendChild(foot);
-      modal('Корзина', wrap);
+      modal('Trash', wrap);
     });
   }
 
@@ -218,21 +218,21 @@
     return api.scheduled().then(function (r) {
       const list = el('div', 'k-sp-list');
       const items = (r && r.data && r.data.scheduled) || [];
-      if (!items.length) list.appendChild(el('div', 'k-sp-empty', 'Отложенных нет'));
+      if (!items.length) list.appendChild(el('div', 'k-sp-empty', 'No scheduled messages'));
       items.forEach(function (m) {
         const row = el('div', 'k-sp-row');
         const tx = el('span', 'k-sp-text', '');
         tx.textContent = (m.send_at || '') + ' — ' + (m.content || '');
-        const now = el('button', 'k-sp-btn', 'Отправить сейчас');
+        const now = el('button', 'k-sp-btn', 'Send now');
         now.onclick = function () { api.scheduledSendNow(m.message_id).then(function () { row.remove(); }); };
-        const del = el('button', 'k-sp-btn danger', 'Удалить');
+        const del = el('button', 'k-sp-btn danger', 'Delete');
         del.onclick = function () { api.scheduledDelete(m.message_id).then(function () { row.remove(); }); };
         row.appendChild(tx);
         row.appendChild(now);
         row.appendChild(del);
         list.appendChild(row);
       });
-      modal('Отложенные сообщения', list);
+      modal('Scheduled messages', list);
     });
   }
 
@@ -242,13 +242,13 @@
     const ov = el('div', 'k-sp-lock');
     ov.id = 'k-sp-lock';
     const box = el('div', 'k-sp-lock-box');
-    box.appendChild(el('div', 'k-sp-lock-title', 'Приложение заблокировано'));
+    box.appendChild(el('div', 'k-sp-lock-title', 'App locked'));
     const inp = el('input', 'k-sp-lock-inp');
     inp.type = 'password';
     inp.inputMode = 'numeric';
-    inp.placeholder = 'PIN-код';
+    inp.placeholder = 'PIN';
     inp.maxLength = 12;
-    const btn = el('button', 'k-sp-btn', 'Разблокировать');
+    const btn = el('button', 'k-sp-btn', 'Unlock');
     btn.onclick = function () {
       api.applockVerify(inp.value).then(function (r) {
         if (r && r.success) ov.remove();
@@ -321,7 +321,7 @@
   }
 
   Object.assign(K.sputnik, {
-    renderFoldersBar, showEdits, showTrash, showScheduled,
+    renderFoldersBar, showEdits, showTrash, showScheduled, showModal: modal,
     lockScreen, bindMessageGestures, bindDraft, applyBanner,
   });
 
@@ -333,23 +333,29 @@
   }
 
   // Wrap chat rendering: video circles, stickers, spoiler/quote/mono tags.
+  // Chain-aware: tg.js wraps the same function, so we track applied layers
+  // in _spChain — wrapping twice would duplicate players on every autoWire.
   function decorateMessages() {
-    if (!window.K || !K.chat || !K.chat._messageHtml || K.chat._messageHtml._spWrapped) return;
-    const orig = K.chat._messageHtml;
-    K.chat._messageHtml = function (m, isOwn, consecutive) {
+    if (!window.K || !K.chat || !K.chat._messageHtml) return;
+    const fn = K.chat._messageHtml;
+    fn._spChain = fn._spChain || [];
+    if (fn._spChain.includes('sputnik')) return;
+    const orig = fn;
+    const wrapped = function (m, isOwn, consecutive) {
       let h = orig.call(this, m, isOwn, consecutive);
       try {
         const url = m && (m.file_url || m.file_path);
+        const attRe = /<div class="(?:k-msg-attachment|k-msg-file)">[\s\S]*?<\/div>/;
         if (m && m.file_type === 'round' && url) {
-          const player = '<div class="k-sp-round"><video src="' + esc(url) + '" playsinline preload="metadata" onclick="this.paused?this.play():this.pause()"></video><span class="k-sp-round-badge">кружок</span></div>';
-          h = h.replace('k-msg-attachment', 'k-sp-hidden').replace(/(data-msg-id="[^"]+">)/, '$1' + player);
+          const player = '<div class="k-sp-round"><video src="' + esc(url) + '" playsinline preload="metadata" onclick="this.paused?this.play():this.pause()"></video><span class="k-sp-round-badge">circle</span></div>';
+          h = attRe.test(h) ? h.replace(attRe, player) : h.replace(/(data-msg-id="[^"]+">)/, '$1' + player);
           h = h.replace('class="k-msg ', 'class="k-msg k-sp-has-round ');
         } else if (m && m.file_type === 'sticker' && url) {
           h = h.replace(/<div class="k-msg-file">[\s\S]*?<\/div>/, '<div class="k-sp-sticker"><img src="' + esc(url) + '" alt="sticker"></div>');
         }
         if (m && m.edited_at) {
           const mid = m.message_id || m.id;
-          h = h.replace('<div class="k-msg-actions">', '<span class="k-sp-edited" data-ed="' + mid + '" title="История изменений">изм.</span><div class="k-msg-actions">');
+          h = h.replace('<div class="k-msg-actions">', '<span class="k-sp-edited" data-ed="' + mid + '" title="Edit history">edited</span><div class="k-msg-actions">');
         }
         // Sputnik tags may arrive HTML-escaped from markdown: unwrap them.
         h = h.replace(/&lt;spoiler&gt;([\s\S]*?)&lt;\/spoiler&gt;/g, '<span class="k-spoiler">$1</span>')
@@ -359,7 +365,11 @@
       } catch (e) { /* never break chat rendering */ }
       return h;
     };
-    K.chat._messageHtml._spWrapped = true;
+    wrapped._spChain = [...fn._spChain, 'sputnik'];
+    wrapped._spWrapped = true;
+    K.chat._messageHtml = wrapped;
+    if (window._spClickBound) return;
+    window._spClickBound = true;
     // spoiler tap-to-reveal + edit-history marker (delegated, works for all messages)
     document.addEventListener('click', function (e) {
       const sp = e.target.closest ? e.target.closest('.k-spoiler') : null;
@@ -409,11 +419,11 @@
     const sec = el('div', '');
     sec.id = 'k-sp-nav';
     const items = [
-      ['fa-trash', 'Корзина', function () { showTrash(); }],
-      ['fa-clock', 'Отложенные', function () { showScheduled(); }],
-      ['fa-compass', 'Витрина', function () { showDiscover(); }],
-      ['fa-sticky-note', 'Стикеры', function () { showStickers(); }],
-      ['fa-download', 'Мои данные', function () {
+      ['fa-trash', 'Trash', function () { showTrash(); }],
+      ['fa-clock', 'Scheduled', function () { showScheduled(); }],
+      ['fa-compass', 'Discover', function () { showDiscover(); }],
+      ['fa-sticky-note', 'Stickers', function () { showStickers(); }],
+      ['fa-download', 'My data', function () {
         api.exportData().then(function (r) {
           if (!r || !r.success) return;
           const blob = new Blob([JSON.stringify(r.data, null, 2)], { type: 'application/json' });
@@ -437,7 +447,7 @@
     return api.discover(kind || 'all').then(function (r) {
       const list = el('div', 'k-sp-list');
       const chats = (r && r.data && r.data.chats) || [];
-      if (!chats.length) list.appendChild(el('div', 'k-sp-empty', 'Публичных чатов пока нет'));
+      if (!chats.length) list.appendChild(el('div', 'k-sp-empty', 'No public chats yet'));
       chats.forEach(function (c) {
         const row = el('div', 'k-sp-row');
         const tx = el('span', 'k-sp-text', '');
@@ -445,19 +455,19 @@
         row.appendChild(tx);
         if (!c.joined && !c.request_pending) {
           const isGroup = c.chat_type === 'group';
-          const btn = el('button', 'k-sp-btn', isGroup ? 'Вступить' : 'Подписаться');
+          const btn = el('button', 'k-sp-btn', isGroup ? 'Join' : 'Subscribe');
           btn.onclick = function () {
             const p = isGroup ? api.joinDirect(c.chat_id) : api.channelSub(c.chat_id);
-            p.then(function () { btn.textContent = 'Готово'; btn.disabled = true; });
+            p.then(function () { btn.textContent = 'Done'; btn.disabled = true; });
           };
           row.appendChild(btn);
         } else {
-          const st = el('span', 'k-sp-muted', c.joined ? 'Вы участник' : 'Заявка подана');
+          const st = el('span', 'k-sp-muted', c.joined ? "You're in" : 'Request sent');
           row.appendChild(st);
         }
         list.appendChild(row);
       });
-      modal('Витрина', list);
+      modal('Discover', list);
     });
   }
 
@@ -466,7 +476,7 @@
     return api.stickers().then(function (r) {
       const grid = el('div', 'k-sp-grid');
       const items = (r && r.data && r.data.stickers) || [];
-      if (!items.length) grid.appendChild(el('div', 'k-sp-empty', 'Стикеров пока нет — создайте первый'));
+      if (!items.length) grid.appendChild(el('div', 'k-sp-empty', 'No stickers yet — create the first one'));
       items.forEach(function (s) {
         const cell = el('div', 'k-sp-cell');
         const img = document.createElement('img');
@@ -474,16 +484,16 @@
         img.loading = 'lazy';
         if (opts.sendMode) {
           img.style.cursor = 'pointer';
-          img.title = 'Отправить в текущий чат';
+          img.title = 'Send to current chat';
           cell.onclick = function () {
             api.stickerSendToActive(s.id).then(function (rr) {
-              if (window.K && K.ui && K.ui.toast) K.ui.toast(rr && rr.success ? 'Стикер отправлен' : 'Откройте чат', rr && rr.success ? 'success' : 'error');
+              if (window.K && K.ui && K.ui.toast) K.ui.toast(rr && rr.success ? 'Sticker sent' : 'Open a chat', rr && rr.success ? 'success' : 'error');
               if (rr && rr.success) { const m = document.querySelector('.k-sp-modal'); if (m) m.remove(); if (window.K && K.chat && K.state && K.state.activeChat) K.chat.loadMessages(K.state.activeChat.type, K.state.activeChat.id); }
             });
           };
         }
         const fav = el('button', 'k-sp-fav', s.is_favorite ? '★' : '☆');
-        fav.title = 'В избранное';
+        fav.title = 'Favorite';
         fav.onclick = function (e) {
           e.stopPropagation();
           api.stickerFav(s.id).then(function (rr) {
@@ -497,11 +507,11 @@
       const wrap = el('div', '');
       wrap.appendChild(grid);
       const foot = el('div', 'k-sp-foot');
-      const create = el('button', 'k-sp-btn', 'Создать стикер');
+      const create = el('button', 'k-sp-btn', 'Create sticker');
       create.onclick = function () { stickerEditor(); };
       foot.appendChild(create);
       wrap.appendChild(foot);
-      modal('Мои стикеры', wrap);
+      modal('My stickers', wrap);
     });
   }
 
@@ -517,10 +527,10 @@
     const zoom = document.createElement('input');
     zoom.type = 'range'; zoom.min = '50'; zoom.max = '300'; zoom.value = '100';
     const emo = document.createElement('input');
-    emo.placeholder = 'Эмодзи (необязательно)';
+    emo.placeholder = 'Emoji (optional)';
     emo.maxLength = 8;
     emo.className = 'k-sp-inp';
-    const save = el('button', 'k-sp-btn', 'Сохранить стикер');
+    const save = el('button', 'k-sp-btn', 'Save sticker');
     const img = new Image();
     let loaded = false, z = 1, dx = 0, dy = 0, drag = null;
     function draw() {
@@ -564,7 +574,7 @@
     wrap.appendChild(emo);
     wrap.appendChild(save);
     draw();
-    modal('Создать стикер', wrap);
+    modal('Create sticker', wrap);
   }
 
   // Idle auto-lock (Sputnik applock idea): lock screen after N idle minutes.
@@ -645,11 +655,11 @@
     if (!bar) return;
     const clock = el('button', 'k-icon-btn', '<i class="fas fa-clock"></i>');
     clock.id = 'k-sp-clock';
-    clock.title = 'Отложенные';
+    clock.title = 'Scheduled';
     clock.onclick = function () { showScheduled(); };
     const st = el('button', 'k-icon-btn', '<i class="fas fa-sticky-note"></i>');
     st.id = 'k-sp-sticker-btn';
-    st.title = 'Стикеры';
+    st.title = 'Stickers';
     st.onclick = function () { showStickers({ sendMode: true }); };
     bar.insertBefore(st, bar.firstChild);
     bar.insertBefore(clock, bar.firstChild);
@@ -662,12 +672,12 @@
     if (!host || document.getElementById('k-sp-share')) return;
     const btn = el('button', 'k-story-btn', '<i class="fas fa-share"></i>');
     btn.id = 'k-sp-share';
-    btn.title = 'Поделиться себе';
+    btn.title = 'Share to self';
     btn.onclick = function () {
       const s = window.K && K.stories && K.stories._activeStory;
       if (!s) return;
       api.storyShare(s.story_id || s.id).then(function (r) {
-        if (window.K && K.ui && K.ui.toast) K.ui.toast(r && r.success ? 'Репост в мои сторис' : 'Не вышло', r && r.success ? 'success' : 'error');
+        if (window.K && K.ui && K.ui.toast) K.ui.toast(r && r.success ? 'Reposted to my stories' : 'Failed', r && r.success ? 'success' : 'error');
       });
     };
     host.appendChild(btn);
@@ -676,15 +686,15 @@
   // Mini message menu for long-press (mobile) — reply / edits / copy.
   function messageMenu(msgId) {
     const body = el('div', 'k-sp-list');
-    [['Ответить', function () { const t = document.querySelector('[data-msg-id="' + msgId + '"] .k-msg-text'); if (window.K && K.chat && K.chat.reply) K.chat.reply.set(+msgId, (t ? t.textContent : '').substring(0, 40)); }],
-     ['История изменений', function () { showEdits(msgId); }],
-     ['Копировать', function () { if (window.K && K.chat && K.chat.copy) K.chat.copy(+msgId); }]
+    [['Reply', function () { const t = document.querySelector('[data-msg-id="' + msgId + '"] .k-msg-text'); if (window.K && K.chat && K.chat.reply) K.chat.reply.set(+msgId, (t ? t.textContent : '').substring(0, 40)); }],
+     ['Edit history', function () { showEdits(msgId); }],
+     ['Copy', function () { if (window.K && K.chat && K.chat.copy) K.chat.copy(+msgId); }]
     ].forEach(function (it) {
       const b = el('button', 'k-sp-btn', it[0]);
       b.onclick = function () { const m = document.querySelector('.k-sp-modal'); if (m) m.remove(); it[1](); };
       body.appendChild(b);
     });
-    modal('Сообщение', body);
+    modal('Message', body);
   }
 
   // Auto-wire everything as the SPA changes: gestures, drafts, toolbar, composer, albums.

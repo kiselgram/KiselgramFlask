@@ -266,7 +266,7 @@ def react_to_story(story_id):
         chat = _get_or_create_personal_chat(current_user_id, story.user_id)
         reaction_map = {'❤️': '❤️', '🔥': '🔥', '👎': '👎', '👍': '👍'}
         reaction_text = reaction_map.get(reaction, reaction)
-        msg = Message(content=f"📱 Реакция на вашу историю: {reaction_text}",
+        msg = Message(content=f"📱 Reaction to your story: {reaction_text}",
                       sender_id=current_user_id, receiver_id=story.user_id,
                       chat_id=chat.id, timestamp=datetime.utcnow())
         db.session.add(msg)
@@ -295,7 +295,7 @@ def reply_to_story(story_id):
     from app.models import Message
 
     msg = Message(
-        content=f"📱 Ответ на историю: {reply_text}",
+        content=f"📱 Story reply: {reply_text}",
         sender_id=current_user_id,
         receiver_id=story.user_id,
         chat_id=chat.id,

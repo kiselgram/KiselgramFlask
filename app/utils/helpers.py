@@ -21,6 +21,25 @@ def get_current_user():
     auth = request.headers.get('Authorization', '')
     if auth.startswith('Bearer '):
         token = auth[7:]
+        # Try JWT first (guest tokens are JWTs, not UserSession rows)
+        try:
+            import jwt as pyjwt
+            from flask import current_app
+            payload = pyjwt.decode(token, current_app.config['SECRET_KEY'], algorithms=['HS256'])
+            uid = payload.get('sub')
+            if uid:
+                u = User.query.get(uid)
+                if u and not u.is_deleted:
+                    # Guest expiry enforcement
+                    if u.is_guest and u.guest_expires_at:
+                        from datetime import datetime, timezone
+                        now = datetime.now(timezone.utc).replace(tzinfo=None)
+                        if now > u.guest_expires_at:
+                            return None
+                    return u
+        except Exception:
+            pass
+        # Fall back to UserSession token
         us = UserSession.query.filter_by(session_token=token, is_active=True).first()
         if us:
             return User.query.get(us.user_id)
@@ -51,6 +70,37 @@ def presence_visible(viewer_id, target_user):
         return Contact.query.filter_by(user_id=target_user.id, contact_id=viewer_id).first() is not None
     except Exception:
         return False
+
+
+_slow_buckets = {}
+
+
+def slow_mode_ok(user_id, chat_id):
+    """Telegram slow-mode gate: (allowed, retry_after_seconds).
+
+    Applies to groups (owners/admins bypass). In-memory buckets, same
+    caveat as RateLimiter (single worker). Returns (True, 0) when no
+    slow mode is set or the user may post.
+    """
+    import time
+    from app.models import Chat, ChatMember, ChannelAdmin
+    chat = Chat.query.get(chat_id)
+    secs = getattr(chat, 'slow_mode', 0) if chat else 0
+    if not chat or not secs or not user_id:
+        return True, 0
+    if chat.owner_id == user_id:
+        return True, 0
+    m = ChatMember.query.filter_by(chat_id=chat.id, user_id=user_id).first()
+    if m and (m.role or '') in ('owner', 'admin'):
+        return True, 0
+    if ChannelAdmin.query.filter_by(chat_id=chat.id, user_id=user_id).first():
+        return True, 0
+    now = time.time()
+    last = _slow_buckets.get((chat.id, user_id), 0)
+    if now - last < secs:
+        return False, int(secs - (now - last)) + 1
+    _slow_buckets[(chat.id, user_id)] = now
+    return True, 0
 
 
 def get_current_user_id():

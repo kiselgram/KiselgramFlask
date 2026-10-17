@@ -569,17 +569,19 @@ K.settings = {
           K.ui.renderUser();
         }
         qrEl.innerHTML = '';
-        const img = document.createElement('img');
-        img.src = `https://api.qrserver.com/v1/create-qr-code/?size=${QR_IMAGE_SIZE}x${QR_IMAGE_SIZE}&data=${encodeURIComponent(data.invite_url)}`;
-img.alt = 'Invite QR';
-img.style.width = QR_IMAGE_SIZE + 'px';
-img.style.height = QR_IMAGE_SIZE + 'px';
-        img.style.borderRadius = '8px';
-        qrEl.appendChild(img);
+        const holder = document.createElement('div');
+        qrEl.appendChild(holder);
+        try {
+          if (window.QRCode) {
+            // Legacy qrcode.min.js: new QRCode(element, text)
+            new QRCode(holder, { text: data.invite_url, width: QR_IMAGE_SIZE, height: QR_IMAGE_SIZE, correctLevel: QRCode.CorrectLevel.M });
+          }
+        } catch (e) {}
         if (listEl) {
           const r = await K.api.get(V2 + '/referrals/list');
-          if (r.success && r.data.length) {
-            listEl.innerHTML = r.data.map(u =>
+          const users = (r.success && r.data && (r.data.referrals || r.data)) || [];
+          if (users.length) {
+            listEl.innerHTML = users.map(u =>
               '<div class="k-settings-item"><span>@' + esc(u.username) + '</span><span style="font-size:11px;color:var(--text-muted)">' + fmtTime(new Date(u.created_at)) + '</span></div>'
             ).join('');
           } else {
@@ -659,7 +661,7 @@ img.style.height = QR_IMAGE_SIZE + 'px';
       if (statusEl) { statusEl.style.display=''; statusEl.textContent = msg; statusEl.style.background='rgba(239,68,68,.12)'; }
       K.ui.toast(msg,'error');
     } finally {
-      if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-star"></i> Оплатить звёздами'; }
+      if (btn) { btn.disabled=false; btn.innerHTML='<i class="fas fa-star"></i> Pay with Stars'; }
     }
   },
   async checkPremium() {
