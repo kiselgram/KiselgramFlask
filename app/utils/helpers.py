@@ -105,11 +105,29 @@ def slow_mode_ok(user_id, chat_id):
 
 def get_current_user_id():
     from flask import session, request
-    from app.models import UserSession
+    from app.models import User, UserSession
 
     auth = request.headers.get('Authorization', '')
     if auth.startswith('Bearer '):
         token = auth[7:]
+        # JWT guest tokens
+        try:
+            import jwt as pyjwt
+            from flask import current_app
+            payload = pyjwt.decode(token, current_app.config['SECRET_KEY'], algorithms=['HS256'])
+            uid = payload.get('sub')
+            if uid:
+                u = User.query.get(uid)
+                if u and not u.is_deleted:
+                    if u.is_guest and u.guest_expires_at:
+                        from datetime import datetime, timezone
+                        now = datetime.now(timezone.utc).replace(tzinfo=None)
+                        if now > u.guest_expires_at:
+                            return None
+                    return u.id
+        except Exception:
+            pass
+        # UserSession tokens
         us = UserSession.query.filter_by(session_token=token, is_active=True).first()
         if us:
             return us.user_id

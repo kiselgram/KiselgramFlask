@@ -1,152 +1,69 @@
-Kiselgram
+# Kiselgram
 
-v4.0.0
+v4.9.2
 
 Kiselgram modern messaging platform
 ===================================
 
-● Active Premium v4.0.0 Flask Python JavaScript
+Active Premium v4.9.2 Flask Python JavaScript
 
-A real-time messaging application with channels, groups, stories, and premium features. Built with Flask and vanilla JavaScript.
+A real-time messaging application with channels, groups, stories, video calls, and premium features. Built with Flask and vanilla JavaScript.
 
 [← Back to App](/) [✨ Upgrade to Premium](/premium) [📦 GitHub](https://github.com)
 
 ✨ Features
-----------
+--------
 
 💬
 
 Real-time Chat
 
-Instant messaging with read receipts
+Instant messaging with read receipts, typing indicators, reactions, and replies. Lightning fast delivery.
 
 👥
 
-Groups
+Groups & Channels
 
-Create and manage group conversations
+Create group chats for teams, friends, or communities. Custom names, avatars, and member management.
 
 📢
 
 Channels
 
-Broadcast to unlimited subscribers
+Broadcast messages to unlimited subscribers. Perfect for news, announcements, and content creators.
 
 📸
 
 Stories
 
-Share ephemeral photos and videos
+Share photos, videos, and music stories that disappear after 24 hours. Like and reply to keep the conversation going.
 
-🎨
+📹
 
-Customization
+Video Calls
 
-Themes, fonts, and wallpapers
-
-🔒
-
-Privacy First
-
-Block users and control visibility
-
-🔍
-
-Global Search
-
-Find users, groups, and channels
+High-quality peer-to-peer video calls powered by WebRTC. Create rooms, invite participants, and chat face-to-face.
 
 📎
 
 File Sharing
 
-Images, videos, audio, documents
+Share images, documents, videos, and audio files. Up to 100MB free, 500MB with Premium. Drag & drop supported.
 
-📦 Installation
----------------
-
-\# Clone the repository
-
-git clone https://github.com/kiselgram/kiselgram.git
-
-\# Install dependencies
-
-pip install -r requirements.txt
-
-\# Run the application
-
-flask run
-
-📋 What's New in v4.0
----------------------
-
-NEW
-
-Stories Feature
-
-Share moments that disappear after 24 hours with photos and videos
-
-NEW
-
-11 Premium Fonts
-
-Inter, Satoshi, DM Sans, Roboto, Poppins, Public Sans, Work Sans, SF Pro, Nunito, Space Grotesk, Courier New
-
-NEW
-
-Chat Customization
-
-Personalize chat bubbles, wallpapers, and text sizes per conversation
-
-NEW
+🔍
 
 Global Search
 
-Find users, groups, and channels instantly from anywhere
+Search across all your messages, contacts, and shared media. Find anything instantly.
 
-NEW
+🎨
 
-Kiselgram Premium
+Customization
 
-Unlock exclusive features and customizations
+Premium fonts, custom wallpapers, chat colors, and themes. Make your Kiselgram truly yours.
 
-IMPROVED
+📱
 
-Message Replies
+Responsive Design
 
-Reply to specific messages with context
-
-IMPROVED
-
-File Sharing
-
-Support for images, videos, audio, and documents with previews
-
-FIXED
-
-Dark Mode
-
-Enhanced dark theme with better contrast and readability
-
-**✨ Kiselgram Premium** — Unlock 11 premium fonts, stories feature, custom wallpapers, and priority support.
-
-Use code `WELCOMETOKISELGRAM` for 1 year free!
-
-🛠️ Tech Stack
---------------
-
-Flask Python 3.10+ SQLAlchemy SQLite JavaScript (ES6+) HTML5/CSS3 WebSockets
-
-∞ Messages
-
-11 Fonts
-
-24/7 Available
-
-4.0 Version
-
-[← Back to Kiselgram](/)
-
-[Privacy](#) [Terms](#) [Credits](#)
-
-© 2026 Kiselgram
+Works perfectly on desktop, tablet, and mobile. A seamless experience across all your devices.

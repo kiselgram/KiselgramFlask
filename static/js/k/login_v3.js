@@ -45,6 +45,42 @@ K.loginV3 = {
     K.loginV3._state = {};
   },
 
+  async _guest() {
+    const o = $('modalOverlay'); o.style.display = 'flex';
+    $('modalContent').innerHTML = `
+      <div class="k-modal-header"><h3>Guest Mode</h3>${K.loginV3._closeBtn()}</div>
+      <div class="k-modal-body" style="text-align:center;padding:30px 20px">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Creating a temporary account...<br>Full access for 24 hours, no email needed.</p>
+        <div style="color:var(--text-muted)"><i class="fas fa-spinner fa-spin"></i></div>
+      </div>`;
+    try {
+      const d = await K.api.post(K.loginV3._v3Url('/auth/guest'), {});
+      if (d.success && d.data) {
+        const u = d.data.user;
+        K.auth.accounts.push({username: u.username, displayName: u.display_name || u.username, avatarUrl: u.avatar_url || '', userId: u.user_id, token: d.data.session_token});
+        K.auth.activeIdx = K.auth.accounts.length - 1;
+        K.auth._save();
+        K.auth.renderTabs();
+        K.ui.toast('Welcome, @' + u.username + '!', 'success');
+        K.loginV3._finalizeLogin();
+      } else {
+        $('modalContent').innerHTML = `
+          <div class="k-modal-header"><h3>Guest Mode</h3>${K.loginV3._closeBtn()}</div>
+          <div class="k-modal-body" style="text-align:center;padding:30px 20px">
+            <p style="color:var(--error)">${d.error?.message || 'Failed to create guest account'}</p>
+            <button class="k-btn k-btn-secondary" style="margin-top:12px" onclick="K.loginV3._cleanup();K.loginV3.showPicker()">← Back</button>
+          </div>`;
+      }
+    } catch(e) {
+      $('modalContent').innerHTML = `
+        <div class="k-modal-header"><h3>Guest Mode</h3>${K.loginV3._closeBtn()}</div>
+        <div class="k-modal-body" style="text-align:center;padding:30px 20px">
+          <p style="color:var(--error)">Connection error</p>
+          <button class="k-btn k-btn-secondary" style="margin-top:12px" onclick="K.loginV3._cleanup();K.loginV3.showPicker()">← Back</button>
+        </div>`;
+    }
+  },
+
   // ── Friend code: skip email verification, friend vouches ───
 
   _stepFriend() {

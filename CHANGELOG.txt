@@ -5,7 +5,7 @@
 Last updated: 15.10.2026
 
 --------------------------------------------------------
-CURRENT VERSION: v4.9.1
+CURRENT VERSION: v4.9.2
 --------------------------------------------------------
 
 IMPORTANT: This file is updated automatically on every change
