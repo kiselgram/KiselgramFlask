@@ -2,10 +2,10 @@
   KISELGRAM — Messenger
   CHANGELOG / RECOMMENDATIONS
 ========================================================
-Last updated: 15.10.2026
+Last updated: 20.10.2026
 
 --------------------------------------------------------
-CURRENT VERSION: v4.9.2
+CURRENT VERSION: v4.9.6
 --------------------------------------------------------
 
 IMPORTANT: This file is updated automatically on every change
@@ -79,6 +79,40 @@ Security (Sputnik v0.60-v0.64 class fixes applied)
 ========================================================
 3. WHAT WAS ADDED THIS TIME
 ========================================================
+
+[20.10.2026] — v4.9.6: Admin extras layer (palette, shortcuts, sparklines, sound, confetti)
+  Files: static/js/k/admin-extras.js (new — command palette Ctrl+K, g+key tab
+         shortcuts, ? help overlay, live sparkline+pulse on stat cards, Web
+         Audio sounds, undo toasts, confetti; hooks K.adminPage.loadLoad),
+         static/css/k/admin-extras.css (new — palette/pulse/shortcuts styles),
+         static/css/k/admin.css (--font-m variable added),
+         templates/admin.html (loads admin-extras.css + admin-extras.js),
+         CHANGELOG.txt.
+  Adapted from admin_dash_idea/extras — loadDashboard references retargeted to
+  loadLoad (v4.9.5); missing hook methods are skipped gracefully.
+
+[20.10.2026] — v4.9.5: Admin load graph + instant stats
+  Files: app/routes/spav2/admin.py (new GET /api/admin/load — active users,
+         messages/min+hour, delivery rate, avg latency, uptime, cpu/mem via
+         psutil when present, users_today),
+         static/js/k/admin-page.js (loadDashboard replaced by loadLoad with
+         instant stat cards, rolling canvas load graph polled every 3s,
+         _renderStats/_fmtUptime/_drawLoadGraph helpers),
+         templates/admin.html (new "Load" section with #loadGraph canvas,
+         legend, uptime/CPU/MEM badges),
+         static/css/k/admin.css (.stat-unit, .load-wrap, .load-legend styles),
+         CHANGELOG.txt.
+  Note: graph plots Messages/min (accent) and Active users (accent2).
+
+[19.10.2026] — v4.9.4: Admin dashboard replaced with admin_dash_idea design
+  Files: templates/admin.html (replaced with dark theme, particle bg,
+         accent picker, glassmorphism, terminal chrome — external CSS/JS),
+         static/css/k/admin.css (full stylesheet from admin_dash_idea),
+         static/js/k/admin-boot.js (accent picker + particle background),
+         static/js/k/admin-page.js (loadReports rewired with dismiss/warn/
+         delete_message/ban_user/timeout actions; added dismissReport and
+         actionReport methods), CHANGELOG.txt.
+  Note: admin.py unchanged — all endpoints already existed.
 
 [15.10.2026] — v4.1.0: Sputnik ideas pack + security hardening
   Files: app/routes/spav2/sputnik.py (new, ~1300 lines),

@@ -14,3 +14,4 @@ psycopg2-binary
 requests
 PySocks
 tomli_w
+PyJWT>=2.8.0

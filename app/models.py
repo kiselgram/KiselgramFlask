@@ -68,6 +68,10 @@ class User(db.Model):
     is_deleted = db.Column(db.Boolean, default=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
 
+    # Account freeze (suspend without deleting)
+    is_frozen = db.Column(db.Boolean, default=False, index=True)
+    frozen_at = db.Column(db.DateTime, nullable=True)
+
     # Guest mode
     is_guest = db.Column(db.Boolean, default=False)
     guest_expires_at = db.Column(db.DateTime, nullable=True)
@@ -1090,3 +1094,40 @@ class TgCollectible(db.Model):
     last_sale_price = db.Column(db.Integer, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AdminAction(db.Model):
+    """Audit log of admin actions (extras_2)."""
+
+    __tablename__ = 'admin_action'
+
+    id = db.Column(db.Integer, primary_key=True)
+    actor_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True, index=True)
+    action = db.Column(db.String(64), nullable=False, index=True)
+    target_type = db.Column(db.String(32), nullable=True, index=True)
+    target_id = db.Column(db.Integer, nullable=True, index=True)
+    details = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    actor = db.relationship('User', foreign_keys=[actor_id])
+
+    def __repr__(self):
+        return f'<AdminAction(id={self.id}, action={self.action!r})>'
+
+
+class UserNote(db.Model):
+    """Admin-only note attached to a user (extras_2)."""
+
+    __tablename__ = 'user_note'
+
+    id = db.Column(db.Integer, primary_key=True)
+    target_user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='SET NULL'), nullable=True, index=True)
+    body = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    target = db.relationship('User', foreign_keys=[target_user_id], backref='admin_notes')
+    author = db.relationship('User', foreign_keys=[author_id])
+
+    def __repr__(self):
+        return f'<UserNote(id={self.id}, target={self.target_user_id})>'

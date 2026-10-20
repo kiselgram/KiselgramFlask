@@ -4,11 +4,12 @@ import json as json_module
 import subprocess
 import shlex
 import logging
+import time
 from flask import Blueprint, request, jsonify, render_template, session, redirect, url_for
 from functools import wraps
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from app import db
-from app.models import User, Report, Message, LoginOtp, Chat, ChatMember, ChatSubscriber, EmailVerification, QrLoginToken
+from app.models import User, Report, Message, LoginOtp, Chat, ChatMember, ChatSubscriber, EmailVerification, QrLoginToken, UserSession
 from app.utils.helpers import get_current_user
 from app.utils.security import rate_limit
 from app.routes.premium import load_premium_config, save_premium_config, generate_promo_code
@@ -37,6 +38,8 @@ def _check_command(cmd):
 
 MAILADMIN_URL = 'http://mailadmin:5002'
 MAILADMIN_KEY = 'admin-internal-secret-kisel'
+
+_APP_START = time.time()
 
 def _mailadmin_call(method, path, body=None):
     url = f'{MAILADMIN_URL}{path}'
@@ -107,6 +110,62 @@ def dashboard():
         'pending_reports': pending_reports,
         'users_today': users_today
     }})
+
+
+@spav2_admin_bp.route('/load', methods=['GET'])
+@admin_required
+def admin_load():
+    """Instant stats + live load samples for the admin dashboard graph."""
+    now = datetime.now(timezone.utc)
+    one_min_ago = now - timedelta(minutes=1)
+    one_hour_ago = now - timedelta(hours=1)
+    five_min_ago = now - timedelta(minutes=5)
+
+    active_sessions = UserSession.query.filter(
+        UserSession.is_active.is_(True),
+        UserSession.last_activity >= five_min_ago
+    ).count()
+    messages_min = Message.query.filter(Message.timestamp >= one_min_ago).count()
+    messages_hour = Message.query.filter(Message.timestamp >= one_hour_ago).count()
+    pending_reports = Report.query.filter_by(status='pending').count()
+    total_users = User.query.count()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    users_today = User.query.filter(User.created_at >= today_start).count()
+
+    hour_msgs = Message.query.filter(Message.timestamp >= one_hour_ago).all()
+    delivered = [m for m in hour_msgs if m.delivered_at]
+    delivery_rate = round(len(delivered) / len(hour_msgs) * 100, 2) if hour_msgs else 100.0
+    latencies = []
+    for m in delivered:
+        if m.delivered_at and m.timestamp:
+            latencies.append((m.delivered_at - m.timestamp).total_seconds() * 1000)
+    avg_latency_ms = round(sum(latencies) / len(latencies), 1) if latencies else 0
+
+    cpu_percent = None
+    memory_mb = None
+    try:
+        import psutil
+        proc = psutil.Process()
+        cpu_percent = proc.cpu_percent()
+        memory_mb = round(proc.memory_info().rss / (1024 ** 2), 2)
+    except Exception:
+        pass
+
+    return jsonify({'success': True, 'data': {
+        'active_users': active_sessions,
+        'messages_min': messages_min,
+        'messages_hour': messages_hour,
+        'total_users': total_users,
+        'pending_reports': pending_reports,
+        'users_today': users_today,
+        'delivery_rate': delivery_rate,
+        'avg_latency_ms': avg_latency_ms,
+        'uptime_seconds': int(time.time() - _APP_START),
+        'cpu_percent': cpu_percent,
+        'memory_mb': memory_mb,
+        'timestamp': now.isoformat()
+    }})
+
 
 @spav2_admin_bp.route('/reports', methods=['GET'])
 @admin_required
@@ -204,6 +263,7 @@ def list_users():
             'is_admin': u.is_admin,
             'is_bot': u.is_bot,
             'is_online': u.is_online,
+            'is_frozen': u.is_frozen,
             'email_verified': u.email_verified,
             'created_at': u.created_at.isoformat() if u.created_at else None
         } for u in users],
@@ -765,4 +825,7 @@ def terminal_exec():
     except Exception as e:
         log.exception(f'Terminal exec error: {e}')
         return jsonify({'success': False, 'error': {'code': 'ERROR', 'message': str(e)}}), 500
- 
+
+
+from app.routes.spav2 import admin_extras as _admin_extras  # noqa: E402,F401
+

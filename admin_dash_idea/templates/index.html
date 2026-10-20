@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Kiselgram</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    :root {
+      --bg: #04070e;
+      --panel: rgba(11,17,30,.72);
+      --panel-solid: #0a101c;
+      --stroke: rgba(120,200,255,.10);
+      --accent: #00e5ff;
+      --accent-rgb: 0,229,255;
+      --accent2: #a855f7;
+      --text: #dce9f8;
+      --muted: #63788f;
+      --red: #ff4d6d;
+      --green: #22e6a0;
+      --yellow: #ffb020;
+      --danger: #ff4d6d;
+      --border: rgba(120,200,255,.10);
+      --hover: rgba(255,255,255,.03);
+      --font-d: 'Orbitron', system-ui, sans-serif;
+      --font-b: 'Inter', system-ui, sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      font-family: var(--font-b);
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px;
+      -webkit-font-smoothing: antialiased;
+      position: relative;
+      min-height: 100vh;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(120,200,255,.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(120,200,255,.05) 1px, transparent 1px);
+      background-size: 46px 46px;
+      -webkit-mask-image: radial-gradient(ellipse at 50% 15%, #000 10%, transparent 75%);
+      mask-image: radial-gradient(ellipse at 50% 15%, #000 10%, transparent 75%);
+    }
+    body::after {
+      content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(900px 500px at 10% -10%, rgba(var(--accent-rgb), .11), transparent 70%),
+        radial-gradient(800px 500px at 100% 100%, rgba(168,85,247,.11), transparent 70%);
+    }
+    #bg-canvas { position: fixed; inset: 0; z-index: 0; opacity: .55; pointer-events: none; }
+
+    .top-bar, .stats, .tabs, [id$="-tab"], #loading, .login-overlay { position: relative; z-index: 1; }
+
+    h1 {
+      font-family: var(--font-d);
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: .22em;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    h1 i {
+      color: var(--accent);
+      filter: drop-shadow(0 0 14px rgba(var(--accent-rgb), 1));
+      font-size: 22px;
+    }
+    h1 .brand-grad {
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      filter: drop-shadow(0 0 16px rgba(var(--accent-rgb), .35));
+    }
+
+    .top-bar { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+    .user-info {
+      margin-left: auto; display: flex; align-items: center; gap: 12px;
+      font-size: 12px; color: var(--muted); letter-spacing: .08em;
+    }
+    .user-info i { color: var(--accent); }
+
+    .accent-picker {
+      display: flex; gap: 8px; padding: 6px 10px; border-radius: 12px;
+      background: rgba(255,255,255,.03); border: 1px solid var(--stroke);
+    }
+    .accent-picker button {
+      width: 14px; height: 14px; border-radius: 50%; border: none; cursor: pointer;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .accent-picker button:hover { transform: scale(1.25); }
+    .accent-picker button.on {
+      box-shadow: 0 0 0 2px #04070e, 0 0 0 3.5px currentColor, 0 0 14px currentColor;
+    }
+
+    /* ---------- stat cards ---------- */
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .stat {
+      background: var(--panel);
+      border: 1px solid var(--stroke);
+      border-radius: 14px;
+      padding: 16px 18px;
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      transition: transform .3s, border-color .3s, box-shadow .3s;
+    }
+    .stat::before {
+      content: ''; position: absolute; top: 0; left: 14%; right: 14%; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), .7), transparent);
+    }
+    .stat:hover {
+      transform: translateY(-2px);
+      border-color: rgba(var(--accent-rgb), .3);
+      box-shadow: 0 20px 50px -25px rgba(var(--accent-rgb), .55);
+    }
+    .stat-value {
+      font-family: var(--font-d);
+      font-size: 26px; font-weight: 700; letter-spacing: .02em;
+      color: var(--accent);
+      text-shadow: 0 0 22px rgba(var(--accent-rgb), .55);
+    }
+    .stat-label {
+      font-size: 10px; letter-spacing: .18em; color: var(--muted);
+      font-weight: 600; text-transform: uppercase; margin-top: 4px;
+    }
+
+    /* ---------- tabs ---------- */
+    .tabs { display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; }
+    .tab {
+      padding: 8px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--stroke);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: .06em;
+      background: rgba(255,255,255,.02);
+      color: var(--muted);
+      transition: all .25s;
+      display: inline-flex; align-items: center; gap: 6px;
+      font-family: var(--font-b);
+    }
+    .tab i { font-size: 12px; }
+    .tab:hover {
+      border-color: rgba(var(--accent-rgb), .35);
+      color: var(--text);
+      background: rgba(var(--accent-rgb), .05);
+    }
+    .tab.active {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #04070e;
+      border-color: transparent;
+      box-shadow: 0 0 22px -6px rgba(var(--accent-rgb), .8);
+      font-weight: 600;
+    }
+    .tab.active i { color: #04070e; }
+    .hidden { display: none !important; }
+
+    /* ---------- sections & tables ---------- */
+    .section { margin-bottom: 24px; }
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; gap: 10px; flex-wrap: wrap;
+    }
+    .section-header h2 {
+      font-size: 14px; font-weight: 600; font-family: var(--font-d);
+      letter-spacing: .1em; display: flex; align-items: center; gap: 8px;
+    }
+    .section-header h2 i {
+      color: var(--accent);
+      filter: drop-shadow(0 0 8px rgba(var(--accent-rgb), .7));
+    }
+    .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: var(--panel);
+      border: 1px solid var(--stroke);
+      border-radius: 14px;
+      overflow: hidden;
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      position: relative;
+    }
+    table::before {
+      content: ''; position: absolute; top: 0; left: 12%; right: 12%; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), .55), transparent);
+    }
+    th, td {
+      padding: 11px 16px;
+      text-align: left;
+      border-bottom: 1px solid rgba(120,200,255,.06);
+      font-size: 13px;
+    }
+    th {
+      background: rgba(255,255,255,.03);
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: .16em;
+    }
+    tbody tr { transition: background .2s; }
+    tbody tr:hover { background: rgba(120,200,255,.04); }
+    tbody tr:last-child td { border-bottom: none; }
+
+    /* ---------- badges ---------- */
+    .badge {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+    }
+    .badge-pending { background: rgba(255,176,32,.14); color: #ffb020; border: 1px solid rgba(255,176,32,.3); }
+    .badge-resolved { background: rgba(34,230,160,.14); color: #22e6a0; border: 1px solid rgba(34,230,160,.3); }
+    .badge-active, .badge-personal { background: rgba(var(--accent-rgb),.14); color: var(--accent); border: 1px solid rgba(var(--accent-rgb),.3); }
+    .badge-expired, .badge-group { background: rgba(255,176,32,.14); color: #ffb020; border: 1px solid rgba(255,176,32,.3); }
+    .badge-used, .badge-channel { background: rgba(34,230,160,.14); color: #22e6a0; border: 1px solid rgba(34,230,160,.3); }
+    .badge-admin {
+      background: rgba(var(--accent-rgb),.18); color: var(--accent);
+      border: 1px solid rgba(var(--accent-rgb),.4); font-weight: 700;
+    }
+
+    /* ---------- buttons ---------- */
+    .btn {
+      padding: 8px 16px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #04070e;
+      transition: all .25s;
+      font-family: var(--font-b);
+    }
+    .btn:hover { box-shadow: 0 0 22px -6px rgba(var(--accent-rgb), .9); transform: translateY(-1px); }
+    .btn-sm { padding: 5px 11px; font-size: 11px; }
+    .btn-outline {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--stroke);
+    }
+    .btn-outline:hover {
+      border-color: rgba(var(--accent-rgb), .45);
+      color: var(--accent);
+      background: rgba(var(--accent-rgb), .06);
+      box-shadow: none;
+    }
+    .btn-danger { background: linear-gradient(135deg, var(--red), #c03060); color: #fff; }
+    .btn-danger:hover { box-shadow: 0 0 22px -6px var(--red); }
+    .btn-warning { background: linear-gradient(135deg, var(--yellow), #d97706); color: #0a0a0a; }
+    .btn-warning:hover { box-shadow: 0 0 22px -6px var(--yellow); }
+    .btn-success { background: linear-gradient(135deg, var(--green), #0ea871); color: #04070e; }
+    .btn-success:hover { box-shadow: 0 0 22px -6px var(--green); }
+    .btn-group { display: inline-flex; gap: 3px; }
+
+    /* ---------- inputs ---------- */
+    select, input {
+      background: rgba(255,255,255,.02);
+      color: var(--text);
+      border: 1px solid var(--stroke);
+      padding: 8px 12px;
+      border-radius: 9px;
+      font-size: 12px;
+      outline: none;
+      font-family: var(--font-b);
+      transition: border-color .2s, box-shadow .2s;
+    }
+    select:focus, input:focus {
+      border-color: rgba(var(--accent-rgb), .45);
+      box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .08);
+    }
+    input::placeholder { color: var(--muted); }
+    select option { background: var(--panel-solid); color: var(--text); }
+
+    /* ---------- avatar ---------- */
+    .avatar-circle {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: rgba(var(--accent-rgb), .15);
+      color: var(--accent);
+      font-size: 12px; font-weight: 700;
+      border: 1px solid rgba(var(--accent-rgb), .3);
+      font-family: var(--font-d);
+    }
+
+    /* ---------- login ---------- */
+    .login-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+      background:
+        radial-gradient(ellipse at 50% 30%, rgba(var(--accent-rgb), .14), transparent 60%),
+        radial-gradient(ellipse at 20% 80%, rgba(168,85,247,.12), transparent 60%),
+        var(--bg);
+    }
+    .login-box {
+      background: var(--panel);
+      border: 1px solid var(--stroke);
+      border-radius: 18px;
+      padding: 34px 30px;
+      width: 340px;
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 30px 80px -40px rgba(var(--accent-rgb), .5);
+      position: relative;
+      overflow: hidden;
+      animation: modalIn .5s cubic-bezier(.4,0,.2,1);
+    }
+    .login-box::before {
+      content: ''; position: absolute; top: 0; left: 15%; right: 15%; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), .85), transparent);
+    }
+    .login-box h2 {
+      margin-bottom: 22px;
+      font-size: 16px;
+      text-align: center;
+      font-family: var(--font-d);
+      letter-spacing: .18em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    .login-box h2 i { color: var(--accent); filter: drop-shadow(0 0 12px rgba(var(--accent-rgb), .9)); }
+    .login-box input {
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--stroke);
+      background: rgba(255,255,255,.02);
+      color: var(--text);
+      font-size: 13px;
+      margin-bottom: 12px;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .login-box input:focus {
+      border-color: rgba(var(--accent-rgb), .45);
+      box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .08);
+    }
+    .login-box .btn { width: 100%; padding: 11px; font-size: 13px; justify-content: center; letter-spacing: .16em; }
+    .login-error {
+      color: var(--red);
+      font-size: 12px;
+      text-align: center;
+      margin-top: 10px;
+      letter-spacing: .06em;
+    }
+
+    /* ---------- modals ---------- */
+    .modal { position: fixed; inset: 0; z-index: 1050; display: none; align-items: center; justify-content: center; }
+    .modal.show { display: flex; }
+    .modal-backdrop { position: fixed; inset: 0; z-index: 1040; background: rgba(0,0,0,.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+    .modal-backdrop.show { opacity: 1; }
+    .modal-dialog { width: 100%; max-width: 500px; margin: 20px; position: relative; }
+    .modal-dialog.modal-lg { max-width: 760px; }
+    .modal-content {
+      background: rgba(10,16,28,.95);
+      border-radius: 18px;
+      border: 1px solid var(--stroke);
+      box-shadow: 0 30px 90px -30px rgba(var(--accent-rgb), .45), 0 0 0 1px rgba(var(--accent-rgb), .06);
+      overflow: hidden;
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      animation: modalIn .3s cubic-bezier(.4,0,.2,1);
+      position: relative;
+    }
+    .modal-content::before {
+      content: ''; position: absolute; top: 0; left: 12%; right: 12%; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(var(--accent-rgb), .8), transparent);
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(14px) scale(.97); }
+      to { opacity: 1; transform: none; }
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 22px 14px; border-bottom: 1px solid var(--stroke);
+    }
+    .modal-header h5 {
+      font-size: 14px; font-weight: 600;
+      display: flex; align-items: center; gap: 10px;
+      font-family: var(--font-d); letter-spacing: .1em;
+    }
+    .modal-header h5 i { color: var(--accent); filter: drop-shadow(0 0 10px rgba(var(--accent-rgb), .8)); }
+    .btn-close {
+      background: none; border: none; font-size: 22px; cursor: pointer;
+      color: var(--muted); padding: 0 4px; line-height: 1; transition: color .2s;
+    }
+    .btn-close:hover { color: var(--text); }
+    .modal-body { padding: 16px 22px 20px; }
+    .modal-footer {
+      display: flex; align-items: center; justify-content: flex-end;
+      gap: 8px; padding: 14px 22px 18px; border-top: 1px solid var(--stroke);
+    }
+    .form-label {
+      display: block; font-size: 10px; letter-spacing: .16em; color: var(--muted);
+      font-weight: 600; margin-bottom: 6px; text-transform: uppercase;
+    }
+    .form-control {
+      width: 100%;
+      padding: 9px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--stroke);
+      background: rgba(255,255,255,.02);
+      color: var(--text);
+      font-size: 13px;
+      outline: none;
+      font-family: var(--font-b);
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .form-control:focus {
+      border-color: rgba(var(--accent-rgb), .45);
+      box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .08);
+    }
+    .mb-3 { margin-bottom: 12px; }
+    .form-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+    .form-check-input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+    /* ---------- loading ---------- */
+    #loading {
+      text-align: center;
+      padding: 60px 40px;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: .4em;
+      text-transform: uppercase;
+      font-family: var(--font-d);
+    }
+    #loading::before {
+      content: ''; display: block; width: 44px; height: 44px; margin: 0 auto 18px;
+      border-radius: 50%;
+      border: 2px solid rgba(var(--accent-rgb), .18);
+      border-top-color: var(--accent);
+      animation: spin 1s linear infinite;
+      box-shadow: 0 0 30px -10px rgba(var(--accent-rgb), .7);
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---------- utility classes ---------- */
+    .text-muted { color: var(--muted); }
+    .text-center { text-align: center; }
+    .py-3 { padding-top: 12px; padding-bottom: 12px; }
+    .mt-1 { margin-top: 4px; }
+    .mt-2 { margin-top: 8px; }
+    .mb-1 { margin-bottom: 4px; }
+    .mb-2 { margin-bottom: 8px; }
+    .mb-3 { margin-bottom: 12px; }
+    .me-1 { margin-right: 4px; }
+    .me-2 { margin-right: 8px; }
+    .d-flex { display: flex; }
+    .align-items-center { align-items: center; }
+    .gap-2 { gap: 8px; }
+    .small { font-size: 12px; }
+    .fst-italic { font-style: italic; }
+    .ms-2 { margin-left: 8px; }
+    .rounded { border-radius: 8px; }
+    .p-2 { padding: 8px; }
+    .p-3 { padding: 12px; }
+
+    /* ---------- toast ---------- */
+    .k-toast {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(10,16,28,.96);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 12px 22px;
+      border: 1px solid rgba(var(--accent-rgb), .4);
+      box-shadow: 0 0 30px -6px rgba(var(--accent-rgb), .7);
+      z-index: 9999;
+      opacity: 0;
+      transition: opacity .3s, transform .3s;
+      pointer-events: none;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .k-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ---------- terminal ---------- */
+    #terminal-container {
+      background: #060a12;
+      border-radius: 14px;
+      border: 1px solid var(--stroke);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 560px;
+      box-shadow: 0 0 60px -30px rgba(var(--accent-rgb), .45),
+                  inset 0 0 60px -30px rgba(var(--accent-rgb), .12);
+    }
+    #terminal-output::-webkit-scrollbar { width: 6px; }
+    #terminal-output::-webkit-scrollbar-track { background: transparent; }
+    #terminal-output::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+    #terminal-output .t-prompt { color: #58a6ff; }
+    #terminal-output .t-success { color: #3fb950; }
+    #terminal-output .t-error { color: #f85149; }
+    #terminal-output .t-muted { color: #8b949e; }
+    #terminal-output .t-info { color: #d2a8ff; }
+    #terminal-output .t-stdout { color: #c9d1d9; }
+    #terminal-output .t-stderr { color: #f85149; }
+
+    /* ---------- animations for stat-in ---------- */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: none; }
+    }
+    .stat { animation: fadeInUp .4s ease both; }
+    .stat:nth-child(1) { animation-delay: .02s; }
+    .stat:nth-child(2) { animation-delay: .06s; }
+    .stat:nth-child(3) { animation-delay: .10s; }
+    .stat:nth-child(4) { animation-delay: .14s; }
+    .stat:nth-child(5) { animation-delay: .18s; }
+    .stat:nth-child(6) { animation-delay: .22s; }
+
+    @media (max-width: 760px) {
+      body { padding: 14px; }
+      h1 { font-size: 14px; letter-spacing: .16em; gap: 10px; }
+      h1 i { font-size: 18px; }
+      .user-info { margin-left: 0; width: 100%; }
+      .accent-picker { display: none; }
+      th, td { padding: 9px 11px; font-size: 12px; }
+      .tab { padding: 7px 12px; font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="bg-canvas"></canvas>
+  <div id="toast" class="k-toast"></div>
+
+  <div class="top-bar">
+    <h1><i class="fas fa-shield-alt"></i> <span class="brand-grad">Kiselgram Admin</span></h1>
+    <div class="accent-picker" id="accentPicker">
+      <button data-accent="#00e5ff" data-rgb="0,229,255" data-accent2="#a855f7" class="on" style="background:#00e5ff;color:#00e5ff"></button>
+      <button data-accent="#a855f7" data-rgb="168,85,247" data-accent2="#00e5ff" style="background:#a855f7;color:#a855f7"></button>
+      <button data-accent="#4ade80" data-rgb="74,222,128" data-accent2="#00e5ff" style="background:#4ade80;color:#4ade80"></button>
+      <button data-accent="#ff4d9d" data-rgb="255,77,157" data-accent2="#ffb020" style="background:#ff4d9d;color:#ff4d9d"></button>
+    </div>
+    {% if current_user and current_user.is_admin %}
+    <div class="user-info">
+      <i class="fas fa-user"></i> {{ current_user.username }}
+      <a href="{{ url_for('spav2_admin.admin_logout') }}" class="btn btn-sm btn-outline">Logout</a>
+    </div>
+    {% endif %}
+  </div>
+
+{% if current_user and current_user.is_admin %}
+    <div class="stats" id="stats"></div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="reports"><i class="fas fa-flag"></i> Reports</button>
+      <button class="tab" data-tab="users"><i class="fas fa-users"></i> Users</button>
+      <button class="tab" data-tab="chats"><i class="fas fa-comments"></i> Chats</button>
+      <button class="tab" data-tab="mail"><i class="fas fa-envelope"></i> Mail</button>
+      <button class="tab" data-tab="promo"><i class="fas fa-tags"></i> Promo</button>
+      <button class="tab" data-tab="twofa"><i class="fas fa-shield-alt"></i> 2FA</button>
+      <button class="tab" data-tab="terminal"><i class="fas fa-terminal"></i> Terminal</button>
+    </div>
+
+    <!-- Reports -->
+    <div id="reports-tab">
+      <div class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-flag"></i> Reports</h2>
+          <div class="toolbar">
+            <select id="reportStatus">
+              <option value="pending">Pending</option>
+              <option value="resolved">Resolved</option>
+            </select>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>Reporter</th><th>Reported User</th><th>Reason</th><th>Date</th><th>Actions</th></tr></thead>
+          <tbody id="reportsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Users -->
+    <div id="users-tab" class="hidden">
+      <div class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-users"></i> Users</h2>
+          <div class="toolbar">
+            <input type="text" id="userSearch" placeholder="Search..." onkeyup="K.adminPage.filterUsers()" style="width:180px">
+            <button class="btn btn-sm" onclick="K.adminPage.openAddUser()"><i class="fas fa-plus"></i> Add User</button>
+            <span class="badge badge-active" id="userCount">0</span>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>Username</th><th>Email</th><th>Admin</th><th>Created</th><th style="width:210px">Actions</th></tr></thead>
+          <tbody id="usersBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Chats -->
+    <div id="chats-tab" class="hidden">
+      <div class="stats" id="chatsStats"></div>
+      <div class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-comments"></i> Chats</h2>
+          <div class="toolbar">
+            <select id="chatTypeFilter" onchange="K.adminPage.loadChats()">
+              <option value="">All Types</option>
+              <option value="personal">Personal</option>
+              <option value="group">Group</option>
+              <option value="channel">Channel</option>
+            </select>
+            <button class="btn btn-sm btn-success" onclick="K.adminPage.openCreateChannel()"><i class="fas fa-plus"></i> Channel</button>
+            <span class="badge badge-active" id="chatCount">0</span>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>Name</th><th>Type</th><th>Members</th><th>Messages</th><th>Last Activity</th><th style="width:50px">View</th></tr></thead>
+          <tbody id="chatsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Mail Accounts -->
+    <div id="mail-tab" class="hidden">
+      <div class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-envelope"></i> Mail Accounts</h2>
+          <div class="toolbar">
+            <button class="btn btn-sm btn-outline" onclick="K.adminPage.loadMailAccounts()"><i class="fas fa-sync-alt"></i> Refresh</button>
+            <button class="btn btn-sm btn-success" onclick="K.adminPage.openAddMailAccount()"><i class="fas fa-plus"></i> Add Account</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Email</th><th style="width:180px">Actions</th></tr></thead>
+          <tbody id="mailBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Promo Codes -->
+    <div id="promo-tab" class="hidden">
+      <div class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-tags"></i> Promo Codes</h2>
+          <div class="toolbar">
+            <button class="btn btn-sm btn-outline" onclick="K.adminPage.loadPromoCodes()"><i class="fas fa-sync-alt"></i> Refresh</button>
+            <button class="btn btn-sm btn-success" onclick="K.adminPage.openGeneratePromo()"><i class="fas fa-plus"></i> Generate</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Code</th><th>Duration</th><th>Uses</th><th>Active</th><th>Created</th><th>By</th><th style="width:100px">Actions</th></tr></thead>
+          <tbody id="promoBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 2FA -->
+    <div id="twofa-tab" class="hidden">
+      <div class="stats" id="twofaStats"></div>
+      <div class="section">
+        <div class="section-header">
+          <h2><i class="fas fa-key"></i> OTP Codes</h2>
+          <div class="toolbar">
+            <button class="btn btn-sm btn-outline" onclick="K.adminPage.loadTwofaOtps()"><i class="fas fa-sync-alt"></i> Refresh</button>
+            <button class="btn btn-sm btn-danger" onclick="K.adminPage.cleanupOtps()"><i class="fas fa-trash-alt"></i> Cleanup</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>User</th><th>Code</th><th>Created</th><th>Expires</th><th>Status</th></tr></thead>
+          <tbody id="twofaBody"></tbody>
+        </table>
+      </div>
+      <div class="section" style="margin-top:20px">
+        <div class="section-header">
+          <h2><i class="fas fa-envelope"></i> Email Verification Codes</h2>
+          <div class="toolbar">
+            <button class="btn btn-sm btn-outline" onclick="K.adminPage.loadEmailVerifications()"><i class="fas fa-sync-alt"></i> Refresh</button>
+            <button class="btn btn-sm btn-danger" onclick="K.adminPage.cleanupEmailVerifications()"><i class="fas fa-trash-alt"></i> Cleanup</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>User</th><th>Email</th><th>Code</th><th>Created</th><th>Expires</th><th>Status</th></tr></thead>
+          <tbody id="emailVerBody"></tbody>
+        </table>
+      </div>
+      <div class="section" style="margin-top:20px">
+        <div class="section-header">
+          <h2><i class="fas fa-qrcode"></i> QR Login Tokens</h2>
+          <div class="toolbar">
+            <button class="btn btn-sm btn-outline" onclick="K.adminPage.loadQrTokens()"><i class="fas fa-sync-alt"></i> Refresh</button>
+            <button class="btn btn-sm btn-danger" onclick="K.adminPage.cleanupQrTokens()"><i class="fas fa-trash-alt"></i> Cleanup</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>ID</th><th>User</th><th>Token</th><th>Created</th><th>Expires</th><th>Authorized By</th><th>Status</th></tr></thead>
+          <tbody id="qrTokensBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Terminal -->
+    <div id="terminal-tab" class="hidden">
+      <div id="terminal-container">
+        <div style="display:flex;align-items:center;gap:6px;padding:10px 14px;background:#0a101c;border-bottom:1px solid #30363d">
+          <span style="width:10px;height:10px;border-radius:50%;background:#ff5f57"></span>
+          <span style="width:10px;height:10px;border-radius:50%;background:#febc2e"></span>
+          <span style="width:10px;height:10px;border-radius:50%;background:#28c840"></span>
+          <span style="margin-left:10px;color:#8b949e;font-size:11px;letter-spacing:.1em;font-family:'Cascadia Code','Fira Code','JetBrains Mono',monospace">kiselgram@admin ~ /</span>
+        </div>
+        <div id="terminal-output" style="flex:1;overflow-y:auto;padding:14px;font-family:'Cascadia Code','Fira Code','JetBrains Mono','Menlo',monospace;font-size:13px;line-height:1.6;color:#c9d1d9;white-space:pre-wrap;word-break:break-all"></div>
+        <div style="display:flex;align-items:center;border-top:1px solid #30363d;background:#0a101c;padding:8px 14px">
+          <span style="color:var(--accent);font-family:monospace;font-size:13px;margin-right:8px;text-shadow:0 0 10px rgba(var(--accent-rgb),.9)">$</span>
+          <input id="terminal-input" type="text" style="flex:1;background:transparent;border:none;outline:none;color:#c9d1d9;font-family:'Cascadia Code','Fira Code','JetBrains Mono','Menlo',monospace;font-size:13px" placeholder="Type a command..." autofocus spellcheck="false" autocomplete="off">
+          <button id="terminal-clear" style="background:transparent;border:1px solid #30363d;color:#8b949e;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;margin-left:8px" title="Clear">Clear</button>
+        </div>
+      </div>
+    </div>
+
+  <div id="loading">Initializing console…</div>
+
+  <!-- Add User Modal -->
+  <div class="modal fade" id="addUserModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5><i class="fas fa-user-plus"></i> Add User</h5><button type="button" class="btn-close" data-bs-dismiss="modal">&times;</button></div>
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Username</label><input class="form-control" id="addUsername"></div>
+          <div class="mb-3"><label class="form-label">Email</label><input class="form-control" id="addEmail"></div>
+          <div class="mb-3"><label class="form-label">Password (min 6 chars)</label><input type="password" class="form-control" id="addPassword"></div>
+          <div class="form-check"><input class="form-check-input" type="checkbox" id="addIsAdmin"><label> Admin privileges</label></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn" onclick="K.adminPage.saveAddUser()">Create</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit User Modal -->
+  <div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5><i class="fas fa-edit"></i> Edit User</h5><button type="button" class="btn-close" data-bs-dismiss="modal">&times;</button></div>
+        <div class="modal-body">
+          <input type="hidden" id="editUserId">
+          <div class="mb-3"><label class="form-label">Username</label><input class="form-control" id="editUsername"></div>
+          <div class="mb-3"><label class="form-label">Email</label><input class="form-control" id="editEmail"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn" onclick="K.adminPage.saveEditUser()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Password Modal -->
+  <div class="modal fade" id="passwordModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5><i class="fas fa-lock"></i> Set Password</h5><button type="button" class="btn-close" data-bs-dismiss="modal">&times;</button></div>
+        <div class="modal-body">
+          <input type="hidden" id="passwordUserId">
+          <p style="font-size:13px;color:var(--muted)" id="passwordUserLabel"></p>
+          <div class="mb-3"><label class="form-label">New Password (min 6 chars)</label><input type="password" class="form-control" id="newPassword"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn" onclick="K.adminPage.savePassword()">Update</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat Detail Modal -->
+  <div class="modal fade" id="chatDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header"><h5 id="chatDetailTitle"><i class="fas fa-info-circle"></i> Chat Details</h5><button type="button" class="btn-close" data-bs-dismiss="modal">&times;</button></div>
+        <div class="modal-body">
+          <div id="chatDetailMeta" class="mb-3 small"></div>
+          <div id="chatDetailPostArea" class="hidden" style="margin-bottom:12px">
+            <div style="display:flex;gap:8px">
+              <input class="form-control" id="chatPostInput" placeholder="Write a post..." style="flex:1">
+              <button class="btn btn-sm btn-success" onclick="K.adminPage.postToChat()"><i class="fas fa-paper-plane"></i> Post</button>
+            </div>
+          </div>
+          <div class="mb-2"><strong><i class="fas fa-users me-1"></i>Members</strong></div>
+          <div id="chatDetailMembers" class="mb-3"></div>
+          <div class="mb-1"><strong><i class="fas fa-comment me-1"></i>Messages</strong></div>
+          <div id="chatDetailMessages" class="mb-2"></div>
+          <button class="btn btn-sm btn-outline" id="chatDetailLoadMore" onclick="K.adminPage.loadMoreChatMessages()" style="display:none"><i class="fas fa-sync-alt"></i> Load More</button>
+        </div>
+        <div class="modal-footer"><button class="btn btn-outline" data-bs-dismiss="modal">Close</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Channel Modal -->
+  <div class="modal fade" id="createChannelModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5><i class="fas fa-bullhorn"></i> Create Channel</h5><button type="button" class="btn-close" data-bs-dismiss="modal">&times;</button></div>
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Channel Name</label><input class="form-control" id="channelName" placeholder="My Channel"></div>
+          <div class="mb-3"><label class="form-label">Description</label><textarea class="form-control" id="channelDescription" rows="3" placeholder="Channel description..."></textarea></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-success" onclick="K.adminPage.saveCreateChannel()"><i class="fas fa-plus"></i> Create</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Mail Account Modal -->
+  <div class="modal fade" id="addMailModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5><i class="fas fa-envelope"></i> Add Mail Account</h5><button type="button" class="btn-close" data-bs-dismiss="modal">&times;</button></div>
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Email</label><input class="form-control" id="mailEmail" placeholder="user@kiselgram.ru"></div>
+          <div class="mb-3"><label class="form-label">Password</label><input type="password" class="form-control" id="mailPassword" placeholder="Password"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-success" onclick="K.adminPage.saveMailAccount()"><i class="fas fa-plus"></i> Add</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset Mail Password Modal -->
+  <div class="modal fade" id="resetMailPasswordModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5><i class="fas fa-key"></i> Reset Password</h5><button type="button" class="btn-close" data-bs-dismiss="modal">&times;</button></div>
+        <div class="modal-body">
+          <p style="font-size:13px;color:var(--muted);margin-bottom:12px">Resetting password for <strong id="resetMailEmail" style="color:var(--accent)"></strong></p>
+          <div class="mb-3"><label class="form-label">New Password</label><input type="password" class="form-control" id="resetMailPassword" placeholder="New password"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-warning" onclick="K.adminPage.saveResetMailPassword()"><i class="fas fa-save"></i> Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generate Promo Modal -->
+  <div class="modal fade" id="generatePromoModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5><i class="fas fa-tags"></i> Generate Promo Code</h5><button type="button" class="btn-close" data-bs-dismiss="modal">&times;</button></div>
+        <div class="modal-body">
+          <div class="mb-3"><label class="form-label">Duration (days)</label><input type="number" class="form-control" id="promoDuration" value="30" min="1"></div>
+          <div class="mb-3"><label class="form-label">Max Uses</label><input type="number" class="form-control" id="promoMaxUses" value="1" min="1"></div>
+          <div class="mb-3"><label class="form-label">Custom Code (optional)</label><input class="form-control" id="promoCustomCode" placeholder="e.g. SUMMER2026"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-success" onclick="K.adminPage.saveGeneratePromo()"><i class="fas fa-plus"></i> Generate</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/k/init.js') }}?v2"></script>
+  <script src="{{ url_for('static', filename='js/k/api.js') }}?v2"></script>
+  <script src="{{ url_for('static', filename='js/k/ui.js') }}?v2"></script>
+  <script src="{{ url_for('static', filename='js/k/admin-page.js') }}?v2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      K.adminPage.init();
+      K.adminPage.initTabs();
+    });
+
+    /* ---------- accent picker ---------- */
+    (function () {
+      const picker = document.getElementById('accentPicker');
+      if (!picker) return;
+      picker.addEventListener('click', function (e) {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        picker.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+        btn.classList.add('on');
+        const root = document.documentElement.style;
+        root.setProperty('--accent', btn.dataset.accent);
+        root.setProperty('--accent-rgb', btn.dataset.rgb);
+        root.setProperty('--accent2', btn.dataset.accent2);
+      });
+    })();
+
+    /* ---------- particle background ---------- */
+    (function () {
+      const cvs = document.getElementById('bg-canvas');
+      if (!cvs) return;
+      const ctx = cvs.getContext('2d');
+      let W = 0, H = 0, parts = [];
+
+      function accentRgb() {
+        return getComputedStyle(document.documentElement)
+          .getPropertyValue('--accent-rgb').trim() || '0,229,255';
+      }
+
+      function resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        W = window.innerWidth;
+        H = window.innerHeight;
+        cvs.width = W * dpr;
+        cvs.height = H * dpr;
+        cvs.style.width = W + 'px';
+        cvs.style.height = H + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        const count = Math.min(80, Math.floor(W * H / 22000));
+        parts = Array.from({ length: count }, () => ({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: (Math.random() - 0.5) * 0.3,
+          r: 0.6 + Math.random() * 1.2
+        }));
+      }
+
+      function frame() {
+        ctx.clearRect(0, 0, W, H);
+        const rgb = accentRgb();
+
+        for (const p of parts) {
+          p.x += p.vx; p.y += p.vy;
+          if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
+          if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
+        }
+
+        for (let i = 0; i < parts.length; i++) {
+          const a = parts[i];
+          for (let j = i + 1; j < parts.length; j++) {
+            const b = parts[j];
+            const dx = a.x - b.x, dy = a.y - b.y;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < 16000) {
+              const alpha = (1 - d2 / 16000) * 0.4;
+              ctx.strokeStyle = `rgba(${rgb},${alpha * 0.35})`;
+              ctx.lineWidth = 0.6;
+              ctx.beginPath();
+              ctx.moveTo(a.x, a.y);
+              ctx.lineTo(b.x, b.y);
+              ctx.stroke();
+            }
+          }
+        }
+
+        for (const p of parts) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, 7);
+          ctx.fillStyle = `rgba(${rgb},.55)`;
+          ctx.fill();
+        }
+        requestAnimationFrame(frame);
+      }
+
+      window.addEventListener('resize', resize);
+      resize();
+      requestAnimationFrame(frame);
+    })();
+  </script>
+
+{% else %}
+  <div class="login-overlay">
+    <div class="login-box">
+      <h2><i class="fas fa-shield-alt"></i> Admin Login</h2>
+      <form method="post" action="{{ url_for('spav2_admin.admin_login') }}">
+        <input type="text" name="username" placeholder="Username" autocomplete="username">
+        <input type="password" name="password" placeholder="Password" autocomplete="current-password">
+        <button type="submit" class="btn">Sign In</button>
+        {% if login_error %}<div class="login-error">{{ login_error }}</div>{% endif %}
+      </form>
+    </div>
+  </div>
+{% endif %}
+</body>
+</html>

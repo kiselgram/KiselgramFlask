@@ -4,7 +4,7 @@ K.loginV3 = {
 
   _hasClose() { return K.auth.accounts && K.auth.accounts.length > 0; },
 
-  _v3Url(path) { return (K.api._base||V2).replace('api.v2', 'api.v3') + path; },
+  _v3Url(path) { return (window.V3 || V2.replace('api.v2', 'api.v3')) + path; },
 
   _blankOverlay(blank) {
     const o = $('modalOverlay');
