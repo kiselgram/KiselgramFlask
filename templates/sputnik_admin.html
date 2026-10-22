@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="ru" translate="no">
+<head>
+<meta charset="UTF-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="csrf-token" content="{{ csrf_token }}">
+<title>Спутник — Панель модерации</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, Arial, sans-serif; }
+body { background: #0f0f10; color: #e8e8ea; min-height: 100vh; }
+button { font-family: inherit; cursor: pointer; }
+a { color: #8ea3ff; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+#dashboard { display: block; }
+.topbar {
+    display: flex; align-items: center; gap: 14px; padding: 16px 24px; background: #17171a;
+    border-bottom: 1px solid rgba(255,255,255,0.06); position: sticky; top: 0; z-index: 10;
+}
+.topbar .title { font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 10px; }
+.topbar .title i { color: #667eea; }
+.topbar .spacer { flex: 1; }
+.tabs { display: flex; gap: 4px; background: #1c1c1e; border-radius: 12px; padding: 4px; flex-wrap: wrap; }
+.tabs .t {
+    border: none; background: transparent; color: #8e8e93; padding: 9px 14px; border-radius: 9px;
+    font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer;
+}
+.tabs .t:hover { color: white; }
+.tabs .t.active { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+#logoutBtn {
+    background: #1c1c1e; border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 10px;
+    padding: 9px 16px; font-size: 13px; display: flex; align-items: center; gap: 8px;
+}
+#logoutBtn:hover { background: #ff3b30; border-color: #ff3b30; }
+
+.wrap { padding: 20px 24px; max-width: 1200px; margin: 0 auto; }
+.stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.stat-card { background: #17171a; border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 16px; }
+.stat-card .n { font-size: 26px; font-weight: 800; }
+.stat-card .l { font-size: 12px; color: #8e8e93; margin-top: 4px; }
+
+.searchbar { display: flex; gap: 10px; margin-bottom: 16px; }
+.searchbar input {
+    flex: 1; background: #17171a; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 14px;
+    color: white; font-size: 14px; outline: none;
+}
+.searchbar input:focus { border-color: #667eea; }
+.searchbar .btn { background: #1c1c1e; border: 1px solid rgba(255,255,255,0.1); color: white; border-radius: 12px; padding: 0 18px; }
+
+table.data { width: 100%; border-collapse: collapse; background: #17171a; border-radius: 14px; overflow: hidden; }
+table.data th, table.data td { padding: 12px 14px; text-align: left; font-size: 13px; }
+table.data th { background: #1e1e21; color: #8e8e93; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+table.data td { border-top: 1px solid rgba(255,255,255,0.04); }
+table.data tr.clickable { cursor: pointer; transition: background 0.15s; }
+table.data tbody tr.clickable:hover { background: #1e1e21; }
+.avatar-sm {
+    width: 32px; height: 32px; border-radius: 50%; object-fit: cover;
+    background: linear-gradient(135deg,#667eea,#764ba2); display: inline-flex; align-items: center;
+    justify-content: center; font-weight: 700; font-size: 13px; color: white;
+}
+.avatar-sm.frozen { background: linear-gradient(135deg, #4fc3f7, #0288d1); }
+.avatar-title-sm {
+    width: 32px; height: 32px; border-radius: 10px; object-fit: cover;
+    background: linear-gradient(135deg,#764ba2,#667eea); display: inline-flex; align-items: center;
+    justify-content: center; font-weight: 700; font-size: 13px; color: white;
+}
+.badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.badge.ban { background: rgba(255,59,48,0.15); color: #ff4757; }
+.badge.ok { background: rgba(52,199,89,0.15); color: #34c759; }
+.badge.gray { background: rgba(142,142,147,0.15); color: #8e8e93; }
+.badge.frz { background: rgba(79,195,247,0.15); color: #4fc3f7; }
+.snow { color: #4fc3f7; margin-left: 4px; }
+
+.tbtn {
+    border: 1px solid rgba(255,255,255,0.12); background: #1c1c1e; color: white; border-radius: 9px;
+    padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+}
+.tbtn:hover { background: #242427; }
+.tbtn.danger { color: #ff4757; border-color: rgba(255,71,87,0.4); }
+.tbtn.danger:hover { background: #ff3b30; border-color: #ff3b30; color: #fff; }
+.tbtn.small { padding: 4px 8px; font-size: 11px; }
+
+#listPanel, #profilePanel {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 420px; max-width: 96vw; background: #17171a;
+    z-index: 60; transform: translateX(100%); transition: transform 0.25s ease; overflow-y: auto;
+    border-left: 1px solid rgba(255,255,255,0.08);
+}
+#listPanel.open, #profilePanel.open { transform: translateX(0); }
+.panel-header {
+    display: flex; align-items: center; gap: 12px; padding: 16px 18px; position: sticky; top: 0;
+    background: #17171a; border-bottom: 1px solid rgba(255,255,255,0.06); z-index: 5;
+}
+.panel-header .back { background: none; border: none; color: #8e8e93; font-size: 20px; padding: 6px; cursor: pointer; }
+.panel-header .back:hover { color: white; }
+.panel-header .h { flex: 1; font-size: 16px; font-weight: 700; }
+.panel-body { padding: 18px; }
+.phero { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+.phero .avatar {
+    width: 64px; height: 64px; border-radius: 50%; object-fit: cover;
+    background: linear-gradient(135deg,#667eea,#764ba2); display: flex; align-items: center;
+    justify-content: center; font-size: 26px; font-weight: 800; color: white;
+}
+.phero .avatar.frozen { background: linear-gradient(135deg, #4fc3f7, #0288d1); }
+.phero .name { font-size: 19px; font-weight: 800; display: flex; align-items: center; gap: 6px; }
+.phero .un { color: #8e8e93; font-size: 13px; }
+.kv { background: #1c1c1e; border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+.kv .k { color: #8e8e93; font-size: 12px; min-width: 150px; }
+.kv .v { font-size: 14px; font-weight: 600; word-break: break-all; }
+.pbtn { width: 100%; padding: 13px; border: none; border-radius: 12px; font-size: 14px; font-weight: 700; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; }
+.pbtn.ban { background: rgba(255,59,48,0.9); color: white; }
+.pbtn.ban:hover { background: #ff3b30; }
+.pbtn.unban { background: #34c759; color: white; }
+.pbtn.moder { background: #1c1c1e; border: 1px solid rgba(255,255,255,0.12); color: #ffb800; }
+.pbtn.moder:hover { border-color: #ffb800; }
+.pbtn.save { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+#panelMsg { font-size: 13px; margin-top: 10px; min-height: 16px; }
+#loader { display: flex; justify-content: center; padding: 40px; color: #8e8e93; }
+.empty { text-align: center; color: #8e8e93; padding: 40px; font-size: 14px; }
+.section-h { font-size: 15px; font-weight: 700; margin: 18px 0 10px; color: #e8e8ea; display: flex; align-items: center; gap: 8px; }
+.edit-field { margin-bottom: 10px; }
+.edit-field label { display: block; font-size: 11px; color: #8e8e93; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+.edit-field input, .edit-field textarea {
+    width: 100%; background: #1c1c1e; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+    padding: 11px 12px; color: white; font-size: 14px; outline: none; resize: vertical;
+}
+.edit-field input:focus, .edit-field textarea:focus { border-color: #667eea; }
+
+.modal-ovr {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 100; display: none;
+    align-items: center; justify-content: center; padding: 20px;
+}
+.modal-ovr.open { display: flex; }
+.modal-box {
+    background: #0f0f0f; border-radius: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+    padding: 24px; width: 100%; max-width: 420px; color: #fff;
+}
+.modal-box h3 { font-size: 18px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+.modal-box h3 i { color: #ff3b30; }
+.modal-box p { color: #8e8e93; font-size: 13px; margin-bottom: 12px; }
+.modal-box textarea, .modal-box input {
+    width: 100%; background: #1c1c1e; border: 1px solid #2c2c2e; border-radius: 12px;
+    padding: 12px; color: white; font-size: 15px; outline: none; resize: vertical; box-sizing: border-box;
+}
+.modal-box textarea { min-height: 90px; }
+.modal-box textarea:focus, .modal-box input:focus { border-color: #007aff; }
+.mbtns { display: flex; gap: 10px; margin-top: 14px; }
+.mbtns .btn {
+    flex: 1; padding: 12px; border: none; border-radius: 11px; font-size: 14px; font-weight: 700; cursor: pointer;
+}
+.mbtns .btn.primary { background: #ff3b30; color: white; }
+.mbtns .btn.ghost { background: #1c1c1e; border: 1px solid rgba(255,255,255,0.1); color: white; }
+
+.metric-group { background: #17171a; border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.metric { background: #1c1c1e; border-radius: 11px; padding: 12px 14px; }
+.metric .m-n { font-size: 20px; font-weight: 800; }
+.metric .m-l { font-size: 11px; color: #8e8e93; margin-top: 3px; }
+
+/* Просмотр аккаунта (только чтение) */
+.vf-card { background: #17171a; border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
+.vf-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; margin-bottom: 12px; }
+.vf-row.single { grid-template-columns: 1fr; }
+.vf-row input {
+    background: #1c1c1e; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+    padding: 11px 12px; color: white; font-size: 14px; outline: none;
+}
+.vf-btn {
+    border: 1px solid rgba(255,255,255,0.12); background: #1c1c1e; color: white; border-radius: 10px;
+    padding: 11px 18px; font-size: 14px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+}
+.vf-btn.primary { background: linear-gradient(135deg, #667eea, #764ba2); border: none; font-weight: 700; }
+.vf-btn:hover { background: #242427; }
+.vf-hint { font-size: 12px; color: #8e8e93; margin-bottom: 10px; }
+.chat-item { display: flex; align-items: center; gap: 12px; background: #1c1c1e; border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; cursor: pointer; transition: background 0.15s; }
+.chat-item:hover { background: #242427; }
+.chat-item .avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+    background: linear-gradient(135deg,#764ba2,#667eea); display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 14px; color: white; }
+.chat-item .meta { flex: 1; min-width: 0; }
+.chat-item .meta .t { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+.chat-item .meta .s { color: #8e8e93; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg-list .msg { display: flex; gap: 10px; padding: 10px 6px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.msg-list .msg .who { font-weight: 700; font-size: 13px; }
+.msg-list .msg .time { color: #8e8e93; font-size: 11px; margin-left: 8px; }
+.msg-list .msg .text { font-size: 13.5px; white-space: pre-wrap; word-break: break-word; color: #e8e8ea; }
+.tag { padding: 3px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+.tag.personal { background: rgba(102,126,234,0.18); color: #8ea3ff; }
+.tag.group { background: rgba(255,184,0,0.15); color: #ffb800; }
+.tag.channel { background: rgba(79,195,247,0.15); color: #4fc3f7; }
+</style>
+</head>
+<body>
+
+<div id="dashboard">
+    <div class="topbar">
+        <div class="title"><i class="fas fa-user-shield"></i> Панель модерации</div>
+        <div class="spacer"></div>
+        <button id="logoutBtn" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i> Выйти</button>
+    </div>
+    <div class="topbar" style="padding:12px 24px; position: static;">
+        <div class="tabs">
+            <button class="t active" data-tab="users" onclick="switchTab('users')"><i class="fas fa-users"></i> Пользователи</button>
+            <button class="t" data-tab="groups" onclick="switchTab('groups')"><i class="fas fa-users-rectangle"></i> Группы</button>
+            <button class="t" data-tab="channels" onclick="switchTab('channels')"><i class="fas fa-bullhorn"></i> Каналы</button>
+            <button class="t" data-tab="stats" onclick="switchTab('stats')"><i class="fas fa-chart-bar"></i> Статистика</button>
+            <button class="t" data-tab="premium" onclick="switchTab('premium')"><i class="fas fa-crown"></i> Premium</button>
+            <button class="t" data-tab="viewer" onclick="switchTab('viewer')"><i class="fas fa-eye"></i> Просмотр аккаунта</button>
+        </div>
+        <button id="refreshBtn" class="tbtn" style="margin-left:auto;" onclick="refreshCurrentTab()"><i class="fas fa-sync-alt"></i> Обновить</button>
+    </div>
+
+    <div class="wrap">
+        <div id="tabUsers">
+            <div class="stats-row" id="statsRow"></div>
+            <div class="searchbar">
+                <input id="searchInput" placeholder="Поиск по id, username, имени, email..." oninput="filterUsers()">
+            </div>
+            <div id="usersTable"></div>
+        </div>
+        <div id="tabGroups" style="display:none;"><div id="groupsTable"></div></div>
+        <div id="tabChannels" style="display:none;"><div id="channelsTable"></div></div>
+        <div id="tabStats" style="display:none;"><div id="statsContainer"></div></div>
+        <div id="tabPremium" style="display:none;">
+            <div class="stats-row" id="premiumStatsRow"></div>
+            <div class="vf-card">
+                <div class="section-h"><i class="fas fa-ticket"></i> Создать промокод</div>
+                <div class="vf-hint">Промокод — латинские буквы, цифры, дефис и подчёркивание (3-32 символа).</div>
+                <div class="vf-row">
+                    <input id="pmCode" placeholder="SPUTNIK2026" autocomplete="off" style="text-transform:uppercase;">
+                    <input id="pmDays" type="number" min="1" max="3650" placeholder="Дней (30)" value="30">
+                    <input id="pmMax" type="number" min="1" max="100000" placeholder="Активаций (1)" value="1">
+                </div>
+                <button class="vf-btn primary" onclick="createPromo()"><i class="fas fa-plus"></i> Создать промокод</button>
+            </div>
+            <div class="vf-card">
+                <div class="section-h"><i class="fas fa-ticket"></i> Промокоды</div>
+                <div id="promoTable"></div>
+            </div>
+        </div>
+        <div id="tabViewer" style="display:none;">
+            <div class="vf-card">
+                <div class="section-h"><i class="fas fa-eye"></i> Просмотр аккаунта (только чтение)</div>
+                <div class="vf-hint">Введите телефон/username/ID — откроется зеркальный профиль и переписка. Отправлять сообщения нельзя.</div>
+                <div class="vf-row">
+                    <input id="viPhone" placeholder="Телефон / username" autocomplete="off">
+                    <input id="viUid" placeholder="Уникальный ID" autocomplete="off">
+                </div>
+                <button class="vf-btn primary" onclick="viewerSearch()"><i class="fas fa-search"></i> Найти</button>
+            </div>
+            <div id="viewerResults"></div>
+        </div>
+    </div>
+</div>
+
+<div id="profilePanel">
+    <div class="panel-header">
+        <button class="back" onclick="closeProfile()"><i class="fas fa-arrow-left"></i></button>
+        <div class="h">Профиль пользователя</div>
+        <span id="panelStatus"></span>
+    </div>
+    <div class="panel-body" id="panelBody"></div>
+</div>
+
+<div id="listPanel">
+    <div class="panel-header">
+        <button class="back" onclick="closeList()"><i class="fas fa-arrow-left"></i></button>
+        <div class="h" id="listTitle">Список</div>
+    </div>
+    <div class="panel-body" id="listBody"></div>
+</div>
+
+<div id="banModal" class="modal-ovr">
+    <div class="modal-box">
+        <h3><i class="fas fa-snowflake"></i> Заморозить аккаунт</h3>
+        <p style="color:#8e8e93; font-size:13px; margin-bottom:12px;">Замороженный аккаунт считается удалённым (не может входить и писать). Разморозка восстанавливает доступ.</p>
+        <textarea id="banReasonInput" placeholder="Причина заморозки (информационно)"></textarea>
+        <div class="mbtns">
+            <button class="btn primary" onclick="confirmBan()"><i class="fas fa-snowflake"></i> Заморозить</button>
+            <button class="btn ghost" onclick="closeBanModal()">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+const U = {{ urimap|tojson }};
+let allUsers = [];
+let banTargetId = null;
+
+function post(url, body) {
+    return fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF },
+        body: body ? JSON.stringify(body) : undefined
+    }).then(r => r.json());
+}
+function get(url) {
+    return fetch(url, { headers: { 'X-CSRF-Token': CSRF, 'Accept': 'application/json' } }).then(r => r.json());
+}
+function esc(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function fmtDate(s) { if (!s) return '—'; const d = new Date(s); return isNaN(d) ? '—' : d.toLocaleDateString('ru-RU'); }
+function fmtDateTime(s) { if (!s) return '—'; const d = new Date(s); return isNaN(d) ? '—' : d.toLocaleString('ru-RU'); }
+
+function doLogout() {
+    fetch('/api/admin/logout').then(() => location.reload());
+}
+
+function switchTab(tab) {
+    document.querySelectorAll('.tabs .t').forEach(b => {
+        b.classList.toggle('active', b.dataset.tab === tab);
+    });
+    ['users', 'groups', 'channels', 'stats', 'premium', 'viewer'].forEach(t => {
+        document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = (t === tab) ? 'block' : 'none';
+    });
+    if (tab === 'users') loadUsers();
+    if (tab === 'groups') loadGroups();
+    if (tab === 'channels') loadChannels();
+    if (tab === 'stats') loadStats();
+    if (tab === 'premium') loadPremium();
+    if (tab === 'viewer') loadViewer();
+}
+function refreshCurrentTab() {
+    const active = document.querySelector('.tabs .t.active').dataset.tab;
+    switchTab(active);
+}
+
+// ================= ПОЛЬЗОВАТЕЛИ =================
+function loadUsers() {
+    const el = document.getElementById('usersTable');
+    el.innerHTML = '<div id="loader"><i class="fas fa-spinner fa-spin"></i> Загрузка пользователей...</div>';
+    get(U.users).then(d => {
+        if (d.error) throw new Error(d.error);
+        allUsers = d.users || [];
+        renderUsers(allUsers);
+    }).catch(e => { el.innerHTML = '<div class="empty">Ошибка: ' + esc(e.message) + '</div>'; });
+}
+function renderUsers(users) {
+    const frozen = users.filter(u => u.is_banned).length;
+    const msgs = users.reduce((s, u) => s + (u.messages_count || 0), 0);
+    document.getElementById('statsRow').innerHTML = `
+        <div class="stat-card"><div class="n">${users.length}</div><div class="l">Всего аккаунтов</div></div>
+        <div class="stat-card"><div class="n" style="color:#4fc3f7;">${frozen}</div><div class="l">❄ Заморожено</div></div>
+        <div class="stat-card"><div class="n">${msgs}</div><div class="l">Сообщений</div></div>`;
+    if (!users.length) {
+        document.getElementById('usersTable').innerHTML = '<div class="empty">Пользователи не найдены</div>';
+        return;
+    }
+    let rows = '';
+    users.forEach(u => {
+        const inits = esc((u.display_name || u.username || '?')[0].toUpperCase());
+        const avatar = u.avatar
+            ? `<img class="avatar-sm ${u.is_banned ? 'frozen' : ''}" src="/${esc(u.avatar)}">`
+            : `<span class="avatar-sm ${u.is_banned ? 'frozen' : ''}">${u.is_banned ? '❄' : inits}</span>`;
+        const badge = u.is_banned ? '<span class="badge frz">❄ заморожен</span>'
+            : u.is_deleted ? '<span class="badge gray">удалён</span>' : '<span class="badge ok">активен</span>';
+        rows += `<tr class="clickable" onclick="openProfile(${u.id})">
+            <td>${avatar}</td>
+            <td><b>${esc(u.display_name || '—')}${u.is_banned ? '<span class="snow">❄</span>' : ''}</b><br>
+                <span style="color:#8e8e93;font-size:12px;">@${esc(u.username || '—')}</span></td>
+            <td style="color:#8e8e93;">${esc(u.email || '—')}</td>
+            <td><b>ID:</b> ${u.id} <span style="color:#8e8e93;">(uid ${u.unique_id})</span></td>
+            <td>${fmtDate(u.created_at)}</td>
+            <td>${badge}</td>
+        </tr>`;
+    });
+    document.getElementById('usersTable').innerHTML = `
+        <table class="data">
+            <thead><tr><th></th><th>Имя</th><th>Email</th><th>ID</th><th>Регистрация</th><th>Статус</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+}
+function filterUsers() {
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    if (!q) { renderUsers(allUsers); return; }
+    const filtered = allUsers.filter(u =>
+        String(u.id).includes(q) || String(u.unique_id).includes(q) ||
+        (u.username || '').toLowerCase().includes(q) ||
+        (u.display_name || '').toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q)
+    );
+    renderUsers(filtered);
+}
+
+function openProfile(userId) {
+    document.getElementById('profilePanel').classList.add('open');
+    document.getElementById('panelBody').innerHTML = '<div id="loader"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>';
+    document.getElementById('panelStatus').innerHTML = '';
+    get(`${U.profile}${userId}`).then(d => {
+        if (d.error) throw new Error(d.error);
+        renderProfile(d.user);
+    }).catch(e => { document.getElementById('panelBody').innerHTML = '<div class="empty">Ошибка: ' + esc(e.message) + '</div>'; });
+}
+function closeProfile() { document.getElementById('profilePanel').classList.remove('open'); }
+
+function renderProfile(p) {
+    const inits = esc((p.display_name || p.username || '?')[0].toUpperCase());
+    const avatar = p.avatar
+        ? `<img class="avatar ${p.is_banned ? 'frozen' : ''}" src="/${esc(p.avatar)}">`
+        : `<span class="avatar ${p.is_banned ? 'frozen' : ''}">${p.is_banned ? '❄' : inits}</span>`;
+    document.getElementById('panelStatus').innerHTML = p.is_banned
+        ? '<span class="badge frz">❄ заморожен</span>'
+        : '<span class="badge ok">активен</span>';
+    const banRow = p.is_banned
+        ? `<div class="kv" style="border:1px solid rgba(79,195,247,0.3);"><div class="k" style="color:#4fc3f7;">❄ Статус</div><div class="v" style="color:#4fc3f7;">Заморожен (удален)</div></div>` : '';
+    document.getElementById('panelBody').innerHTML = `
+        <div class="phero">${avatar}<div><div class="name">${esc(p.display_name || 'Пользователь')}${p.is_banned ? '<span class="snow">❄</span>' : ''}</div>
+        <div class="un">@${esc(p.username || '—')}</div></div></div>
+        ${banRow}
+        <div class="kv"><div class="k">ID</div><div class="v">${p.id}</div></div>
+        <div class="kv"><div class="k">UID</div><div class="v">${p.unique_id}</div></div>
+        <div class="kv"><div class="k">Email</div><div class="v">${esc(p.email || '—')}</div></div>
+        <div class="kv"><div class="k">Имя</div><div class="v">${esc(p.display_name || '—')}</div></div>
+        <div class="kv"><div class="k">Био</div><div class="v">${esc(p.bio || '—')}</div></div>
+        <div class="kv"><div class="k">Зарегистрирован</div><div class="v">${fmtDateTime(p.created_at)}</div></div>
+        <div class="kv"><div class="k">Был в сети</div><div class="v">${fmtDateTime(p.last_seen)}</div></div>
+        <div class="kv"><div class="k">Сообщений</div><div class="v">${p.messages_count}</div></div>
+        <div class="kv"><div class="k">Чатов</div><div class="v">${p.chats_count}</div></div>
+        <div class="kv"><div class="k">Историй</div><div class="v">${p.stories_count}</div></div>
+        <div class="section-h"><i class="fas fa-edit"></i> Редактирование профиля</div>
+        <div class="edit-field"><label>Имя</label><input id="editName" value="${esc(p.display_name || '')}"></div>
+        <div class="edit-field"><label>Username</label><input id="editUsername" value="${esc(p.username || '')}"></div>
+        <div class="edit-field"><label>Био</label><textarea id="editBio" rows="2">${esc(p.bio || '')}</textarea></div>
+        <div class="edit-field"><label style="display:flex;align-items:center;gap:8px;text-transform:none;">
+            <input type="checkbox" id="editResetAvatar" style="width:auto;"> Сбросить аватарку</label></div>
+        <button class="pbtn save" onclick="saveProfile(${p.id})"><i class="fas fa-save"></i> Сохранить</button>
+        ${p.is_banned
+            ? `<button class="pbtn unban" onclick="setBan(${p.id}, false)"><i class="fas fa-check-circle"></i> Разморозить аккаунт</button>`
+            : `<button class="pbtn ban" onclick="openBanModal(${p.id})"><i class="fas fa-snowflake"></i> Заморозить аккаунт</button>`}
+        <button class="pbtn moder" onclick="deleteContent(${p.id})"><i class="fas fa-eraser"></i> Удалить контент</button>
+        <div id="panelMsg"></div>`;
+}
+function saveProfile(userId) {
+    const msg = document.getElementById('panelMsg');
+    msg.textContent = '⏳ Сохранение...';
+    post(`${U.edit_profile}${userId}/edit`, {
+        username: document.getElementById('editUsername').value.trim(),
+        display_name: document.getElementById('editName').value.trim(),
+        bio: document.getElementById('editBio').value.trim(),
+        reset_avatar: document.getElementById('editResetAvatar').checked
+    }).then(d => {
+        msg.textContent = d.success ? '✅ Профиль обновлён' : 'Ошибка: ' + (d.error || '');
+        msg.style.color = d.success ? '#34c759' : '#ff4757';
+        if (d.success) { loadUsers(); openProfile(userId); }
+    });
+}
+function openBanModal(userId) {
+    banTargetId = userId;
+    document.getElementById('banReasonInput').value = '';
+    document.getElementById('banModal').classList.add('open');
+    setTimeout(() => document.getElementById('banReasonInput').focus(), 50);
+}
+function closeBanModal() {
+    document.getElementById('banModal').classList.remove('open');
+    banTargetId = null;
+}
+function confirmBan() {
+    closeBanModal();
+    setBan(banTargetId, true);
+}
+function setBan(userId, banned) {
+    const msg = document.getElementById('panelMsg');
+    msg.textContent = banned ? '⏳ Заморозка...' : '⏳ Разморозка...';
+    post(`${U.ban}${userId}`, { banned }).then(d => {
+        msg.textContent = d.success ? (banned ? '✅ Заморожено' : '✅ Разморожено') : 'Ошибка: ' + (d.error || '');
+        msg.style.color = d.success ? '#34c759' : '#ff4757';
+        if (d.success) { loadUsers(); openProfile(userId); }
+    });
+}
+function deleteContent(userId) {
+    const msg = document.getElementById('panelMsg');
+    if (!confirm('Удалить все сообщения и истории пользователя?')) return;
+    msg.textContent = '⏳ Удаление контента...';
+    post(`${U.delete_content}${userId}`).then(d => {
+        msg.textContent = d.success ? `✅ Удалено сообщений: ${d.deleted_messages}, историй: ${d.deleted_stories}`
+            : 'Ошибка: ' + (d.error || '');
+        openProfile(userId);
+    });
+}
+
+// ================= ГРУППЫ =================
+function loadGroups() {
+    const el = document.getElementById('groupsTable');
+    el.innerHTML = '<div id="loader"><i class="fas fa-spinner fa-spin"></i> Загрузка групп...</div>';
+    get(U.groups).then(d => {
+        if (d.error) throw new Error(d.error);
+        renderGroups(d.groups || []);
+    }).catch(e => { el.innerHTML = '<div class="empty">Ошибка: ' + esc(e.message) + '</div>'; });
+}
+function renderGroups(groups) {
+    const el = document.getElementById('groupsTable');
+    if (!groups.length) { el.innerHTML = '<div class="empty">Групп нет</div>'; return; }
+    let rows = '';
+    groups.forEach(g => {
+        const inits = esc((g.name || '?')[0].toUpperCase());
+        const avatar = g.avatar ? `<img class="avatar-title-sm" src="/${esc(g.avatar)}">` : `<span class="avatar-title-sm">${inits}</span>`;
+        rows += `<tr>
+            <td>${avatar}</td>
+            <td><b>${esc(g.name)}</b><br><span style="color:#8e8e93;font-size:12px;">${g.is_public ? 'публичная' : 'приватная'}</span></td>
+            <td style="color:#8e8e93;">${esc(g.description || '—')}</td>
+            <td><b>${g.member_count}</b> участн.<br><span style="color:#8e8e93;font-size:12px;">${g.message_count} соц.</span></td>
+            <td>@${esc(g.owner_username || '—')}</td>
+            <td>${fmtDate(g.created_at)}</td>
+            <td style="text-align:right;white-space:nowrap;">
+                <button class="tbtn" onclick="openGroupMembers(${g.id}, '${esc(g.name).replace(/'/g, "\\'")}')"><i class="fas fa-list"></i> Участники</button>
+                <button class="tbtn danger" onclick="deleteGroup(${g.id}, '${esc(g.name).replace(/'/g, "\\'")}')"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>`;
+    });
+    el.innerHTML = `<table class="data"><thead><tr><th></th><th>Название</th><th>Описание</th><th>Участники</th><th>Владелец</th><th>Создана</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function openGroupMembers(groupId, name) {
+    document.getElementById('listTitle').textContent = 'Участники: ' + name;
+    const list = document.getElementById('listBody');
+    list.innerHTML = '<div id="loader"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>';
+    document.getElementById('listPanel').classList.add('open');
+    get(`${U.group_members}${groupId}`).then(d => {
+        if (!d.members || !d.members.length) { list.innerHTML = '<div class="empty">Нет участников</div>'; return; }
+        list.innerHTML = d.members.map(m => {
+            const inits = esc((m.display_name || m.username || '?')[0].toUpperCase());
+            const avatar = m.avatar ? `<img class="avatar-sm ${m.is_banned ? 'frozen' : ''}" src="/${esc(m.avatar)}">` : `<span class="avatar-sm ${m.is_banned ? 'frozen' : ''}">${inits}</span>`;
+            return `<div class="kv" style="justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:10px;">${avatar}<div><b>${esc(m.display_name || '—')}</b><br>
+                <span style="color:#8e8e93;font-size:12px;">@${esc(m.username || '—')} · ${m.role}</span></div></div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                ${m.role !== 'owner' ? `<button class="tbtn danger small" onclick="removeMember(${groupId}, ${m.user_id})"><i class="fas fa-user-minus"></i></button>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+    });
+}
+function removeMember(groupId, userId) {
+    if (!confirm('Исключить участника?')) return;
+    post(`${U.group_remove_member}${groupId}`, { user_id: userId }).then(d => {
+        openGroupMembers(groupId, document.getElementById('listTitle').textContent.replace('Участники: ', ''));
+    });
+}
+function closeList() { document.getElementById('listPanel').classList.remove('open'); }
+function deleteGroup(groupId, name) {
+    if (!confirm('Удалить группу «' + name + '»?')) return;
+    post(`${U.group_delete}${groupId}`).then(d => { if (d.success) loadGroups(); });
+}
+
+// ================= КАНАЛЫ =================
+function loadChannels() {
+    const el = document.getElementById('channelsTable');
+    el.innerHTML = '<div id="loader"><i class="fas fa-spinner fa-spin"></i> Загрузка каналов...</div>';
+    get(U.channels).then(d => {
+        if (d.error) throw new Error(d.error);
+        renderChannels(d.channels || []);
+    }).catch(e => { el.innerHTML = '<div class="empty">Ошибка: ' + esc(e.message) + '</div>'; });
+}
+function renderChannels(channels) {
+    const el = document.getElementById('channelsTable');
+    if (!channels.length) { el.innerHTML = '<div class="empty">Каналов нет</div>'; return; }
+    let rows = '';
+    channels.forEach(c => {
+        const inits = esc((c.name || '?')[0].toUpperCase());
+        const avatar = c.avatar ? `<img class="avatar-title-sm" src="/${esc(c.avatar)}">` : `<span class="avatar-title-sm">${inits}</span>`;
+        rows += `<tr>
+            <td>${avatar}</td>
+            <td><b>${esc(c.name)}</b><br><span style="color:#8e8e93;font-size:12px;">${c.is_public ? 'публичный' : 'приватный'}</span></td>
+            <td style="color:#8e8e93;">${esc(c.description || '—')}</td>
+            <td><b>${c.subscriber_count}</b> подписч.<br><span style="color:#8e8e93;font-size:12px;">${c.message_count} постов</span></td>
+            <td>@${esc(c.owner_username || '—')}</td>
+            <td>${fmtDate(c.created_at)}</td>
+            <td style="text-align:right;white-space:nowrap;">
+                <button class="tbtn" onclick="openChannelSubs(${c.id}, '${esc(c.name).replace(/'/g, "\\'")}')"><i class="fas fa-list"></i> Подписчики</button>
+                <button class="tbtn danger" onclick="deleteChannel(${c.id}, '${esc(c.name).replace(/'/g, "\\'")}')"><i class="fas fa-trash"></i></button>
+            </td>
+        </tr>`;
+    });
+    el.innerHTML = `<table class="data"><thead><tr><th></th><th>Название</th><th>Описание</th><th>Подписчики</th><th>Владелец</th><th>Создан</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function openChannelSubs(channelId, name) {
+    document.getElementById('listTitle').textContent = 'Подписчики: ' + name;
+    const list = document.getElementById('listBody');
+    list.innerHTML = '<div id="loader"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>';
+    document.getElementById('listPanel').classList.add('open');
+    get(`${U.channel_subscribers}${channelId}`).then(d => {
+        if (!d.subscribers || !d.subscribers.length) { list.innerHTML = '<div class="empty">Нет подписчиков</div>'; return; }
+        list.innerHTML = d.subscribers.map(m => {
+            const inits = esc((m.display_name || m.username || '?')[0].toUpperCase());
+            const avatar = m.avatar ? `<img class="avatar-sm ${m.is_banned ? 'frozen' : ''}" src="/${esc(m.avatar)}">` : `<span class="avatar-sm ${m.is_banned ? 'frozen' : ''}">${inits}</span>`;
+            return `<div class="kv"><div style="display:flex;align-items:center;gap:10px;">${avatar}<div><b>${esc(m.display_name || '—')}</b><br>
+            <span style="color:#8e8e93;font-size:12px;">@${esc(m.username || '—')}</span></div></div></div>`;
+        }).join('');
+    });
+}
+function deleteChannel(channelId, name) {
+    if (!confirm('Удалить канал «' + name + '»?')) return;
+    post(`${U.channel_delete}${channelId}`).then(d => { if (d.success) loadChannels(); });
+}
+
+// ================= СТАТИСТИКА =================
+function loadStats() {
+    const el = document.getElementById('statsContainer');
+    el.innerHTML = '<div id="loader"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>';
+    get(U.statistics).then(d => {
+        if (d.error) throw new Error(d.error);
+        const s = d.data || {};
+        el.innerHTML = `
+        <div class="metric-group"><div class="section-h"><i class="fas fa-chart-bar"></i> Ключевые показатели</div>
+        <div class="metric-grid">
+            <div class="metric"><div class="m-n">${s.total_users}</div><div class="m-l">Пользователей</div></div>
+            <div class="metric"><div class="m-n">${s.active_users}</div><div class="m-l">Активных сессий</div></div>
+            <div class="metric"><div class="m-n">${s.messages_today}</div><div class="m-l">Сообщений сегодня</div></div>
+            <div class="metric"><div class="m-n">${s.groups}</div><div class="m-l">Групп</div></div>
+            <div class="metric"><div class="m-n">${s.channels}</div><div class="m-l">Каналов</div></div>
+            <div class="metric"><div class="m-n">${s.reports}</div><div class="m-l">Жалоб</div></div>
+            <div class="metric"><div class="m-n">${s.users_today}</div><div class="m-l">Регистраций сегодня</div></div>
+        </div></div>`;
+    }).catch(e => { el.innerHTML = '<div class="empty">Ошибка: ' + esc(e.message) + '</div>'; });
+}
+
+// ================= PREMIUM =================
+function loadPremium() {
+    const el = document.getElementById('premiumStatsRow');
+    el.innerHTML = '<div id="loader"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>';
+    get(U.premium_promos).then(d => {
+        if (d.error) throw new Error(d.error);
+        renderPromos(d.promo_codes || []);
+    }).catch(e => { el.innerHTML = '<div class="empty">Ошибка: ' + esc(e.message) + '</div>'; });
+}
+function renderPromos(codes) {
+    const el = document.getElementById('promoTable');
+    if (!codes.length) { el.innerHTML = '<div class="empty">Промокодов нет</div>'; return; }
+    let rows = '';
+    codes.forEach(c => {
+        rows += `<tr><td style="padding:10px 14px;border-top:1px solid rgba(255,255,255,0.04);font-weight:700;">${esc(c.code)}</td>
+        <td style="padding:10px 14px;border-top:1px solid rgba(255,255,255,0.04);">${c.duration_days} дн. · ${c.used_count}/${c.max_uses} использов.</td>
+        <td style="padding:10px 14px;border-top:1px solid rgba(255,255,255,0.04);text-align:right;">
+            <button class="tbtn" onclick="togglePromo('${esc(c.code)}', ${!c.active})">${c.active ? 'Выключить' : 'Включить'}</button>
+            <button class="tbtn danger small" onclick="deletePromo('${esc(c.code)}')"><i class="fas fa-trash"></i></button>
+        </td></tr>`;
+    });
+    el.innerHTML = `<table class="data"><thead><tr><th>Код</th><th>Срок / использов.</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function createPromo() {
+    const msgEl = document.getElementById('premiumStatsRow');
+    post(U.premium_create, {
+        code: document.getElementById('pmCode').value.trim(),
+        days: document.getElementById('pmDays').value,
+        max: document.getElementById('pmMax').value
+    }).then(d => {
+        if (d.success) { loadPremium(); }
+        else alert('Ошибка: ' + (d.error || ''));
+    });
+}
+function togglePromo(code, toActive) {
+    post(`${U.premium_update}${code}`, { is_active: String(toActive === 'true') }).then(() => loadPremium());
+}
+function deletePromo(code) {
+    if (!confirm('Удалить промокод ' + code + '?')) return;
+    post(`${U.premium_delete}${code}`, {}).then(() => loadPremium());
+}
+
+// ================= ПРОСМОТР АККАУНТА =================
+function loadViewer() {
+    document.getElementById('viewerResults').innerHTML = '';
+}
+function viewerSearch() {
+    const phone = document.getElementById('viPhone').value.trim();
+    const uid = document.getElementById('viUid').value.trim();
+    const url = U.account_search + '?' + new URLSearchParams({ phone, username: phone, unique_id: uid });
+    const res = document.getElementById('viewerResults');
+    res.innerHTML = '<div id="loader"><i class="fas fa-spinner fa-spin"></i> Поиск...</div>';
+    get(url).then(d => {
+        if (d.error) throw new Error(d.error);
+        const users = d.users || [];
+        if (!users.length) { res.innerHTML = '<div class="empty">Ничего не найдено</div>'; return; }
+        res.innerHTML = '<div class="section-h"><i class="fas fa-users"></i> Результаты</div>' +
+            users.map(u => `
+            <div class="vf-user" onclick="openAccountView(${u.id})">
+                <div class="avatar ${u.is_banned ? 'frozen' : ''}">${esc((u.display_name || u.username || '?')[0].toUpperCase())}</div>
+                <div><div class="t">${esc(u.display_name || '—')}${u.is_banned ? '<span class="snow">❄</span>' : ''}</div>
+                <div class="s">@${esc(u.username || '—')} · ID ${u.id}</div></div></div>`).join('');
+    }).catch(e => { res.innerHTML = '<div class="empty">Ошибка: ' + esc(e.message) + '</div>'; });
+}
+function openAccountView(userId) {
+    document.getElementById('viewerResults').innerHTML = '<div id="loader"><i class="fas fa-spinner fa-spin"></i> Открытие аккаунта...</div>';
+    get(`${U.account_view}${userId}`).then(d => {
+        if (d.error) throw new Error(d.error);
+        renderAccountView(d.profile, d.chats || []);
+    }).catch(e => { document.getElementById('viewerResults').innerHTML = '<div class="empty">Ошибка: ' + esc(e.message) + '</div>'; });
+}
+function renderAccountView(p, chats) {
+    const inits = esc((p.display_name || p.username || '?')[0].toUpperCase());
+    const avatar = p.avatar ? `<img class="avatar ${p.is_banned ? 'frozen' : ''}" src="/${esc(p.avatar)}">` : `<span class="avatar ${p.is_banned ? 'frozen' : ''}">${p.is_banned ? '❄' : inits}</span>`;
+    let chatHtml = '';
+    chats.forEach(c => {
+        chatHtml += `<div class="chat-item" onclick="loadAccountMessages(${p.id}, '${c.chat_type}', ${c.chat_id})">
+            <div class="avatar">${esc((c.name || '?')[0].toUpperCase())}</div>
+            <div class="meta"><div class="t">${esc(c.name || '—')}</div><div class="s">${c.chat_type} #${c.chat_id}</div></div></div>`;
+    });
+    document.getElementById('viewerResults').innerHTML = `
+    <div class="vf-card">
+        <div class="phero">${avatar}<div><div class="name">${esc(p.display_name || 'Пользователь')}${p.is_banned ? '<span class="snow">❄</span>' : ''}</div>
+        <div class="un">@${esc(p.username || '—')}</div></div></div>
+        <div class="kv"><div class="k">ID</div><div class="v">${p.id}</div></div>
+        <div class="kv"><div class="k">Статус</div><div class="v">${p.is_banned ? '❄ заморожен' : 'активен'}</div></div>
+        <div class="section-h"><i class="fas fa-comments"></i> Чаты (чтение)</div>
+        ${chatHtml || '<div class="empty">Чатов нет</div>'}
+        <div id="accountMessages"></div>
+    </div>`;
+}
+function loadAccountMessages(userId, chatType, chatId) {
+    const el = document.getElementById('accountMessages');
+    el.innerHTML = '<div id="loader"><i class="fas fa-spinner fa-spin"></i> Загрузка сообщений...</div>';
+    const url = `${U.account_messages}${userId}?type=${chatType}&id=${chatId}&limit=200`;
+    get(url).then(d => {
+        if (d.error) throw new Error(d.error);
+        const msgs = d.messages || [];
+        el.innerHTML = '<div class="section-h"><i class="fas fa-message"></i> Сообщения</div>' +
+            (msgs.length ? msgs.map(m => `
+            <div class="msg"><div class="avatar">${esc((m.sender_id === userId ? 'Я' : '?')[0])}</div>
+            <div><div class="who">${esc(m.sender_id === userId ? 'Вы' : 'Собеседник')}</div>
+            <div class="text">${esc(m.content || '')}</div><div class="time">${fmtDateTime(m.timestamp)}</div></div></div>`).join('')
+            : '<div class="empty">Сообщений нет</div>');
+    }).catch(e => { el.innerHTML = '<div class="empty">Ошибка: ' + esc(e.message) + '</div>'; });
+}
+
+// Auto-load users tab on page load
+switchTab('users');
+</script>
+</body>
+</html>

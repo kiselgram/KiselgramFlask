@@ -30,7 +30,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, render_template, redirect
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import db
@@ -42,6 +42,7 @@ from app.models import (
     Message,
     Poll,
     PollVote,
+    Report,
     SputnikAlbum,
     SputnikDraft,
     SputnikFolder,
@@ -56,15 +57,61 @@ from app.models import (
     SputnikTrash,
     Story,
     User,
+    UserPremium,
+    UserSession,
 )
-from app.utils.helpers import get_current_user_id
+from app.utils.helpers import get_current_user, get_current_user_id
 from app.utils.security import account_locked, note_account_failure, clear_account_failures
+from app.routes.premium import load_premium_config, save_premium_config, generate_promo_code
 
 spav2_sputnik_bp = Blueprint('spav2_sputnik', __name__, url_prefix='/api')
 
 # Public invite landing pages (Sputnik /join/<link>, /c/<link> showcase idea).
 # No url prefix — mounted at site root, registered in app/__init__.py.
 sputnik_pages_bp = Blueprint('sputnik_pages', __name__)
+
+
+def _admin_user():
+    u = get_current_user()
+    if not u or not u.is_admin:
+        return None
+    return u
+
+
+def _admin_required():
+    u = _admin_user()
+    if not u:
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'Admin access required'}}), 403
+    return u
+
+
+def _iso(dt):
+    return dt.isoformat() if dt else None
+
+
+def _user_row(u):
+    return {
+        'id': u.id,
+        'username': u.username,
+        'email': u.email,
+        'display_name': u.display_name,
+        'phone': None,
+        'unique_id': str(u.id),
+        'avatar': u.avatar_url,
+        'is_banned': bool(u.is_frozen),
+        'ban_reason': None,
+        'is_deleted': bool(u.is_deleted),
+        'is_admin': bool(u.is_admin),
+        'is_online': bool(u.is_online),
+        'last_seen': _iso(u.last_seen),
+        'created_at': _iso(u.created_at),
+        'messages_count': Message.query.filter_by(sender_id=u.id).count(),
+        'chats_count': ChatMember.query.filter_by(user_id=u.id).count(),
+        'stories_count': Story.query.filter_by(user_id=u.id).count(),
+        'contacts_count': Contact.query.filter_by(user_id=u.id).count(),
+        'registration_complete': True,
+        'birthday': None,
+    }
 
 
 @sputnik_pages_bp.route('/join/<code>')
@@ -85,6 +132,12 @@ def sputnik_join_channel_page(code):
         return render_template('errors/404.html'), 404
     n = ChatSubscriber.query.filter_by(chat_id=chat.id).count()
     return render_template('sputnik_join.html', chat=chat, members=n, code=code)
+
+
+@sputnik_pages_bp.route('/sputnik-admin')
+def sputnik_admin_page():
+    # Merged into the unified admin panel at /api/admin.
+    return redirect('/api/admin')
 
 
 @sputnik_pages_bp.route('/m/<int:chat_id>/<int:msg_id>')
@@ -1377,3 +1430,357 @@ def sputnik_export():
         'stickers': [{'file_path': s.file_path, 'emoji': s.emoji} for s in stickers],
         'exported_at': datetime.now(timezone.utc).isoformat(),
     }})
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Sputnik admin panel API (ports sputnik _u.html: admin panel + account viewing
+# + freezing). All endpoints require an admin session.
+# ═════════════════════════════════════════════════════════════════════════════
+
+@spav2_sputnik_bp.route('/sputnik/admin/users', methods=['GET'])
+def sputnik_admin_users():
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    q = (request.args.get('q') or '').strip().lower()
+    users = User.query.order_by(User.created_at.desc()).all()
+    rows = [_user_row(u) for u in users]
+    if q:
+        rows = [r for r in rows if q in str(r['id']) or q in (r['username'] or '').lower()
+                or q in (r['display_name'] or '').lower() or q in (r['email'] or '').lower()
+                or q in str(r['unique_id'])]
+    return jsonify({'success': True, 'users': rows})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/profile/<int:user_id>', methods=['GET'])
+def sputnik_admin_profile(user_id):
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    u = User.query.get(user_id)
+    if not u:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+    return jsonify({'success': True, 'user': _user_row(u)})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/profile/<int:user_id>/edit', methods=['POST'])
+def sputnik_admin_edit_profile(user_id):
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    u = User.query.get(user_id)
+    if not u:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+    data = request.get_json() or {}
+    if 'username' in data:
+        val = (data.get('username') or '').strip()
+        if val:
+            existing = User.query.filter_by(username=val).first()
+            if existing and existing.id != user_id:
+                return jsonify({'success': False, 'error': {'code': 'CONFLICT', 'message': 'Username taken'}}), 409
+            u.username = val
+    if 'display_name' in data:
+        u.display_name = (data.get('display_name') or '').strip() or None
+    if 'bio' in data:
+        u.bio = (data.get('bio') or '').strip() or None
+    if data.get('reset_avatar'):
+        u.avatar_url = None
+    db.session.commit()
+    return jsonify({'success': True, 'user': _user_row(u)})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/ban/<int:user_id>', methods=['POST'])
+def sputnik_admin_ban(user_id):
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    if user_id == admin.id:
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'Cannot freeze yourself'}}), 403
+    u = User.query.get(user_id)
+    if not u:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+    data = request.get_json() or {}
+    banned = bool(data.get('banned', True))
+    u.is_frozen = banned
+    u.frozen_at = datetime.now(timezone.utc).replace(tzinfo=None) if banned else None
+    db.session.commit()
+    return jsonify({'success': True, 'banned': banned, 'user': _user_row(u)})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/delete_content/<int:user_id>', methods=['POST'])
+def sputnik_admin_delete_content(user_id):
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    u = User.query.get(user_id)
+    if not u:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+    deleted_messages = Message.query.filter_by(sender_id=u.id).delete()
+    deleted_stories = Story.query.filter_by(user_id=u.id).delete()
+    db.session.commit()
+    return jsonify({'success': True, 'deleted_messages': deleted_messages, 'deleted_stories': deleted_stories})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/groups', methods=['GET'])
+def sputnik_admin_groups():
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    groups = Chat.query.filter_by(chat_type='group').order_by(Chat.created_at.desc()).all()
+    out = []
+    for g in groups:
+        owner = User.query.get(g.owner_id) if g.owner_id else None
+        out.append({
+            'id': g.id, 'name': g.name or f'group #{g.id}', 'description': g.description,
+            'is_public': bool(g.is_public), 'avatar': g.avatar_url if hasattr(g, 'avatar_url') else None,
+            'owner_id': g.owner_id, 'owner_username': owner.username if owner else None,
+            'member_count': ChatMember.query.filter_by(chat_id=g.id).count(),
+            'message_count': Message.query.filter_by(chat_id=g.id).count(),
+            'created_at': _iso(g.created_at),
+        })
+    return jsonify({'success': True, 'groups': out})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/group_members/<int:group_id>', methods=['GET'])
+def sputnik_admin_group_members(group_id):
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    members = (db.session.query(User, ChatMember.role)
+               .join(ChatMember, ChatMember.user_id == User.id)
+               .filter(ChatMember.chat_id == group_id).all())
+    out = []
+    for u, role in members:
+        out.append({'user_id': u.id, 'username': u.username, 'display_name': u.display_name,
+                    'phone': None, 'role': role, 'is_banned': bool(u.is_frozen)})
+    return jsonify({'success': True, 'members': out})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/group_remove_member/<int:group_id>', methods=['POST'])
+def sputnik_admin_group_remove_member(group_id):
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    data = request.get_json() or {}
+    user_id = data.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'error': {'code': 'VALIDATION', 'message': 'user_id required'}}), 400
+    ChatMember.query.filter_by(chat_id=group_id, user_id=user_id).delete()
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/group_delete/<int:group_id>', methods=['POST'])
+def sputnik_admin_group_delete(group_id):
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    g = Chat.query.get(group_id)
+    if not g or g.chat_type != 'group':
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Group not found'}}), 404
+    Message.query.filter_by(chat_id=group_id).delete()
+    ChatMember.query.filter_by(chat_id=group_id).delete()
+    db.session.delete(g)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/channels', methods=['GET'])
+def sputnik_admin_channels():
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    channels = Chat.query.filter_by(chat_type='channel').order_by(Chat.created_at.desc()).all()
+    out = []
+    for c in channels:
+        owner = User.query.get(c.owner_id) if c.owner_id else None
+        out.append({
+            'id': c.id, 'name': c.name or f'channel #{c.id}', 'description': c.description,
+            'is_public': bool(c.is_public), 'avatar': c.avatar_url if hasattr(c, 'avatar_url') else None,
+            'owner_id': c.owner_id, 'owner_username': owner.username if owner else None,
+            'subscriber_count': ChatSubscriber.query.filter_by(chat_id=c.id).count(),
+            'message_count': Message.query.filter_by(chat_id=c.id).count(),
+            'created_at': _iso(c.created_at),
+        })
+    return jsonify({'success': True, 'channels': out})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/channel_subscribers/<int:channel_id>', methods=['GET'])
+def sputnik_admin_channel_subscribers(channel_id):
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    subs = (db.session.query(User)
+            .join(ChatSubscriber, ChatSubscriber.user_id == User.id)
+            .filter(ChatSubscriber.chat_id == channel_id).all())
+    out = [{'user_id': u.id, 'username': u.username, 'display_name': u.display_name,
+            'phone': None, 'is_banned': bool(u.is_frozen)} for u in subs]
+    return jsonify({'success': True, 'subscribers': out})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/channel_delete/<int:channel_id>', methods=['POST'])
+def sputnik_admin_channel_delete(channel_id):
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    c = Chat.query.get(channel_id)
+    if not c or c.chat_type != 'channel':
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Channel not found'}}), 404
+    Message.query.filter_by(chat_id=channel_id).delete()
+    ChatSubscriber.query.filter_by(chat_id=channel_id).delete()
+    db.session.delete(c)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/statistics', methods=['GET'])
+def sputnik_admin_statistics():
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    return jsonify({'success': True, 'data': {
+        'total_users': User.query.count(),
+        'active_users': UserSession.query.filter_by(is_active=True).count(),
+        'messages_today': Message.query.filter(Message.timestamp >= today).count(),
+        'groups': Chat.query.filter_by(chat_type='group').count(),
+        'channels': Chat.query.filter_by(chat_type='channel').count(),
+        'reports': Report.query.count(),
+        'users_today': User.query.filter(User.created_at >= today).count(),
+    }})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/login_log', methods=['GET'])
+def sputnik_admin_login_log():
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    rows = (UserSession.query.order_by(UserSession.id.desc()).limit(100).all())
+    return jsonify({'success': True, 'logins': [{
+        'user_id': s.user_id,
+        'created_at': _iso(s.created_at),
+        'last_activity': _iso(s.last_activity),
+        'is_active': bool(s.is_active),
+    } for s in rows]})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/premium/promos', methods=['GET'])
+def sputnik_admin_premium_promos():
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    config = load_premium_config()
+    codes = []
+    for code, data in (config.get('promo_codes') or {}).items():
+        codes.append({'code': code, **data})
+    return jsonify({'success': True, 'promo_codes': codes})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/premium/create', methods=['POST'])
+def sputnik_admin_premium_create():
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    data = request.get_json() or {}
+    code = (data.get('code') or '').strip().upper()
+    duration = int(data.get('days') or data.get('duration_days') or 30)
+    max_uses = int(data.get('max') or data.get('max_uses') or 1)
+    config = load_premium_config()
+    config.setdefault('promo_codes', {})
+    if code:
+        if code in config['promo_codes']:
+            return jsonify({'success': False, 'error': {'code': 'CONFLICT', 'message': 'Code already exists'}}), 409
+        config['promo_codes'][code] = {
+            'duration_days': duration, 'max_uses': max_uses, 'used_count': 0,
+            'created_at': datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+            'created_by': admin.username, 'expires_at': None, 'active': True}
+    else:
+        generate_promo_code(duration_days=duration, max_uses=max_uses, created_by=admin.username)
+    save_premium_config(config)
+    return jsonify({'success': True})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/premium/toggle/<code>', methods=['POST'])
+def sputnik_admin_premium_toggle(code):
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    config = load_premium_config()
+    codes = config.get('promo_codes') or {}
+    if code not in codes:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Promo code not found'}}), 404
+    codes[code]['active'] = not codes[code].get('active', True)
+    save_premium_config(config)
+    return jsonify({'success': True, 'active': codes[code]['active']})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/premium/delete/<code>', methods=['POST'])
+def sputnik_admin_premium_delete(code):
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    config = load_premium_config()
+    codes = config.get('promo_codes') or {}
+    if code not in codes:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Promo code not found'}}), 404
+    del codes[code]
+    save_premium_config(config)
+    return jsonify({'success': True})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/account/search', methods=['GET'])
+def sputnik_admin_account_search():
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    phone = (request.args.get('phone') or '').strip()
+    username = (request.args.get('username') or '').strip()
+    unique_id = (request.args.get('unique_id') or '').strip()
+    query = User.query
+    if phone:
+        query = query.filter(User.username.ilike(f'%{phone}%'))
+    if username:
+        query = query.filter(User.username.ilike(f'%{username}%'))
+    if unique_id:
+        query = query.filter(User.id == int(unique_id)) if unique_id.isdigit() else query.filter(User.id == -1)
+    users = query.limit(50).all()
+    return jsonify({'success': True, 'users': [_user_row(u) for u in users]})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/account/view/<int:user_id>', methods=['GET'])
+def sputnik_admin_account_view(user_id):
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    u = User.query.get(user_id)
+    if not u:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+    chats = []
+    for m in ChatMember.query.filter_by(user_id=u.id).all():
+        c = Chat.query.get(m.chat_id)
+        chats.append({'chat_type': c.chat_type, 'chat_id': c.id,
+                      'name': c.name or f'{c.chat_type} #{c.id}'})
+    return jsonify({'success': True, 'profile': _user_row(u), 'chats': chats})
+
+
+@spav2_sputnik_bp.route('/sputnik/admin/account_messages/<int:user_id>', methods=['GET'])
+def sputnik_admin_account_messages(user_id):
+    admin = _admin_required()
+    if isinstance(admin, tuple):
+        return admin
+    u = User.query.get(user_id)
+    if not u:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+    chat_id = request.args.get('id', type=int)
+    limit = min(int(request.args.get('limit') or 500), 500)
+    offset = int(request.args.get('offset') or 0)
+    query = Message.query.filter_by(sender_id=u.id)
+    if chat_id:
+        query = query.filter_by(chat_id=chat_id)
+    msgs = query.order_by(Message.timestamp.desc()).offset(offset).limit(limit).all()
+    return jsonify({'success': True, 'messages': [{
+        'id': m.id, 'chat_id': m.chat_id, 'receiver_id': m.receiver_id,
+        'content': m.content, 'file_type': m.file_type,
+        'timestamp': _iso(m.timestamp), 'is_deleted': bool(m.is_deleted)
+    } for m in msgs]})

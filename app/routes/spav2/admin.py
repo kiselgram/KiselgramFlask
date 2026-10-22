@@ -71,8 +71,33 @@ def admin_required(f):
 
 @spav2_admin_bp.route('/', methods=['GET'])
 def admin_page():
+    """Unified admin panel — serves the Sputnik moderation panel (users, groups,
+    channels, stats, premium, account viewer + freezing). All JSON APIs under
+    /api/admin/* (reports, terminal, dashboard, 2FA, mail, promo) remain intact."""
     user = get_current_user()
-    return render_template('admin.html', current_user=user)
+    return render_template('sputnik_admin.html', urimap={
+        'users': '/api.v2/api/sputnik/admin/users',
+        'profile': '/api.v2/api/sputnik/admin/profile/',
+        'edit_profile': '/api.v2/api/sputnik/admin/profile/',
+        'ban': '/api.v2/api/sputnik/admin/ban/',
+        'delete_content': '/api.v2/api/sputnik/admin/delete_content/',
+        'groups': '/api.v2/api/sputnik/admin/groups',
+        'group_members': '/api.v2/api/sputnik/admin/group_members/',
+        'group_remove_member': '/api.v2/api/sputnik/admin/group_remove_member/',
+        'group_delete': '/api.v2/api/sputnik/admin/group_delete/',
+        'channels': '/api.v2/api/sputnik/admin/channels',
+        'channel_subscribers': '/api.v2/api/sputnik/admin/channel_subscribers/',
+        'channel_delete': '/api.v2/api/sputnik/admin/channel_delete/',
+        'statistics': '/api.v2/api/sputnik/admin/statistics',
+        'login_log': '/api.v2/api/sputnik/admin/login_log',
+        'premium_promos': '/api.v2/api/sputnik/admin/premium/promos',
+        'premium_create': '/api.v2/api/sputnik/admin/premium/create',
+        'premium_update': '/api.v2/api/sputnik/admin/premium/toggle/',
+        'premium_delete': '/api.v2/api/sputnik/admin/premium/delete/',
+        'account_search': '/api.v2/api/sputnik/admin/account/search',
+        'account_view': '/api.v2/api/sputnik/admin/account/view/',
+        'account_messages': '/api.v2/api/sputnik/admin/account_messages/',
+    })
 
 
 @spav2_admin_bp.route('/login', methods=['GET', 'POST'])

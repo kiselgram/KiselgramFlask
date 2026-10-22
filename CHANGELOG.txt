@@ -5,7 +5,7 @@
 Last updated: 20.10.2026
 
 --------------------------------------------------------
-CURRENT VERSION: v4.9.6
+CURRENT VERSION: v4.9.9
 --------------------------------------------------------
 
 IMPORTANT: This file is updated automatically on every change
@@ -79,6 +79,36 @@ Security (Sputnik v0.60-v0.64 class fixes applied)
 ========================================================
 3. WHAT WAS ADDED THIS TIME
 ========================================================
+
+[20.10.2026] — v4.9.9: Merge Sputnik admin panel into the main admin panel (/api/admin)
+  Files: app/routes/spav2/admin.py (admin_page renders sputnik_admin.html as the unified admin panel;
+         existing /api/admin/* JSON APIs — reports, terminal, dashboard, 2FA, mail, promo — unchanged),
+         app/routes/spav2/sputnik.py (/sputnik-admin now redirects to /api/admin),
+         CHANGELOG.txt.
+  Single admin entry point at /api/admin combining Sputnik moderation (users, groups, channels,
+  stats, premium, account viewer + freezing) with the existing admin APIs.
+
+[20.10.2026] — v4.9.8: Main-admin account freeze
+  Files: app/models.py (new User.is_frozen / frozen_at columns),
+         app/routes/spav2/admin.py (is_frozen in list_users),
+         app/routes/spav2/admin_extras.py (new POST /api/admin/users/<id>/freeze toggle + audit log),
+         static/js/k/admin-extras.js (Freeze/Unfreeze button in user panel + freezeUser method),
+         static/css/k/admin-extras.css (.k-up-btn / .k-up-freeze styles),
+         CHANGELOG.txt.
+  Freeze = suspend without deleting (is_frozen flag); blocked for self and admin accounts.
+
+[20.10.2026] — v4.9.7: Sputnik admin panel (_u.html port) — moderation page with account viewing + freezing
+  Files: app/routes/spav2/sputnik.py (new GET/POST /sputnik/admin/* — users list, profile view/edit,
+         freeze/unfreeze via is_frozen, delete-content, groups/channels list+members+delete, statistics,
+         login log, premium promos create/toggle/delete, account search+mirror view+messages),
+         templates/sputnik_admin.html (new — dark admin panel: users table, profile panel with freeze/
+         unfreeze + delete content, groups & channels management, stats, premium promos, account viewer),
+         app/routes/spav2/sputnik.py (page route GET /sputnik-admin via sputnik_pages_bp),
+         app/routes/spav2/admin.py (/api/admin now renders sputnik_admin.html as the unified admin panel),
+         CHANGELOG.txt.
+  Mounted under /api.v2/api/sputnik/admin/* (and /api.v3), admin-session gated, CSRF header on writes.
+  /api/admin serves the merged sputnik moderation panel; /sputnik-admin redirects to /api/admin.
+  "Freeze" = User.is_frozen flag (existing column) — blocked for self and admin accounts.
 
 [20.10.2026] — v4.9.6: Admin extras layer (palette, shortcuts, sparklines, sound, confetti)
   Files: static/js/k/admin-extras.js (new — command palette Ctrl+K, g+key tab
