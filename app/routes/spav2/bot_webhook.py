@@ -60,15 +60,7 @@ def bot_incoming_webhook(token):
         return jsonify({'success': True, 'data': {'message_id': msg.id}}), 201
 
     elif event == 'typing':
-        receiver_id = payload.get('receiver_id')
-        if receiver_id:
-            from app.models import TypingStatus
-            existing = TypingStatus.query.filter_by(chat_type='personal', chat_id=str(receiver_id), user_id=bot.id).first()
-            if not existing:
-                existing = TypingStatus(chat_type='personal', chat_id=str(receiver_id), user_id=bot.id)
-                db.session.add(existing)
-            existing.last_heartbeat = datetime.now(timezone.utc).replace(tzinfo=None)
-            db.session.commit()
+        # Bot typing indicator: best-effort, no persistent storage required.
         return jsonify({'success': True, 'data': {'message': 'typing indicator set'}})
 
     elif event == 'callback_query':

@@ -1,0 +1,1076 @@
+app/routes/spav2/auth.py:6:from app.models import User, EmailVerification, UserSession
+app/routes/spav2/auth.py:7:from app.utils.helpers import get_current_user
+app/routes/spav2/auth.py:17:        username = sanitize_string(data.get('username', ''), max_length=32)
+app/routes/spav2/auth.py:22:        if len(username) < 3 or not re.match(r'^[a-zA-Z0-9_]+$', username):
+app/routes/spav2/auth.py:23:            errors['username'] = 'Username must be 3-32 characters (letters, numbers, underscores)'
+app/routes/spav2/auth.py:29:        if User.query.filter_by(username=username).first():
+app/routes/spav2/auth.py:30:            errors['username'] = 'Username already taken'
+app/routes/spav2/auth.py:31:        if User.query.filter_by(email=email).first():
+app/routes/spav2/auth.py:36:        user = User(username=username, email=email, display_name=username, is_online=False, last_seen=datetime.utcnow())
+app/routes/spav2/auth.py:37:        user.set_password(password)
+app/routes/spav2/auth.py:38:        user.email_verified = False
+app/routes/spav2/auth.py:39:        db.session.add(user)
+app/routes/spav2/auth.py:44:        db.session.add(EmailVerification(user_id=user.id, token=verify_token, expires_at=expires_at))
+app/routes/spav2/auth.py:52:    current_app.logger.info(f'Verification token for {username}: {verify_token}')
+app/routes/spav2/auth.py:56:        'user': {
+app/routes/spav2/auth.py:57:            'user_id': user.id,
+app/routes/spav2/auth.py:58:            'username': user.username,
+app/routes/spav2/auth.py:59:            'email': user.email,
+app/routes/spav2/auth.py:60:            'display_name': user.display_name,
+app/routes/spav2/auth.py:61:            'avatar_url': user.avatar_url,
+app/routes/spav2/auth.py:62:            'bio': getattr(user, 'bio', None),
+app/routes/spav2/auth.py:63:            'is_premium': user.premium.is_premium if user.premium else False,
+app/routes/spav2/auth.py:64:            'is_admin': getattr(user, 'is_admin', False),
+app/routes/spav2/auth.py:67:            'created_at': user.created_at.isoformat() if user.created_at else datetime.utcnow().isoformat(),
+app/routes/spav2/auth.py:68:            'status_emoji': getattr(user, 'status_emoji', '')
+app/routes/spav2/auth.py:80:        username = sanitize_string(data.get('username', ''), max_length=32)
+app/routes/spav2/auth.py:83:        if not username or not password:
+app/routes/spav2/auth.py:84:            return jsonify({'success': False, 'error': {'code': 'INVALID_CREDENTIALS', 'message': 'Invalid username or password'}}), 401
+app/routes/spav2/auth.py:86:        user = User.query.filter_by(username=username).filter(User.is_deleted == False).first()
+app/routes/spav2/auth.py:87:        if not user or not user.check_password(password):
+app/routes/spav2/auth.py:88:            return jsonify({'success': False, 'error': {'code': 'INVALID_CREDENTIALS', 'message': 'Invalid username or password'}}), 401
+app/routes/spav2/auth.py:90:        if not user.email_verified:
+app/routes/spav2/auth.py:94:        session['user_id'] = user.id
+app/routes/spav2/auth.py:95:        session['username'] = user.username
+app/routes/spav2/auth.py:96:        user.is_online = True
+app/routes/spav2/auth.py:97:        user.last_seen = datetime.utcnow()
+app/routes/spav2/auth.py:98:        db.session.add(UserSession(user_id=user.id, session_token=session_token, device='K Web', created_at=datetime.utcnow(), last_activity=datetime.utcnow(), is_active=True))
+app/routes/spav2/auth.py:105:        'user': {
+app/routes/spav2/auth.py:106:            'user_id': user.id,
+app/routes/spav2/auth.py:107:            'username': user.username,
+app/routes/spav2/auth.py:108:            'email': user.email,
+app/routes/spav2/auth.py:109:            'display_name': user.display_name or user.username,
+app/routes/spav2/auth.py:110:            'avatar_url': user.avatar_url,
+app/routes/spav2/auth.py:111:            'bio': getattr(user, 'bio', None),
+app/routes/spav2/auth.py:112:            'is_premium': user.premium.is_premium if user.premium else False,
+app/routes/spav2/auth.py:113:            'is_admin': getattr(user, 'is_admin', False),
+app/routes/spav2/auth.py:116:            'created_at': user.created_at.isoformat() if user.created_at else datetime.utcnow().isoformat(),
+app/routes/spav2/auth.py:117:            'status_emoji': user.status_emoji or ('\u2b50' if (user.premium and user.premium.is_premium) else '')
+app/routes/spav2/auth.py:126:    user_id = session.get('user_id')
+app/routes/spav2/auth.py:127:    if user_id:
+app/routes/spav2/auth.py:128:        user = User.query.filter(User.id == user_id, User.is_deleted == False).first()
+app/routes/spav2/auth.py:129:        if user:
+app/routes/spav2/auth.py:130:            user.is_online = False
+app/routes/spav2/auth.py:131:            user.last_seen = datetime.utcnow()
+app/routes/spav2/auth.py:159:    user = User.query.filter(User.id == verification.user_id, User.is_deleted == False).first()
+app/routes/spav2/auth.py:160:    if not user:
+app/routes/spav2/auth.py:161:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/auth.py:163:    user.email_verified = True
+app/routes/spav2/auth.py:164:    user.is_online = True
+app/routes/spav2/auth.py:165:    user.last_seen = datetime.utcnow()
+app/routes/spav2/auth.py:176:@spav2_auth_bp.route('/check_username', methods=['GET'])
+app/routes/spav2/auth.py:177:def check_username():
+app/routes/spav2/auth.py:178:    username = request.args.get('username', '').strip()
+app/routes/spav2/auth.py:179:    if not username:
+app/routes/spav2/auth.py:180:        return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': 'Username is required'}}), 400
+app/routes/spav2/auth.py:181:    user_id = session.get('user_id')
+app/routes/spav2/auth.py:182:    existing = User.query.filter_by(username=username).filter(User.is_deleted == False).first()
+app/routes/spav2/auth.py:183:    available = existing is None or (user_id and existing.id == user_id)
+app/routes/spav2/auth.py:184:    return jsonify({'success': True, 'data': {'username': username, 'available': available}})
+app/routes/spav2/bot_webhook.py:5:from app.models import User, Message, Chat
+app/routes/spav2/bot_webhook.py:6:from app.utils.helpers import get_current_user_id
+app/routes/spav2/bot_webhook.py:14:    bot = User.query.filter_by(bot_token=token, is_bot=True).first()
+app/routes/spav2/bot_webhook.py:29:        # Determine target: specific chat or specific user
+app/routes/spav2/bot_webhook.py:42:            chat = Chat.query.filter_by(chat_type='personal', user1_id=a, user2_id=b).first()
+app/routes/spav2/bot_webhook.py:44:                chat = Chat(chat_type='personal', user1_id=a, user2_id=b)
+app/routes/spav2/bot_webhook.py:66:            existing = TypingStatus.query.filter_by(chat_type='personal', chat_id=str(receiver_id), user_id=bot.id).first()
+app/routes/spav2/bot_webhook.py:68:                existing = TypingStatus(chat_type='personal', chat_id=str(receiver_id), user_id=bot.id)
+app/routes/spav2/bot_webhook.py:83:    user = get_current_user_id()
+app/routes/spav2/bot_webhook.py:84:    if not user:
+app/routes/spav2/bot_webhook.py:94:    bot = User.query.get(bot_id)
+app/routes/spav2/bot_webhook.py:95:    if not bot or not bot.is_bot or bot.bot_owner_id != user:
+app/routes/spav2/sessions.py:3:from app.models import UserSession, User
+app/routes/spav2/sessions.py:4:from app.utils.helpers import get_current_user_id
+app/routes/spav2/sessions.py:11:    current_user_id = get_current_user_id()
+app/routes/spav2/sessions.py:12:    if not current_user_id:
+app/routes/spav2/sessions.py:17:    pagination = UserSession.query.filter_by(user_id=current_user_id).order_by(UserSession.last_activity.desc()).paginate(page=page, per_page=per_page, error_out=False)
+app/routes/spav2/sessions.py:40:    current_user_id = get_current_user_id()
+app/routes/spav2/sessions.py:41:    if not current_user_id:
+app/routes/spav2/sessions.py:44:    s = UserSession.query.filter_by(id=session_id, user_id=current_user_id).first()
+app/routes/spav2/referrals.py:5:from app.models import User, Referral
+app/routes/spav2/referrals.py:6:from app.utils.helpers import get_current_user_id
+app/routes/spav2/referrals.py:13:    current_user_id = get_current_user_id()
+app/routes/spav2/referrals.py:14:    if not current_user_id:
+app/routes/spav2/referrals.py:17:    user = User.query.filter_by(id=current_user_id, is_deleted=False).first()
+app/routes/spav2/referrals.py:18:    if not user:
+app/routes/spav2/referrals.py:19:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/referrals.py:21:    count = Referral.query.filter_by(inviter_id=current_user_id).count()
+app/routes/spav2/referrals.py:23:    invite_url = f"https://kiselgram.ru/join?ref={user.username}"
+app/routes/spav2/referrals.py:26:        'invite_code': user.username,
+app/routes/spav2/referrals.py:30:        'has_premium': user.premium.is_premium if user.premium else False,
+app/routes/spav2/referrals.py:38:    user_id = data.get('user_id')
+app/routes/spav2/referrals.py:40:    if not code or not user_id:
+app/routes/spav2/referrals.py:41:        return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': 'ref and user_id required'}}), 400
+app/routes/spav2/referrals.py:43:    inviter = User.query.filter_by(username=code, is_deleted=False).first()
+app/routes/spav2/referrals.py:47:    if inviter.id == user_id:
+app/routes/spav2/referrals.py:50:    ref = Referral(inviter_id=inviter.id, invited_user_id=user_id)
+app/routes/spav2/referrals.py:61:            from app.models import UserPremium
+app/routes/spav2/referrals.py:62:            inviter.premium = UserPremium(user_id=inviter.id, is_premium=True)
+app/routes/spav2/referrals.py:75:        'inviter_username': inviter.username,
+app/routes/spav2/referrals.py:83:    current_user_id = get_current_user_id()
+app/routes/spav2/referrals.py:84:    if not current_user_id:
+app/routes/spav2/referrals.py:92:    total = Referral.query.filter_by(inviter_id=current_user_id).count()
+app/routes/spav2/referrals.py:95:    refs = Referral.query.filter_by(inviter_id=current_user_id).order_by(Referral.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+app/routes/spav2/referrals.py:96:    users = User.query.filter(User.id.in_([r.invited_user_id for r in refs]), User.is_deleted == False).all()
+app/routes/spav2/referrals.py:97:    user_map = {u.id: u for u in users}
+app/routes/spav2/referrals.py:101:            'username': user_map[r.invited_user_id].username if r.invited_user_id in user_map else 'deleted',
+app/routes/spav2/contacts.py:5:from app.models import User, Contact, BlockedUser
+app/routes/spav2/contacts.py:6:from app.utils.helpers import get_current_user_id
+app/routes/spav2/contacts.py:13:    current_user_id = get_current_user_id()
+app/routes/spav2/contacts.py:14:    if not current_user_id:
+app/routes/spav2/contacts.py:21:    query = Contact.query.filter_by(user_id=current_user_id)
+app/routes/spav2/contacts.py:26:    users = {}
+app/routes/spav2/contacts.py:28:        user_rows = User.query.filter(User.id.in_(contact_ids), User.is_deleted == False).all()
+app/routes/spav2/contacts.py:29:        users = {u.id: u for u in user_rows}
+app/routes/spav2/contacts.py:32:        user = users.get(c.contact_id)
+app/routes/spav2/contacts.py:33:        if user:
+app/routes/spav2/contacts.py:34:            is_p = user.premium and user.premium.is_premium
+app/routes/spav2/contacts.py:36:                'user_id': user.id,
+app/routes/spav2/contacts.py:37:                'username': user.username,
+app/routes/spav2/contacts.py:38:                'display_name': user.display_name or user.username,
+app/routes/spav2/contacts.py:39:                'avatar_url': user.avatar_url,
+app/routes/spav2/contacts.py:41:                'is_online': getattr(user, 'is_online', False),
+app/routes/spav2/contacts.py:42:                'last_seen': user.last_seen.isoformat() if user.last_seen else None,
+app/routes/spav2/contacts.py:45:                'status_emoji': user.status_emoji or ('\u2b50' if is_p else '')
+app/routes/spav2/contacts.py:53:    current_user_id = get_current_user_id()
+app/routes/spav2/contacts.py:54:    if not current_user_id:
+app/routes/spav2/contacts.py:62:    existing = Contact.query.filter_by(user_id=current_user_id, contact_id=contact_id).first()
+app/routes/spav2/contacts.py:64:        return jsonify({'success': False, 'error': {'code': 'ALREADY_CONTACT', 'message': 'User is already in your contacts'}}), 400
+app/routes/spav2/contacts.py:66:    user = User.query.filter_by(id=contact_id, is_deleted=False).first()
+app/routes/spav2/contacts.py:67:    if not user:
+app/routes/spav2/contacts.py:68:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/contacts.py:70:    c = Contact(user_id=current_user_id, contact_id=contact_id, created_at=datetime.utcnow())
+app/routes/spav2/contacts.py:79:        'user_id': user.id, 'username': user.username,
+app/routes/spav2/contacts.py:80:        'display_name': user.display_name or user.username,
+app/routes/spav2/contacts.py:81:        'avatar_url': user.avatar_url,
+app/routes/spav2/contacts.py:88:    current_user_id = get_current_user_id()
+app/routes/spav2/contacts.py:89:    if not current_user_id:
+app/routes/spav2/contacts.py:99:    contact = Contact.query.filter_by(user_id=current_user_id, contact_id=contact_id).first()
+app/routes/spav2/contacts.py:109:    return jsonify({'success': True, 'data': {'user_id': contact_id, 'custom_name': name, 'updated_at': datetime.utcnow().isoformat()}})
+app/routes/spav2/contacts.py:114:    current_user_id = get_current_user_id()
+app/routes/spav2/contacts.py:115:    if not current_user_id:
+app/routes/spav2/contacts.py:118:    contact = Contact.query.filter_by(user_id=current_user_id, contact_id=contact_id).first()
+app/routes/spav2/contacts.py:129:@spav2_contacts_bp.route('/blocked_users', methods=['GET'])
+app/routes/spav2/contacts.py:130:def get_blocked_users():
+app/routes/spav2/contacts.py:131:    current_user_id = get_current_user_id()
+app/routes/spav2/contacts.py:132:    if not current_user_id:
+app/routes/spav2/contacts.py:139:    query = BlockedUser.query.filter_by(user_id=current_user_id)
+app/routes/spav2/contacts.py:141:    blocks = query.order_by(BlockedUser.id).offset(offset).limit(per_page).all()
+app/routes/spav2/contacts.py:143:    blocked_ids_list = [b.blocked_user_id for b in blocks]
+app/routes/spav2/contacts.py:144:    users = {}
+app/routes/spav2/contacts.py:146:        user_rows = User.query.filter(User.id.in_(blocked_ids_list), User.is_deleted == False).all()
+app/routes/spav2/contacts.py:147:        users = {u.id: u for u in user_rows}
+app/routes/spav2/contacts.py:150:        user = users.get(b.blocked_user_id)
+app/routes/spav2/contacts.py:152:            'user_id': b.blocked_user_id,
+app/routes/spav2/contacts.py:153:            'username': user.username if user else 'Unknown',
+app/routes/spav2/contacts.py:154:            'avatar_url': user.avatar_url if user else None,
+app/routes/spav2/contacts.py:158:    return jsonify({'success': True, 'data': {'blocked_users': result, 'total': total, 'page': page, 'per_page': per_page, 'pages': pages}})
+app/routes/spav2/contacts.py:161:@spav2_contacts_bp.route('/block_user/<int:user_id>', methods=['POST'])
+app/routes/spav2/contacts.py:162:def block_user(user_id):
+app/routes/spav2/contacts.py:163:    current_user_id = get_current_user_id()
+app/routes/spav2/contacts.py:164:    if not current_user_id:
+app/routes/spav2/contacts.py:167:    existing = BlockedUser.query.filter_by(user_id=current_user_id, blocked_user_id=user_id).first()
+app/routes/spav2/contacts.py:169:        b = BlockedUser(user_id=current_user_id, blocked_user_id=user_id, created_at=datetime.utcnow())
+app/routes/spav2/contacts.py:180:    user = User.query.get(user_id)
+app/routes/spav2/contacts.py:182:        'blocked_user_id': user_id,
+app/routes/spav2/contacts.py:183:        'username': user.username if user else None,
+app/routes/spav2/contacts.py:188:@spav2_contacts_bp.route('/unblock_user/<int:user_id>', methods=['POST'])
+app/routes/spav2/contacts.py:189:def unblock_user(user_id):
+app/routes/spav2/contacts.py:190:    current_user_id = get_current_user_id()
+app/routes/spav2/contacts.py:191:    if not current_user_id:
+app/routes/spav2/contacts.py:194:    existing = BlockedUser.query.filter_by(user_id=current_user_id, blocked_user_id=user_id).first()
+app/routes/spav2/contacts.py:203:    user = User.query.filter_by(id=user_id, is_deleted=False).first()
+app/routes/spav2/contacts.py:204:    return jsonify({'success': True, 'data': {'unblocked_user_id': user_id, 'username': user.username if user else None}})
+app/routes/spav2/profile.py:5:from app.models import User
+app/routes/spav2/profile.py:6:from app.utils.helpers import get_current_user
+app/routes/spav2/profile.py:9:spav2_profile_bp = Blueprint('spav2_profile', __name__, url_prefix='/api')
+app/routes/spav2/profile.py:12:@spav2_profile_bp.route('/profile', methods=['GET'])
+app/routes/spav2/profile.py:13:def get_profile():
+app/routes/spav2/profile.py:14:    current_user = get_current_user()
+app/routes/spav2/profile.py:15:    if not current_user:
+app/routes/spav2/profile.py:18:    is_premium = (current_user.premium and current_user.premium.is_premium) or False
+app/routes/spav2/profile.py:20:    if is_premium and not current_user.status_emoji:
+app/routes/spav2/profile.py:21:        current_user.status_emoji = '\u2b50'
+app/routes/spav2/profile.py:28:        'user_id': current_user.id,
+app/routes/spav2/profile.py:29:        'username': current_user.username,
+app/routes/spav2/profile.py:30:        'email': current_user.email,
+app/routes/spav2/profile.py:31:        'display_name': current_user.display_name or current_user.username,
+app/routes/spav2/profile.py:32:        'avatar_url': current_user.avatar_url,
+app/routes/spav2/profile.py:33:        'bio': getattr(current_user, 'bio', None),
+app/routes/spav2/profile.py:35:        'is_admin': getattr(current_user, 'is_admin', False),
+app/routes/spav2/profile.py:36:        'is_online': getattr(current_user, 'is_online', False),
+app/routes/spav2/profile.py:37:        'last_seen': current_user.last_seen.isoformat() if current_user.last_seen else None,
+app/routes/spav2/profile.py:38:        'created_at': current_user.created_at.isoformat() if current_user.created_at else datetime.utcnow().isoformat(),
+app/routes/spav2/profile.py:39:        'status_emoji': current_user.status_emoji or ('\u2b50' if is_premium else '')
+app/routes/spav2/profile.py:43:@spav2_profile_bp.route('/profile', methods=['PUT'])
+app/routes/spav2/profile.py:44:def update_profile():
+app/routes/spav2/profile.py:45:    current_user = get_current_user()
+app/routes/spav2/profile.py:46:    if not current_user:
+app/routes/spav2/profile.py:51:        current_user.display_name = sanitize_string(data['display_name'], max_length=50)
+app/routes/spav2/profile.py:53:        current_user.bio = sanitize_string(data['bio'], max_length=200)
+app/routes/spav2/profile.py:56:        is_premium = (current_user.premium and current_user.premium.is_premium) or False
+app/routes/spav2/profile.py:60:            return jsonify({'success': False, 'error': {'code': 'PREMIUM_STATUS_LOCKED', 'message': 'Premium users cannot remove status emoji'}}), 400
+app/routes/spav2/profile.py:61:        current_user.status_emoji = emoji
+app/routes/spav2/profile.py:67:    return jsonify({'success': True, 'data': {'message': 'Profile updated'}})
+app/routes/spav2/profile.py:70:@spav2_profile_bp.route('/profile/settings', methods=['GET'])
+app/routes/spav2/profile.py:72:    current_user = get_current_user()
+app/routes/spav2/profile.py:73:    if not current_user:
+app/routes/spav2/profile.py:76:    settings = getattr(current_user, 'settings', None)
+app/routes/spav2/profile.py:90:@spav2_profile_bp.route('/profile/privacy', methods=['GET'])
+app/routes/spav2/profile.py:92:    current_user = get_current_user()
+app/routes/spav2/profile.py:93:    if not current_user:
+app/routes/spav2/profile.py:96:    privacy = getattr(current_user, 'privacy_settings', None)
+app/routes/spav2/profile.py:99:        'profile_photo': getattr(privacy, 'profile_photo', 'everyone') if privacy else 'everyone',
+app/routes/spav2/profile.py:105:@spav2_profile_bp.route('/profile/avatar', methods=['POST'])
+app/routes/spav2/profile.py:108:    current_user = get_current_user()
+app/routes/spav2/profile.py:109:    if not current_user:
+app/routes/spav2/profile.py:122:    filename = f"avatar_{current_user.id}_{os.urandom(4).hex()}.{ext}"
+app/routes/spav2/profile.py:127:    current_user.avatar_url = f"/uploads/avatars/{filename}"
+app/routes/spav2/profile.py:135:        'user_id': current_user.id,
+app/routes/spav2/profile.py:136:        'avatar_url': current_user.avatar_url,
+app/routes/spav2/stories.py:6:from app.models import User, Story, StoryView, StoryLike, StoryReaction, Message, Chat
+app/routes/spav2/stories.py:7:from app.utils.helpers import get_current_user_id
+app/routes/spav2/stories.py:15:def _require_premium(user_id):
+app/routes/spav2/stories.py:16:    user = User.query.get(user_id)
+app/routes/spav2/stories.py:17:    if not user or not (user.premium and user.premium.is_premium):
+app/routes/spav2/stories.py:22:def _story_to_dict(story, current_user_id, liked=False, viewed=False, my_reaction=None, view_count=0, like_count=0):
+app/routes/spav2/stories.py:39:    current_user_id = get_current_user_id()
+app/routes/spav2/stories.py:40:    if not current_user_id:
+app/routes/spav2/stories.py:44:    visible_ids = {current_user_id}
+app/routes/spav2/stories.py:45:    for (uid,) in db.session.query(Message.receiver_id).filter_by(sender_id=current_user_id).distinct().limit(500):
+app/routes/spav2/stories.py:47:    for (uid,) in db.session.query(Message.sender_id).filter_by(receiver_id=current_user_id).distinct().limit(500):
+app/routes/spav2/stories.py:54:    stories = Story.query.options(db.joinedload(Story.user)).filter(
+app/routes/spav2/stories.py:55:        Story.created_at >= cutoff, Story.user_id.in_(visible_ids)
+app/routes/spav2/stories.py:59:    my_likes = {s_id for s_id, in db.session.query(StoryLike.story_id).filter(StoryLike.story_id.in_(story_ids), StoryLike.user_id == current_user_id).all()} if story_ids else set()
+app/routes/spav2/stories.py:60:    my_views = {s_id for s_id, in db.session.query(StoryView.story_id).filter(StoryView.story_id.in_(story_ids), StoryView.viewer_id == current_user_id).all()} if story_ids else set()
+app/routes/spav2/stories.py:61:    my_reactions = dict(db.session.query(StoryReaction.story_id, StoryReaction.reaction).filter(StoryReaction.story_id.in_(story_ids), StoryReaction.user_id == current_user_id).all()) if story_ids else {}
+app/routes/spav2/stories.py:65:    user_map = {}
+app/routes/spav2/stories.py:67:        uid = story.user_id
+app/routes/spav2/stories.py:68:        if uid not in user_map:
+app/routes/spav2/stories.py:69:            user = story.user
+app/routes/spav2/stories.py:70:            if not user or user.is_deleted:
+app/routes/spav2/stories.py:72:            user_map[uid] = {
+app/routes/spav2/stories.py:73:                'user_id': uid,
+app/routes/spav2/stories.py:74:                'username': user.username,
+app/routes/spav2/stories.py:75:                'avatar_url': user.avatar_url,
+app/routes/spav2/stories.py:80:            story, current_user_id,
+app/routes/spav2/stories.py:87:        user_map[uid]['stories'].append(data)
+app/routes/spav2/stories.py:88:        if not data['is_viewed'] and uid != current_user_id:
+app/routes/spav2/stories.py:89:            user_map[uid]['has_unviewed'] = True
+app/routes/spav2/stories.py:91:    result = sorted(user_map.values(), key=lambda x: (
+app/routes/spav2/stories.py:92:        0 if x['user_id'] == current_user_id else 1,
+app/routes/spav2/stories.py:97:    total = Story.query.filter(Story.created_at >= cutoff, Story.user_id.in_(visible_ids)).count()
+app/routes/spav2/stories.py:104:    current_user_id = get_current_user_id()
+app/routes/spav2/stories.py:105:    if not current_user_id:
+app/routes/spav2/stories.py:108:    err = _require_premium(current_user_id)
+app/routes/spav2/stories.py:127:    filename = f"story_{current_user_id}_{secrets.token_urlsafe(8)}.{ext}"
+app/routes/spav2/stories.py:141:    story = Story(user_id=current_user_id, media_path=rel_path, media_type=media_type, caption=caption, created_at=datetime.utcnow())
+app/routes/spav2/stories.py:151:    return jsonify({'success': True, 'data': {'story': _story_to_dict(story, current_user_id)}}), 201
+app/routes/spav2/stories.py:156:    current_user_id = get_current_user_id()
+app/routes/spav2/stories.py:157:    if not current_user_id:
+app/routes/spav2/stories.py:163:    existing = StoryView.query.filter_by(story_id=story_id, viewer_id=current_user_id).first()
+app/routes/spav2/stories.py:165:        db.session.add(StoryView(story_id=story_id, viewer_id=current_user_id, viewed_at=datetime.utcnow()))
+app/routes/spav2/stories.py:180:    current_user_id = get_current_user_id()
+app/routes/spav2/stories.py:181:    if not current_user_id:
+app/routes/spav2/stories.py:184:    existing = StoryLike.query.filter_by(story_id=story_id, user_id=current_user_id).first()
+app/routes/spav2/stories.py:189:        db.session.add(StoryLike(story_id=story_id, user_id=current_user_id))
+app/routes/spav2/stories.py:203:    current_user_id = get_current_user_id()
+app/routes/spav2/stories.py:204:    if not current_user_id:
+app/routes/spav2/stories.py:214:    existing = StoryReaction.query.filter_by(story_id=story_id, user_id=current_user_id).first()
+app/routes/spav2/stories.py:218:        db.session.add(StoryReaction(story_id=story_id, user_id=current_user_id, reaction=reaction))
+app/routes/spav2/stories.py:231:    current_user_id = get_current_user_id()
+app/routes/spav2/stories.py:232:    if not current_user_id:
+app/routes/spav2/stories.py:243:    a, b = sorted([current_user_id, story.user_id])
+app/routes/spav2/stories.py:244:    chat = Chat.query.filter_by(chat_type='personal', user1_id=a, user2_id=b).first()
+app/routes/spav2/stories.py:246:        chat = Chat(chat_type='personal', user1_id=a, user2_id=b)
+app/routes/spav2/stories.py:250:    msg = Message(content=reply_text, sender_id=current_user_id, receiver_id=story.user_id, chat_id=chat.id, timestamp=datetime.utcnow())
+app/routes/spav2/stories.py:268:    current_user_id = get_current_user_id()
+app/routes/spav2/stories.py:269:    if not current_user_id:
+app/routes/spav2/stories.py:275:    if story.user_id != current_user_id:
+app/routes/spav2/stories.py:282:    all_user_ids = set()
+app/routes/spav2/stories.py:284:        all_user_ids.add(v.viewer_id)
+app/routes/spav2/stories.py:286:        all_user_ids.add(l.user_id)
+app/routes/spav2/stories.py:288:        all_user_ids.add(r.user_id)
+app/routes/spav2/stories.py:289:    users_map = {u.id: u for u in User.query.filter(User.id.in_(all_user_ids), User.is_deleted == False).all()} if all_user_ids else {}
+app/routes/spav2/stories.py:295:            reaction_groups[r.reaction] = {'count': 0, 'user_ids': set()}
+app/routes/spav2/stories.py:297:        reaction_groups[r.reaction]['user_ids'].add(r.user_id)
+app/routes/spav2/stories.py:302:        'users': sorted(users_map[uid].username for uid in data['user_ids'] if uid in users_map)
+app/routes/spav2/stories.py:309:            'users': [{
+app/routes/spav2/stories.py:310:                'user_id': v.viewer_id,
+app/routes/spav2/stories.py:311:                'username': users_map[v.viewer_id].username if v.viewer_id in users_map else None,
+app/routes/spav2/stories.py:317:            'users': [{
+app/routes/spav2/stories.py:318:                'user_id': l.user_id,
+app/routes/spav2/stories.py:319:                'username': users_map[l.user_id].username if l.user_id in users_map else None
+app/routes/spav2/stories.py:328:    current_user_id = get_current_user_id()
+app/routes/spav2/stories.py:329:    if not current_user_id:
+app/routes/spav2/stories.py:335:    if story.user_id != current_user_id:
+app/routes/spav2/__init__.py:23:        from .profile import spav2_profile_bp
+app/routes/spav2/__init__.py:36:            spav2_contacts_bp, spav2_stories_bp, spav2_profile_bp, spav2_calls_bp,
+app/routes/spav2/features.py:4:from app.models import User, Message, Poll, PollVote, Pin, Forward, Chat, ChatMember, InviteLink, File, Archive, SavedMessage
+app/routes/spav2/features.py:5:from app.utils.helpers import get_current_user_id, get_current_user, message_to_dict
+app/routes/spav2/features.py:14:    current_user_id = get_current_user_id()
+app/routes/spav2/features.py:15:    if not current_user_id:
+app/routes/spav2/features.py:39:        creator_id=current_user_id,
+app/routes/spav2/features.py:48:        sender_id=current_user_id,
+app/routes/spav2/features.py:62:    current_user_id = get_current_user_id()
+app/routes/spav2/features.py:63:    if not current_user_id:
+app/routes/spav2/features.py:76:    existing = PollVote.query.filter_by(poll_id=poll_id, user_id=current_user_id).first()
+app/routes/spav2/features.py:82:        vote = PollVote(poll_id=poll_id, user_id=current_user_id, option_index=option_idx, voted_at=datetime.now(timezone.utc))
+app/routes/spav2/features.py:93:    current_user_id = get_current_user_id()
+app/routes/spav2/features.py:94:    if not current_user_id:
+app/routes/spav2/features.py:106:        sender_id=current_user_id,
+app/routes/spav2/features.py:114:        forwarded_by_id=current_user_id
+app/routes/spav2/features.py:122:        forwarded_by_id=current_user_id,
+app/routes/spav2/features.py:123:        original_sender_name=orig.sender.username if orig.sender else None
+app/routes/spav2/features.py:159:    current_user_id = get_current_user_id()
+app/routes/spav2/features.py:160:    if not current_user_id:
+app/routes/spav2/features.py:188:    current_user_id = get_current_user_id()
+app/routes/spav2/features.py:189:    if not current_user_id:
+app/routes/spav2/features.py:205:        pinned_by=current_user_id,
+app/routes/spav2/features.py:255:    current_user_id = get_current_user_id()
+app/routes/spav2/features.py:256:    if not current_user_id:
+app/routes/spav2/features.py:266:    inv = InviteLink(group_id=chat_id, code=code, link=link, created_by=current_user_id)
+app/routes/spav2/features.py:287:    user_id = data.get('user_id')
+app/routes/spav2/features.py:288:    member = ChatMember.query.filter_by(chat_id=chat_id, user_id=user_id).first()
+app/routes/spav2/features.py:298:    user_id = data.get('user_id')
+app/routes/spav2/features.py:299:    member = ChatMember.query.filter_by(chat_id=chat_id, user_id=user_id).first()
+app/routes/spav2/features.py:309:    user_id = data.get('user_id')
+app/routes/spav2/features.py:310:    ChatMember.query.filter_by(chat_id=chat_id, user_id=user_id).delete()
+app/routes/spav2/features.py:317:    current_user_id = get_current_user_id()
+app/routes/spav2/features.py:318:    if not current_user_id:
+app/routes/spav2/features.py:342:    current_user_id = get_current_user_id()
+app/routes/spav2/features.py:343:    if not current_user_id:
+app/routes/spav2/features.py:345:    existing = Archive.query.filter_by(user_id=current_user_id, chat_id=chat_id).first()
+app/routes/spav2/features.py:350:    db.session.add(Archive(user_id=current_user_id, chat_id=chat_id))
+app/routes/spav2/features.py:357:    current_user_id = get_current_user_id()
+app/routes/spav2/features.py:358:    if not current_user_id:
+app/routes/spav2/features.py:384:    current_user_id = get_current_user_id()
+app/routes/spav2/features.py:385:    if not current_user_id:
+app/routes/spav2/features.py:405:    current_user_id = get_current_user_id()
+app/routes/spav2/features.py:406:    if not current_user_id:
+app/routes/spav2/features.py:419:        sender_id=current_user_id,
+app/routes/spav2/features.py:464:            reader = User.query.get(reader_id)
+app/routes/spav2/features.py:466:                readers.append({'user_id': reader.id, 'username': reader.username, 'read_at': msg.read_at.isoformat() if msg.read_at else None})
+app/routes/spav2/features.py:475:    current_user_id = get_current_user_id()
+app/routes/spav2/features.py:476:    if not current_user_id:
+app/routes/spav2/features.py:501:    current_user_id = get_current_user_id()
+app/routes/spav2/features.py:502:    if not current_user_id:
+app/routes/spav2/features.py:507:    if msg.sender_id != current_user_id:
+app/routes/spav2/qr_login.py:6:from app.models import User, UserSession, QrLoginToken
+app/routes/spav2/qr_login.py:7:from app.utils.helpers import get_current_user
+app/routes/spav2/qr_login.py:13:# Logged-in device generates a QR; scanner logs in as this user.
+app/routes/spav2/qr_login.py:18:    user = get_current_user()
+app/routes/spav2/qr_login.py:19:    if not user or user.is_deleted:
+app/routes/spav2/qr_login.py:25:        qr = QrLoginToken(user_id=user.id, token=token, expires_at=expires_at)
+app/routes/spav2/qr_login.py:53:        qr = QrLoginToken(user_id=None, token=token, expires_at=expires_at)
+app/routes/spav2/qr_login.py:74:    user = get_current_user()
+app/routes/spav2/qr_login.py:75:    if not user or user.is_deleted:
+app/routes/spav2/qr_login.py:94:    if qr.user_id is None:
+app/routes/spav2/qr_login.py:95:        qr.user_id = user.id
+app/routes/spav2/qr_login.py:96:    qr.authorized_by_id = user.id
+app/routes/spav2/qr_login.py:111:    """Public: finalize login after the token has a linked user."""
+app/routes/spav2/qr_login.py:130:    if qr.user_id is None:
+app/routes/spav2/qr_login.py:133:    user = User.query.filter_by(id=qr.user_id, is_deleted=False).first()
+app/routes/spav2/qr_login.py:134:    if not user:
+app/routes/spav2/qr_login.py:135:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/qr_login.py:141:    session['user_id'] = user.id
+app/routes/spav2/qr_login.py:142:    session['username'] = user.username
+app/routes/spav2/qr_login.py:143:    user.is_online = True
+app/routes/spav2/qr_login.py:144:    user.last_seen = datetime.now(timezone.utc).replace(tzinfo=None)
+app/routes/spav2/qr_login.py:145:    db.session.add(UserSession(
+app/routes/spav2/qr_login.py:146:        user_id=user.id,
+app/routes/spav2/qr_login.py:160:        'user': {
+app/routes/spav2/qr_login.py:161:            'user_id': user.id,
+app/routes/spav2/qr_login.py:162:            'username': user.username,
+app/routes/spav2/qr_login.py:163:            'email': user.email,
+app/routes/spav2/qr_login.py:164:            'display_name': user.display_name or user.username,
+app/routes/spav2/qr_login.py:165:            'avatar_url': user.avatar_url,
+app/routes/spav2/qr_login.py:166:            'bio': getattr(user, 'bio', None),
+app/routes/spav2/qr_login.py:167:            'is_premium': user.premium.is_premium if user.premium else False,
+app/routes/spav2/qr_login.py:168:            'is_admin': getattr(user, 'is_admin', False),
+app/routes/spav2/qr_login.py:171:            'created_at': user.created_at.isoformat() if user.created_at else datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+app/routes/spav2/qr_login.py:190:        'authorized': qr.user_id is not None,
+Binary file app/routes/spav2/__pycache__/search.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/channels.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/chat.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/oauth.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/push.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/qr_login.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/messages.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/features.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/sessions.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/music.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/calls.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/admin.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/profile.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/auth.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/ksettings.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/referrals.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/contacts.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/groups.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/saved.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/login_v3.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/__init__.cpython-310.pyc matches
+Binary file app/routes/spav2/__pycache__/stories.cpython-310.pyc matches
+app/routes/spav2/groups.py:7:from app.models import User, Chat, ChatMember, GroupPermission, Message, File, Reply
+app/routes/spav2/groups.py:8:from app.utils.helpers import get_current_user_id, validate_emoji, get_animated_file_for_emoji
+app/routes/spav2/groups.py:30:            'sender_username': last.sender.username if last.sender else None,
+app/routes/spav2/groups.py:39:    current_user_id = get_current_user_id()
+app/routes/spav2/groups.py:40:    if not current_user_id:
+app/routes/spav2/groups.py:46:    memberships = ChatMember.query.filter_by(user_id=current_user_id).all()
+app/routes/spav2/groups.py:85:    current_user_id = get_current_user_id()
+app/routes/spav2/groups.py:86:    if not current_user_id:
+app/routes/spav2/groups.py:93:    membership = ChatMember.query.filter_by(user_id=current_user_id, chat_id=group_id).first()
+app/routes/spav2/groups.py:97:    owner = User.query.filter(User.id == chat.owner_id, User.is_deleted.is_(False)).first() if chat.owner_id else None
+app/routes/spav2/groups.py:104:        'owner_username': owner.username if owner else None,
+app/routes/spav2/groups.py:115:    current_user_id = get_current_user_id()
+app/routes/spav2/groups.py:116:    if not current_user_id:
+app/routes/spav2/groups.py:124:    user_ids = [m.user_id for m in memberships]
+app/routes/spav2/groups.py:125:    users_map = {u.id: u for u in User.query.filter(User.id.in_(user_ids), User.is_deleted.is_(False)).all()} if user_ids else {}
+app/routes/spav2/groups.py:128:        user = users_map.get(m.user_id)
+app/routes/spav2/groups.py:129:        if user:
+app/routes/spav2/groups.py:131:                'user_id': user.id,
+app/routes/spav2/groups.py:132:                'username': user.username,
+app/routes/spav2/groups.py:133:                'avatar_url': user.avatar_url,
+app/routes/spav2/groups.py:148:    current_user_id = get_current_user_id()
+app/routes/spav2/groups.py:149:    if not current_user_id:
+app/routes/spav2/groups.py:152:    if not ChatMember.query.filter_by(user_id=current_user_id, chat_id=group_id).first():
+app/routes/spav2/groups.py:169:            'sender_username': msg.sender.username if msg.sender else None,
+app/routes/spav2/groups.py:196:    current_user_id = get_current_user_id()
+app/routes/spav2/groups.py:197:    if not current_user_id:
+app/routes/spav2/groups.py:212:    chat = Chat(chat_type='group', name=name, description=description, owner_id=current_user_id, is_public=False, invite_link=invite_link, created_at=datetime.utcnow())
+app/routes/spav2/groups.py:216:    db.session.add(ChatMember(user_id=current_user_id, chat_id=chat.id, role='owner'))
+app/routes/spav2/groups.py:218:        if mid != current_user_id:
+app/routes/spav2/groups.py:219:            db.session.add(ChatMember(user_id=mid, chat_id=chat.id, role='member'))
+app/routes/spav2/groups.py:224:                                        can_change_info=role != 'member', can_delete_messages=role != 'member', can_ban_users=role == 'owner'))
+app/routes/spav2/groups.py:236:    current_user_id = get_current_user_id()
+app/routes/spav2/groups.py:237:    if not current_user_id:
+app/routes/spav2/groups.py:264:    membership = ChatMember.query.filter_by(user_id=current_user_id, chat_id=group_id).first()
+app/routes/spav2/groups.py:268:    msg = Message(sender_id=current_user_id, chat_id=group_id, receiver_id=current_user_id, content=content, timestamp=datetime.utcnow())
+app/routes/spav2/groups.py:290:        'sender_username': msg.sender.username if msg.sender else None,
+app/routes/spav2/groups.py:309:    current_user_id = get_current_user_id()
+app/routes/spav2/groups.py:310:    if not current_user_id:
+app/routes/spav2/groups.py:313:    membership = ChatMember.query.filter_by(user_id=current_user_id, chat_id=group_id).first()
+app/routes/spav2/groups.py:340:@spav2_groups_bp.route('/groups/<int:group_id>/members/<int:user_id>/role', methods=['POST'])
+app/routes/spav2/groups.py:341:def update_member_role(group_id, user_id):
+app/routes/spav2/groups.py:342:    current_user_id = get_current_user_id()
+app/routes/spav2/groups.py:343:    if not current_user_id:
+app/routes/spav2/groups.py:346:    membership = ChatMember.query.filter_by(user_id=current_user_id, chat_id=group_id).first()
+app/routes/spav2/groups.py:350:    target = ChatMember.query.filter_by(user_id=user_id, chat_id=group_id).first()
+app/routes/spav2/groups.py:369:    user = User.query.filter(User.id == user_id, User.is_deleted.is_(False)).first()
+app/routes/spav2/groups.py:371:        'group_id': group_id, 'user_id': user_id,
+app/routes/spav2/groups.py:372:        'username': user.username if user else None,
+app/routes/spav2/groups.py:379:    current_user_id = get_current_user_id()
+app/routes/spav2/groups.py:380:    if not current_user_id:
+app/routes/spav2/groups.py:387:    existing = ChatMember.query.filter_by(user_id=current_user_id, chat_id=chat.id).first()
+app/routes/spav2/groups.py:389:        db.session.add(ChatMember(user_id=current_user_id, chat_id=chat.id, role='member'))
+app/routes/spav2/groups.py:396:    owner = User.query.filter(User.id == chat.owner_id, User.is_deleted.is_(False)).first() if chat.owner_id else None
+app/routes/spav2/groups.py:410:    current_user_id = get_current_user_id()
+app/routes/spav2/groups.py:411:    if not current_user_id:
+app/routes/spav2/groups.py:414:    membership = ChatMember.query.filter_by(user_id=current_user_id, chat_id=group_id).first()
+app/routes/spav2/music.py:4:from app.models import UserMusic, Message, File
+app/routes/spav2/music.py:5:from app.utils.helpers import get_current_user_id
+app/routes/spav2/music.py:12:    current_user_id = get_current_user_id()
+app/routes/spav2/music.py:13:    if not current_user_id:
+app/routes/spav2/music.py:20:    base_q = UserMusic.query.filter_by(user_id=current_user_id)
+app/routes/spav2/music.py:24:    tracks = base_q.order_by(UserMusic.added_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+app/routes/spav2/music.py:46:    current_user_id = get_current_user_id()
+app/routes/spav2/music.py:47:    if not current_user_id:
+app/routes/spav2/music.py:55:    existing = UserMusic.query.filter_by(user_id=current_user_id, file_url=file_url).first()
+app/routes/spav2/music.py:59:    track = UserMusic(
+app/routes/spav2/music.py:60:        user_id=current_user_id,
+app/routes/spav2/music.py:89:    current_user_id = get_current_user_id()
+app/routes/spav2/music.py:90:    if not current_user_id:
+app/routes/spav2/music.py:93:    track = UserMusic.query.filter_by(id=track_id, user_id=current_user_id).first()
+app/routes/spav2/chat.py:8:from app.models import User, Message, Chat, ChatMember, ChatSubscriber, PinnedChat, BlockedUser, Reaction
+app/routes/spav2/chat.py:9:from app.utils.helpers import get_current_user_id, get_blocked_user_ids, has_active_story
+app/routes/spav2/chat.py:15:def _serialize_peer(user):
+app/routes/spav2/chat.py:16:    is_premium = (user.premium and user.premium.is_premium) or False
+app/routes/spav2/chat.py:18:        'user_id': user.id,
+app/routes/spav2/chat.py:19:        'username': user.username,
+app/routes/spav2/chat.py:20:        'display_name': user.display_name or user.username,
+app/routes/spav2/chat.py:21:        'avatar_url': user.avatar_url,
+app/routes/spav2/chat.py:22:        'is_online': getattr(user, 'is_online', False),
+app/routes/spav2/chat.py:23:        'last_seen': user.last_seen.isoformat() if user.last_seen else None,
+app/routes/spav2/chat.py:24:        'status_emoji': user.status_emoji or ('\u2b50' if is_premium else ''),
+app/routes/spav2/chat.py:26:        'is_bot': getattr(user, 'is_bot', False),
+app/routes/spav2/chat.py:27:        'bot_webapp_url': getattr(user, 'bot_webapp_url', None) or None
+app/routes/spav2/chat.py:36:    current_user_id = get_current_user_id()
+app/routes/spav2/chat.py:37:    if not current_user_id:
+app/routes/spav2/chat.py:42:    blocked_ids = get_blocked_user_ids(current_user_id)
+app/routes/spav2/chat.py:46:        (Message.sender_id == current_user_id) & (Message.receiver_id == current_user_id)
+app/routes/spav2/chat.py:48:    current_user = User.query.filter(User.id == current_user_id, User.is_deleted.is_(False)).first()
+app/routes/spav2/chat.py:49:    if not current_user:
+app/routes/spav2/chat.py:50:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/chat.py:55:            'user_id': current_user_id,
+app/routes/spav2/chat.py:56:            'username': 'saved_messages',
+app/routes/spav2/chat.py:75:    sent = db.session.query(Message.receiver_id).filter_by(sender_id=current_user_id).filter(Message.receiver_id != current_user_id).distinct().limit(500).all()
+app/routes/spav2/chat.py:76:    recv = db.session.query(Message.sender_id).filter_by(receiver_id=current_user_id).filter(Message.sender_id != current_user_id).distinct().limit(500).all()
+app/routes/spav2/chat.py:77:    chat_user_ids = {r[0] for r in sent} | {r[0] for r in recv}
+app/routes/spav2/chat.py:78:    chat_user_ids -= set(blocked_ids)
+app/routes/spav2/chat.py:80:    users = {}
+app/routes/spav2/chat.py:83:    if chat_user_ids:
+app/routes/spav2/chat.py:84:        user_rows = User.query.filter(User.id.in_(chat_user_ids), User.is_deleted.is_(False)).all()
+app/routes/spav2/chat.py:85:        users = {u.id: u for u in user_rows}
+app/routes/spav2/chat.py:86:        chat_user_ids = set(users.keys())
+app/routes/spav2/chat.py:89:            ((Message.sender_id == current_user_id) & (Message.receiver_id != current_user_id)) |
+app/routes/spav2/chat.py:90:            ((Message.receiver_id == current_user_id) & (Message.sender_id != current_user_id))
+app/routes/spav2/chat.py:97:                other_id = msg.receiver_id if msg.sender_id == current_user_id else msg.sender_id
+app/routes/spav2/chat.py:103:                Message.receiver_id == current_user_id,
+app/routes/spav2/chat.py:104:                Message.sender_id.in_(chat_user_ids),
+app/routes/spav2/chat.py:111:    for uid in chat_user_ids:
+app/routes/spav2/chat.py:112:        user = users.get(uid)
+app/routes/spav2/chat.py:113:        if not user:
+app/routes/spav2/chat.py:119:            'peer': _serialize_peer(user),
+app/routes/spav2/chat.py:130:    memberships = ChatMember.query.filter_by(user_id=current_user_id).all()
+app/routes/spav2/chat.py:153:                Message.sender_id != current_user_id
+app/routes/spav2/chat.py:176:                'sender_username': last.sender.username if last.sender else None,
+app/routes/spav2/chat.py:182:    subscriptions = ChatSubscriber.query.filter_by(user_id=current_user_id).all()
+app/routes/spav2/chat.py:230:@spav2_chat_bp.route('/messages/<int:user_id>', methods=['GET'])
+app/routes/spav2/chat.py:231:def get_personal_messages(user_id):
+app/routes/spav2/chat.py:232:    current_user_id = get_current_user_id()
+app/routes/spav2/chat.py:233:    if not current_user_id:
+app/routes/spav2/chat.py:236:    if BlockedUser.query.filter_by(user_id=user_id, blocked_user_id=current_user_id).first():
+app/routes/spav2/chat.py:237:        return jsonify({'success': False, 'error': {'code': 'BLOCKED', 'message': 'You are blocked by this user'}}), 403
+app/routes/spav2/chat.py:242:    peer = User.query.filter(User.id == user_id, User.is_deleted.is_(False)).first()
+app/routes/spav2/chat.py:244:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/chat.py:246:    if user_id == current_user_id:
+app/routes/spav2/chat.py:248:            (Message.sender_id == current_user_id) & (Message.receiver_id == current_user_id)
+app/routes/spav2/chat.py:252:            ((Message.sender_id == current_user_id) & (Message.receiver_id == user_id)) |
+app/routes/spav2/chat.py:253:            ((Message.sender_id == user_id) & (Message.receiver_id == current_user_id))
+app/routes/spav2/chat.py:261:        'messages': [_serialize_message(m, current_user_id) for m in messages],
+app/routes/spav2/chat.py:273:    current_user_id = get_current_user_id()
+app/routes/spav2/chat.py:274:    if not current_user_id:
+app/routes/spav2/chat.py:287:            elif uid != current_user_id:
+app/routes/spav2/chat.py:295:            users_map = {
+app/routes/spav2/chat.py:297:                User.query.filter(User.id.in_(active.keys()), User.is_deleted.is_(False)).all()
+app/routes/spav2/chat.py:300:                user = users_map.get(uid)
+app/routes/spav2/chat.py:301:                if user:
+app/routes/spav2/chat.py:303:                        'user_id': uid,
+app/routes/spav2/chat.py:304:                        'username': user.username,
+app/routes/spav2/chat.py:307:    return jsonify({'success': True, 'data': {'typing_users': typists}})
+app/routes/spav2/chat.py:311:    current_user_id = get_current_user_id()
+app/routes/spav2/chat.py:312:    if not current_user_id:
+app/routes/spav2/chat.py:314:    bot = User.query.filter(User.id == bot_id, User.is_deleted.is_(False)).first()
+app/routes/spav2/chat.py:321:    current_user_id = get_current_user_id()
+app/routes/spav2/chat.py:322:    if not current_user_id:
+app/routes/spav2/chat.py:324:    bot = User.query.filter(User.id == bot_id, User.is_deleted.is_(False)).first()
+app/routes/spav2/chat.py:325:    if not bot or not bot.is_bot or bot.bot_owner_id != current_user_id:
+app/routes/spav2/chat.py:341:    current_user_id = get_current_user_id()
+app/routes/spav2/chat.py:342:    if not current_user_id:
+app/routes/spav2/chat.py:346:        bots = User.query.filter_by(bot_owner_id=current_user_id, is_bot=True, is_deleted=False).all()
+app/routes/spav2/chat.py:349:            'username': b.username,
+app/routes/spav2/chat.py:350:            'display_name': b.display_name or b.username,
+app/routes/spav2/chat.py:357:    username = sanitize_string(data.get('username', ''), max_length=32).lower()
+app/routes/spav2/chat.py:358:    display_name = sanitize_string(data.get('display_name', ''), max_length=64) or username
+app/routes/spav2/chat.py:361:    if len(username) < 3 or not re.match(r'^[a-zA-Z0-9_]+$', username):
+app/routes/spav2/chat.py:362:        errors['username'] = 'Username must be 3-32 characters (letters, numbers, underscores)'
+app/routes/spav2/chat.py:363:    if User.query.filter_by(username=username).first():
+app/routes/spav2/chat.py:364:        errors['username'] = 'Username already taken'
+app/routes/spav2/chat.py:369:    bot = User(
+app/routes/spav2/chat.py:370:        username=username,
+app/routes/spav2/chat.py:374:        bot_owner_id=current_user_id,
+app/routes/spav2/chat.py:389:        'username': bot.username,
+app/routes/spav2/admin.py:11:from app.models import User, Report, Message, LoginOtp, Chat, ChatMember, ChatSubscriber, EmailVerification, QrLoginToken
+app/routes/spav2/admin.py:12:from app.utils.helpers import get_current_user
+app/routes/spav2/admin.py:62:        user = get_current_user()
+app/routes/spav2/admin.py:63:        if not user or not user.is_admin:
+app/routes/spav2/admin.py:71:    user = get_current_user()
+app/routes/spav2/admin.py:72:    return render_template('admin.html', current_user=user)
+app/routes/spav2/admin.py:79:    username = (request.form.get('username') or '').strip()
+app/routes/spav2/admin.py:81:    user = User.query.filter_by(username=username).first()
+app/routes/spav2/admin.py:82:    if user and user.is_admin and user.check_password(password):
+app/routes/spav2/admin.py:83:        session['user_id'] = user.id
+app/routes/spav2/admin.py:84:        session['username'] = user.username
+app/routes/spav2/admin.py:87:    current_user = get_current_user()
+app/routes/spav2/admin.py:88:    return render_template('admin.html', current_user=current_user, login_error='Invalid credentials')
+app/routes/spav2/admin.py:93:    session.pop('user_id', None)
+app/routes/spav2/admin.py:94:    session.pop('username', None)
+app/routes/spav2/admin.py:100:    total_users = User.query.count()
+app/routes/spav2/admin.py:103:    users_today = User.query.filter(User.created_at >= datetime.now(timezone.utc).replace(tzinfo=None).replace(hour=0, minute=0, second=0)).count()
+app/routes/spav2/admin.py:105:        'total_users': total_users,
+app/routes/spav2/admin.py:108:        'users_today': users_today
+app/routes/spav2/admin.py:117:    user_ids = set()
+app/routes/spav2/admin.py:119:        user_ids.add(r.reporter_id)
+app/routes/spav2/admin.py:120:        if r.reported_user_id:
+app/routes/spav2/admin.py:121:            user_ids.add(r.reported_user_id)
+app/routes/spav2/admin.py:122:    users = {u.id: u for u in User.query.filter(User.id.in_(user_ids)).all()} if user_ids else {}
+app/routes/spav2/admin.py:128:            'reporter_username': users.get(r.reporter_id, User.query.get(r.reporter_id)).username if users.get(r.reporter_id) else None,
+app/routes/spav2/admin.py:129:            'reported_user_id': r.reported_user_id,
+app/routes/spav2/admin.py:130:            'reported_username': users.get(r.reported_user_id, User.query.get(r.reported_user_id)).username if r.reported_user_id and users.get(r.reported_user_id) else None,
+app/routes/spav2/admin.py:166:    user_id = data.get('user_id')
+app/routes/spav2/admin.py:168:    if user_id is not None and not isinstance(user_id, int):
+app/routes/spav2/admin.py:169:        return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': 'user_id must be an integer'}}), 400
+app/routes/spav2/admin.py:180:    elif action_type == 'ban_user':
+app/routes/spav2/admin.py:181:        if user_id:
+app/routes/spav2/admin.py:182:            user = User.query.get(user_id)
+app/routes/spav2/admin.py:183:            if user:
+app/routes/spav2/admin.py:184:                user.is_deleted = True
+app/routes/spav2/admin.py:185:                user.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
+app/routes/spav2/admin.py:195:@spav2_admin_bp.route('/users', methods=['GET'])
+app/routes/spav2/admin.py:197:def list_users():
+app/routes/spav2/admin.py:198:    users = User.query.order_by(User.created_at.desc()).all()
+app/routes/spav2/admin.py:200:        'users': [{
+app/routes/spav2/admin.py:202:            'username': u.username,
+app/routes/spav2/admin.py:209:        } for u in users],
+app/routes/spav2/admin.py:210:        'total': len(users)
+app/routes/spav2/admin.py:213:@spav2_admin_bp.route('/users/<int:user_id>/toggle-admin', methods=['POST'])
+app/routes/spav2/admin.py:215:def toggle_admin(user_id):
+app/routes/spav2/admin.py:216:    user = User.query.get(user_id)
+app/routes/spav2/admin.py:217:    if not user:
+app/routes/spav2/admin.py:218:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/admin.py:219:    user.is_admin = not user.is_admin
+app/routes/spav2/admin.py:221:    return jsonify({'success': True, 'data': {'is_admin': user.is_admin}})
+app/routes/spav2/admin.py:224:@spav2_admin_bp.route('/users/<int:user_id>/delete', methods=['POST'])
+app/routes/spav2/admin.py:226:def delete_user(user_id):
+app/routes/spav2/admin.py:227:    user = User.query.get(user_id)
+app/routes/spav2/admin.py:228:    if not user:
+app/routes/spav2/admin.py:229:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/admin.py:230:    if user.id == get_current_user().id:
+app/routes/spav2/admin.py:232:    user.is_deleted = True
+app/routes/spav2/admin.py:233:    user.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
+app/routes/spav2/admin.py:235:    return jsonify({'success': True, 'data': {'message': f'User {user.username} deleted'}})
+app/routes/spav2/admin.py:238:@spav2_admin_bp.route('/users/<int:user_id>/update', methods=['POST'])
+app/routes/spav2/admin.py:240:def update_user(user_id):
+app/routes/spav2/admin.py:241:    user = User.query.get(user_id)
+app/routes/spav2/admin.py:242:    if not user:
+app/routes/spav2/admin.py:243:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/admin.py:245:    if 'username' in data:
+app/routes/spav2/admin.py:246:        val = data['username'].strip()
+app/routes/spav2/admin.py:248:            existing = User.query.filter_by(username=val).first()
+app/routes/spav2/admin.py:249:            if existing and existing.id != user_id:
+app/routes/spav2/admin.py:250:                return jsonify({'success': False, 'error': {'code': 'CONFLICT', 'message': 'Username taken'}}), 409
+app/routes/spav2/admin.py:251:            user.username = val
+app/routes/spav2/admin.py:255:            existing = User.query.filter_by(email=val).first()
+app/routes/spav2/admin.py:256:            if existing and existing.id != user_id:
+app/routes/spav2/admin.py:258:        user.email = val
+app/routes/spav2/admin.py:260:        user.display_name = data['display_name'].strip() or None
+app/routes/spav2/admin.py:262:        user.bio = data['bio'].strip() or None
+app/routes/spav2/admin.py:264:    return jsonify({'success': True, 'data': {'message': 'Profile updated'}})
+app/routes/spav2/admin.py:267:@spav2_admin_bp.route('/users/<int:user_id>/set-password', methods=['POST'])
+app/routes/spav2/admin.py:269:def set_user_password(user_id):
+app/routes/spav2/admin.py:270:    user = User.query.get(user_id)
+app/routes/spav2/admin.py:271:    if not user:
+app/routes/spav2/admin.py:272:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/admin.py:277:    user.set_password(password)
+app/routes/spav2/admin.py:312:    user_ids = {o.user_id for o in pagination.items}
+app/routes/spav2/admin.py:313:    users = {u.id: u for u in User.query.filter(User.id.in_(user_ids)).all()} if user_ids else {}
+app/routes/spav2/admin.py:318:            'user_id': o.user_id,
+app/routes/spav2/admin.py:319:            'username': users.get(o.user_id).username if users.get(o.user_id) else None,
+app/routes/spav2/admin.py:354:    user_ids = {e.user_id for e in pagination.items if e.user_id}
+app/routes/spav2/admin.py:355:    users = {u.id: u for u in User.query.filter(User.id.in_(user_ids)).all()} if user_ids else {}
+app/routes/spav2/admin.py:360:            'user_id': e.user_id,
+app/routes/spav2/admin.py:361:            'username': users.get(e.user_id).username if e.user_id and users.get(e.user_id) else None,
+app/routes/spav2/admin.py:397:    user_ids = set()
+app/routes/spav2/admin.py:399:        if t.user_id:
+app/routes/spav2/admin.py:400:            user_ids.add(t.user_id)
+app/routes/spav2/admin.py:402:            user_ids.add(t.authorized_by_id)
+app/routes/spav2/admin.py:403:    users = {u.id: u for u in User.query.filter(User.id.in_(user_ids)).all()} if user_ids else {}
+app/routes/spav2/admin.py:408:            'user_id': t.user_id,
+app/routes/spav2/admin.py:409:            'username': users.get(t.user_id).username if t.user_id and users.get(t.user_id) else None,
+app/routes/spav2/admin.py:415:            'authorized_by': users.get(t.authorized_by_id).username if t.authorized_by_id and users.get(t.authorized_by_id) else None,
+app/routes/spav2/admin.py:435:# ── User Creation ───────────────────────────────────────────
+app/routes/spav2/admin.py:437:@spav2_admin_bp.route('/users/create', methods=['POST'])
+app/routes/spav2/admin.py:439:def create_user():
+app/routes/spav2/admin.py:441:    username = (data.get('username') or '').strip()
+app/routes/spav2/admin.py:446:    if not username or len(username) < 3:
+app/routes/spav2/admin.py:447:        return jsonify({'success': False, 'error': {'code': 'VALIDATION', 'message': 'Username must be at least 3 characters'}}), 400
+app/routes/spav2/admin.py:448:    if User.query.filter_by(username=username).first():
+app/routes/spav2/admin.py:449:        return jsonify({'success': False, 'error': {'code': 'CONFLICT', 'message': 'Username taken'}}), 409
+app/routes/spav2/admin.py:450:    if email and User.query.filter_by(email=email).first():
+app/routes/spav2/admin.py:455:    user = User(username=username, email=email, is_admin=is_admin)
+app/routes/spav2/admin.py:456:    user.set_password(password)
+app/routes/spav2/admin.py:457:    db.session.add(user)
+app/routes/spav2/admin.py:460:        'user': {
+app/routes/spav2/admin.py:461:            'id': user.id,
+app/routes/spav2/admin.py:462:            'username': user.username,
+app/routes/spav2/admin.py:463:            'email': user.email,
+app/routes/spav2/admin.py:464:            'is_admin': user.is_admin,
+app/routes/spav2/admin.py:465:            'created_at': user.created_at.isoformat() if user.created_at else None
+app/routes/spav2/admin.py:467:        'message': f'User {user.username} created'
+app/routes/spav2/admin.py:487:    admin = get_current_user()
+app/routes/spav2/admin.py:496:            peer_id = chat.user2_id if chat.user1_id == admin.id else chat.user1_id
+app/routes/spav2/admin.py:497:            peer = User.query.get(peer_id)
+app/routes/spav2/admin.py:498:            chat_name = f'{peer.username} (personal)' if peer else f'personal #{chat.id}'
+app/routes/spav2/admin.py:526:    member_ids = [m.user_id for m in members]
+app/routes/spav2/admin.py:527:    member_users = User.query.filter(User.id.in_(member_ids)).all() if member_ids else []
+app/routes/spav2/admin.py:541:        'members': [{'user_id': m.user_id, 'role': m.role, 'joined_at': m.joined_at.isoformat() if m.joined_at else None} for m in members],
+app/routes/spav2/admin.py:542:        'member_users': [{'id': u.id, 'username': u.username, 'email': u.email} for u in member_users]
+app/routes/spav2/admin.py:556:    senders = {u.id: u.username for u in User.query.filter(User.id.in_(sender_ids)).all()} if sender_ids else {}
+app/routes/spav2/admin.py:563:            'sender_username': senders.get(m.sender_id, f'user #{m.sender_id}'),
+app/routes/spav2/admin.py:613:    admin = get_current_user()
+app/routes/spav2/admin.py:620:    db.session.add(ChatSubscriber(user_id=admin.id, chat_id=chat.id))
+app/routes/spav2/admin.py:638:    admin = get_current_user()
+app/routes/spav2/admin.py:646:        'msg': {'id': msg.id, 'sender_id': msg.sender_id, 'sender_username': admin.username,
+app/routes/spav2/admin.py:702:    admin = get_current_user()
+app/routes/spav2/admin.py:711:            'created_by': admin.username,
+app/routes/spav2/admin.py:716:        code = generate_promo_code(duration_days=duration, max_uses=max_uses, created_by=admin.username)
+app/routes/spav2/admin.py:747:    user = get_current_user()
+app/routes/spav2/admin.py:748:    log.warning(f'ADMIN TERMINAL: user={user.username} id={user.id} cmd={cmd}')
+app/routes/spav2/messages.py:6:from app.models import User, Message, Reaction, Reply, Forward, BlockedUser, Chat, ChatMember, File
+app/routes/spav2/messages.py:7:from app.utils.helpers import get_current_user_id, message_to_dict, validate_emoji, get_animated_file_for_emoji
+app/routes/spav2/messages.py:15:def _serialize_message(msg, current_user_id=None):
+app/routes/spav2/messages.py:36:        d['sender_username'] = msg.sender.username
+app/routes/spav2/messages.py:47:    current_user_id = get_current_user_id()
+app/routes/spav2/messages.py:48:    if not current_user_id:
+app/routes/spav2/messages.py:83:    if receiver_id != current_user_id:
+app/routes/spav2/messages.py:84:        if BlockedUser.query.filter_by(user_id=receiver_id, blocked_user_id=current_user_id).first():
+app/routes/spav2/messages.py:85:            return jsonify({'success': False, 'error': {'code': 'USER_BLOCKED', 'message': 'You cannot send messages to this user'}}), 403
+app/routes/spav2/messages.py:87:        receiver = User.query.filter_by(id=receiver_id, is_deleted=False).first()
+app/routes/spav2/messages.py:89:            return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/messages.py:91:    a, b = sorted([current_user_id, receiver_id])
+app/routes/spav2/messages.py:92:    chat = Chat.query.filter_by(chat_type='personal', user1_id=a, user2_id=b).first()
+app/routes/spav2/messages.py:94:        chat = Chat(chat_type='personal', user1_id=a, user2_id=b)
+app/routes/spav2/messages.py:98:    msg = Message(content=content, sender_id=current_user_id, receiver_id=receiver_id, chat_id=chat.id, timestamp=datetime.utcnow())
+app/routes/spav2/messages.py:117:    return jsonify({'success': True, 'data': {'message': _serialize_message(msg, current_user_id)}}), 201
+app/routes/spav2/messages.py:120:@spav2_messages_bp.route('/mark_read/<int:user_id>', methods=['POST'])
+app/routes/spav2/messages.py:121:def mark_read(user_id):
+app/routes/spav2/messages.py:122:    current_user_id = get_current_user_id()
+app/routes/spav2/messages.py:123:    if not current_user_id:
+app/routes/spav2/messages.py:126:    count = Message.query.filter_by(sender_id=user_id, receiver_id=current_user_id, is_read=False).update({'is_read': True, 'read_at': datetime.utcnow()})
+app/routes/spav2/messages.py:132:    return jsonify({'success': True, 'data': {'marked_count': count, 'peer_user_id': user_id}})
+app/routes/spav2/messages.py:137:    current_user_id = get_current_user_id()
+app/routes/spav2/messages.py:138:    if not current_user_id:
+app/routes/spav2/messages.py:144:    if msg.sender_id != current_user_id:
+app/routes/spav2/messages.py:159:    return jsonify({'success': True, 'data': {'message': _serialize_message(msg, current_user_id)}})
+app/routes/spav2/messages.py:164:    current_user_id = get_current_user_id()
+app/routes/spav2/messages.py:165:    if not current_user_id:
+app/routes/spav2/messages.py:171:    _typing_status[key][current_user_id] = time.time()
+app/routes/spav2/messages.py:184:    current_user_id = get_current_user_id()
+app/routes/spav2/messages.py:185:    if not current_user_id:
+app/routes/spav2/messages.py:196:    existing = Reaction.query.filter_by(message_id=message_id, user_id=current_user_id, reaction_type=reaction_type).first()
+app/routes/spav2/messages.py:201:        db.session.add(Reaction(message_id=message_id, user_id=current_user_id, reaction_type=reaction_type))
+app/routes/spav2/messages.py:220:    current_user_id = get_current_user_id()
+app/routes/spav2/messages.py:221:    if not current_user_id:
+app/routes/spav2/messages.py:227:    if msg.sender_id != current_user_id:
+app/routes/spav2/messages.py:241:    current_user_id = get_current_user_id()
+app/routes/spav2/messages.py:242:    if not current_user_id:
+app/routes/spav2/messages.py:245:    reactions = Reaction.query.options(selectinload(Reaction.user)).filter_by(message_id=message_id).all()
+app/routes/spav2/messages.py:250:        grouped[r.reaction_type].append({'user_id': r.user_id, 'username': r.user.username if r.user else None})
+app/routes/spav2/messages.py:253:    for rtype, users in grouped.items():
+app/routes/spav2/messages.py:254:        has_reacted = any(u['user_id'] == current_user_id for u in users)
+app/routes/spav2/messages.py:257:            'count': len(users),
+app/routes/spav2/messages.py:258:            'users': users,
+app/routes/spav2/messages.py:267:    current_user_id = get_current_user_id()
+app/routes/spav2/messages.py:268:    if not current_user_id:
+app/routes/spav2/ksettings.py:3:from app.models import UserKSettings
+app/routes/spav2/ksettings.py:4:from app.utils.helpers import get_current_user_id
+app/routes/spav2/ksettings.py:11:    current_user_id = get_current_user_id()
+app/routes/spav2/ksettings.py:12:    if not current_user_id:
+app/routes/spav2/ksettings.py:16:        ks = UserKSettings.query.filter_by(user_id=current_user_id).first()
+app/routes/spav2/ksettings.py:18:            ks = UserKSettings(user_id=current_user_id, settings={})
+app/routes/spav2/ksettings.py:30:    current_user_id = get_current_user_id()
+app/routes/spav2/ksettings.py:31:    if not current_user_id:
+app/routes/spav2/ksettings.py:40:        ks = UserKSettings.query.filter_by(user_id=current_user_id).first()
+app/routes/spav2/ksettings.py:42:            ks = UserKSettings(user_id=current_user_id, settings=settings)
+app/routes/spav2/search.py:5:from app.models import User, Chat, ChatMember, Contact, BlockedUser, Message, UserMusic, ChatSubscriber, RecentSearch
+app/routes/spav2/search.py:6:from app.utils.helpers import get_current_user_id, get_current_user
+app/routes/spav2/search.py:13:    current_user_id = get_current_user_id()
+app/routes/spav2/search.py:14:    if not current_user_id:
+app/routes/spav2/search.py:22:    blocked_ids = [b.blocked_user_id for b in BlockedUser.query.with_entities(BlockedUser.blocked_user_id).filter_by(user_id=current_user_id).all()]
+app/routes/spav2/search.py:25:    # Users
+app/routes/spav2/search.py:26:    users = User.query.filter(User.is_deleted == False, User.username.ilike(q) | (User.display_name.ilike(q))).limit(limit).all()
+app/routes/spav2/search.py:27:    contacts_set = set(c.contact_id for c in Contact.query.with_entities(Contact.contact_id).filter_by(user_id=current_user_id).all())
+app/routes/spav2/search.py:28:    users_data = []
+app/routes/spav2/search.py:29:    for u in users:
+app/routes/spav2/search.py:30:        if u.id == current_user_id or u.id in blocked_ids:
+app/routes/spav2/search.py:34:        'user_id': u.id,
+app/routes/spav2/search.py:35:        'username': u.username,
+app/routes/spav2/search.py:36:        'display_name': u.display_name or u.username,
+app/routes/spav2/search.py:45:        'is_contact': Contact.query.filter_by(user_id=current_user_id, contact_id=user_id).first() is not None
+app/routes/spav2/search.py:49:@spav2_search_bp.route('/users/<int:user_id>/music', methods=['GET'])
+app/routes/spav2/search.py:50:def get_user_music(user_id):
+app/routes/spav2/search.py:51:    current_user_id = get_current_user_id()
+app/routes/spav2/search.py:52:    if not current_user_id:
+app/routes/spav2/search.py:55:    u = User.query.filter_by(id=user_id, is_deleted=False).first()
+app/routes/spav2/search.py:57:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/search.py:63:    query_tracks = UserMusic.query.filter_by(user_id=user_id)
+app/routes/spav2/search.py:65:    tracks = query_tracks.order_by(UserMusic.added_at.desc()).offset(offset_val).limit(per_page).all()
+app/routes/spav2/search.py:85:@spav2_search_bp.route('/users/<int:user_id>/files', methods=['GET'])
+app/routes/spav2/search.py:86:def get_user_files(user_id):
+app/routes/spav2/search.py:87:    current_user_id = get_current_user_id()
+app/routes/spav2/search.py:88:    if not current_user_id:
+app/routes/spav2/search.py:91:    u = User.query.filter_by(id=user_id, is_deleted=False).first()
+app/routes/spav2/search.py:93:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/search.py:101:            ((Message.sender_id == current_user_id) & (Message.receiver_id == user_id)) |
+app/routes/spav2/search.py:102:            ((Message.sender_id == user_id) & (Message.receiver_id == current_user_id)),
+app/routes/spav2/search.py:130:    current_user_id = get_current_user_id()
+app/routes/spav2/search.py:131:    if not current_user_id:
+app/routes/spav2/search.py:154:            ((Message.sender_id == current_user_id) & (Message.receiver_id == chat_id_int)) |
+app/routes/spav2/search.py:155:            ((Message.sender_id == chat_id_int) & (Message.receiver_id == current_user_id))
+app/routes/spav2/search.py:184:    current_user_id = get_current_user_id()
+app/routes/spav2/search.py:185:    if not current_user_id:
+app/routes/spav2/search.py:188:    searches = RecentSearch.query.filter_by(user_id=current_user_id).order_by(RecentSearch.created_at.desc()).limit(10).all()
+app/routes/spav2/search.py:197:    current_user_id = get_current_user_id()
+app/routes/spav2/search.py:198:    if not current_user_id:
+app/routes/spav2/search.py:206:    existing = RecentSearch.query.filter_by(user_id=current_user_id, search_query=query).first()
+app/routes/spav2/search.py:210:        db.session.add(RecentSearch(user_id=current_user_id, search_query=query, created_at=datetime.utcnow()))
+app/routes/spav2/search.py:212:    recent = RecentSearch.query.filter_by(user_id=current_user_id).order_by(RecentSearch.created_at.desc()).all()
+app/routes/spav2/saved.py:5:from app.models import User, Message, Chat
+app/routes/spav2/saved.py:6:from app.utils.helpers import get_current_user_id
+app/routes/spav2/saved.py:13:    current_user_id = get_current_user_id()
+app/routes/spav2/saved.py:14:    if not current_user_id:
+app/routes/spav2/saved.py:24:    ).filter_by(receiver_id=current_user_id, is_saved=True)
+app/routes/spav2/saved.py:35:        chat_name = sender.username if sender else 'Unknown'
+app/routes/spav2/saved.py:46:                'sender_username': sender.username if sender else None,
+app/routes/spav2/saved.py:67:    current_user_id = get_current_user_id()
+app/routes/spav2/saved.py:68:    if not current_user_id:
+app/routes/spav2/saved.py:94:    chat_name = sender.username if sender else 'Unknown'
+app/routes/spav2/saved.py:105:            'sender_username': sender.username if sender else None,
+app/routes/spav2/saved.py:118:    current_user_id = get_current_user_id()
+app/routes/spav2/saved.py:119:    if not current_user_id:
+app/routes/spav2/channels.py:5:from app.models import User, Chat, ChatSubscriber, Message
+app/routes/spav2/channels.py:6:from app.utils.helpers import get_current_user_id, validate_emoji, get_animated_file_for_emoji
+app/routes/spav2/channels.py:13:    current_user_id = get_current_user_id()
+app/routes/spav2/channels.py:14:    if not current_user_id:
+app/routes/spav2/channels.py:21:    is_subscribed = ChatSubscriber.query.filter_by(user_id=current_user_id, chat_id=channel_id).first() is not None
+app/routes/spav2/channels.py:22:    owner = User.query.filter(User.id == chat.owner_id, User.is_deleted.is_(False)).first() if chat.owner_id else None
+app/routes/spav2/channels.py:26:        admins_list.append({'user_id': chat.owner_id, 'username': owner.username if owner else None})
+app/routes/spav2/channels.py:34:        'owner_username': owner.username if owner else None,
+app/routes/spav2/channels.py:46:    current_user_id = get_current_user_id()
+app/routes/spav2/channels.py:47:    if not current_user_id:
+app/routes/spav2/channels.py:64:            'sender_username': msg.sender.username if msg.sender else None,
+app/routes/spav2/channels.py:89:    current_user_id = get_current_user_id()
+app/routes/spav2/channels.py:90:    if not current_user_id:
+app/routes/spav2/channels.py:101:    chat = Chat(chat_type='channel', name=name, description=description, owner_id=current_user_id, is_public=True, invite_link=invite_link, created_at=datetime.utcnow())
+app/routes/spav2/channels.py:105:    db.session.add(ChatSubscriber(user_id=current_user_id, chat_id=chat.id))
+app/routes/spav2/channels.py:122:    current_user_id = get_current_user_id()
+app/routes/spav2/channels.py:123:    if not current_user_id:
+app/routes/spav2/channels.py:153:    if chat.owner_id != current_user_id:
+app/routes/spav2/channels.py:156:    msg = Message(sender_id=current_user_id, chat_id=channel_id, receiver_id=current_user_id, content=content, timestamp=datetime.utcnow())
+app/routes/spav2/channels.py:171:        'sender_username': msg.sender.username if msg.sender else None,
+app/routes/spav2/channels.py:186:    current_user_id = get_current_user_id()
+app/routes/spav2/channels.py:187:    if not current_user_id:
+app/routes/spav2/channels.py:194:    existing = ChatSubscriber.query.filter_by(user_id=current_user_id, chat_id=channel_id).first()
+app/routes/spav2/channels.py:196:        db.session.add(ChatSubscriber(user_id=current_user_id, chat_id=channel_id))
+app/routes/spav2/channels.py:212:    current_user_id = get_current_user_id()
+app/routes/spav2/channels.py:213:    if not current_user_id:
+app/routes/spav2/channels.py:216:    sub = ChatSubscriber.query.filter_by(user_id=current_user_id, chat_id=channel_id).first()
+app/routes/spav2/channels.py:233:    current_user_id = get_current_user_id()
+app/routes/spav2/channels.py:234:    if not current_user_id:
+app/routes/spav2/channels.py:240:    if chat.owner_id != current_user_id:
+app/routes/spav2/channels.py:254:    owner = User.query.filter(User.id == chat.owner_id, User.is_deleted.is_(False)).first() if chat.owner_id else None
+app/routes/spav2/channels.py:266:    current_user_id = get_current_user_id()
+app/routes/spav2/channels.py:267:    if not current_user_id:
+app/routes/spav2/channels.py:273:    if chat.owner_id != current_user_id:
+app/routes/spav2/channels.py:277:    user_id = data.get('user_id')
+app/routes/spav2/channels.py:278:    if not user_id:
+app/routes/spav2/channels.py:279:        return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': 'user_id is required'}}), 400
+app/routes/spav2/channels.py:281:    user = User.query.filter(User.id == user_id, User.is_deleted.is_(False)).first()
+app/routes/spav2/channels.py:282:    if not user:
+app/routes/spav2/channels.py:283:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/channels.py:285:    sub = ChatSubscriber.query.filter_by(user_id=user_id, chat_id=channel_id).first()
+app/routes/spav2/channels.py:287:        db.session.add(ChatSubscriber(user_id=user_id, chat_id=channel_id))
+app/routes/spav2/channels.py:295:        'channel_id': channel_id, 'user_id': user_id,
+app/routes/spav2/channels.py:296:        'username': user.username, 'role': 'admin',
+app/routes/spav2/login_v3.py:7:from app.models import User, Message, Chat, LoginOtp, UserSession, EmailVerification, PreloadedAvatar, Referral
+app/routes/spav2/login_v3.py:8:from app.utils.helpers import get_current_user
+app/routes/spav2/login_v3.py:14:KISELGRAM_USER_ID = None
+app/routes/spav2/login_v3.py:17:def _ensure_kiselgram_user():
+app/routes/spav2/login_v3.py:18:    global KISELGRAM_USER_ID
+app/routes/spav2/login_v3.py:19:    if KISELGRAM_USER_ID:
+app/routes/spav2/login_v3.py:20:        return KISELGRAM_USER_ID
+app/routes/spav2/login_v3.py:21:    user = User.query.filter_by(username='kiselgram', is_deleted=False).first()
+app/routes/spav2/login_v3.py:22:    if not user:
+app/routes/spav2/login_v3.py:23:        user = User(
+app/routes/spav2/login_v3.py:24:            username='kiselgram',
+app/routes/spav2/login_v3.py:30:        db.session.add(user)
+app/routes/spav2/login_v3.py:32:    if not user.avatar_url:
+app/routes/spav2/login_v3.py:33:        user.avatar_url = '/static/favicon.svg'
+app/routes/spav2/login_v3.py:39:    KISELGRAM_USER_ID = user.id
+app/routes/spav2/login_v3.py:40:    return user.id
+app/routes/spav2/login_v3.py:43:def _send_otp_via_chat(user_id, code):
+app/routes/spav2/login_v3.py:44:    kg_id = _ensure_kiselgram_user()
+app/routes/spav2/login_v3.py:46:        ((Chat.user1_id == kg_id) & (Chat.user2_id == user_id)) |
+app/routes/spav2/login_v3.py:47:        ((Chat.user1_id == user_id) & (Chat.user2_id == kg_id))
+app/routes/spav2/login_v3.py:50:        chat = Chat(user1_id=min(kg_id, user_id), user2_id=max(kg_id, user_id), chat_type='personal')
+app/routes/spav2/login_v3.py:55:        receiver_id=user_id,
+app/routes/spav2/login_v3.py:68:def _make_session(user):
+app/routes/spav2/login_v3.py:70:    session['user_id'] = user.id
+app/routes/spav2/login_v3.py:71:    session['username'] = user.username
+app/routes/spav2/login_v3.py:72:    user.is_online = True
+app/routes/spav2/login_v3.py:73:    user.last_seen = datetime.now(timezone.utc).replace(tzinfo=None)
+app/routes/spav2/login_v3.py:74:    db.session.add(UserSession(
+app/routes/spav2/login_v3.py:75:        user_id=user.id,
+app/routes/spav2/login_v3.py:90:def _serialize_user(user):
+app/routes/spav2/login_v3.py:91:    is_premium = (user.premium and user.premium.is_premium) or False
+app/routes/spav2/login_v3.py:93:        'user_id': user.id,
+app/routes/spav2/login_v3.py:94:        'username': user.username,
+app/routes/spav2/login_v3.py:95:        'email': user.email,
+app/routes/spav2/login_v3.py:96:        'display_name': user.display_name or user.username,
+app/routes/spav2/login_v3.py:97:        'avatar_url': user.avatar_url,
+app/routes/spav2/login_v3.py:98:        'bio': getattr(user, 'bio', None),
+app/routes/spav2/login_v3.py:100:        'is_admin': getattr(user, 'is_admin', False),
+app/routes/spav2/login_v3.py:103:        'created_at': user.created_at.isoformat() if user.created_at else datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+app/routes/spav2/login_v3.py:104:        'status_emoji': user.status_emoji or ('\u2b50' if is_premium else ''),
+app/routes/spav2/login_v3.py:117:    user = User.query.filter_by(email=email, is_deleted=False).first()
+app/routes/spav2/login_v3.py:118:    exists = user is not None
+app/routes/spav2/login_v3.py:122:# ── Step 2a: Send OTP (existing user) ──────────────────────────
+app/routes/spav2/login_v3.py:129:    user = User.query.filter_by(email=email, is_deleted=False).first()
+app/routes/spav2/login_v3.py:130:    if not user:
+app/routes/spav2/login_v3.py:131:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/login_v3.py:135:    db.session.add(LoginOtp(user_id=user.id, code=code, expires_at=expires_at))
+app/routes/spav2/login_v3.py:143:        _send_otp_via_chat(user.id, code)
+app/routes/spav2/login_v3.py:159:    user = User.query.filter_by(email=email, is_deleted=False).first()
+app/routes/spav2/login_v3.py:160:    if not user:
+app/routes/spav2/login_v3.py:161:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/login_v3.py:165:    db.session.add(LoginOtp(user_id=user.id, code=code, expires_at=expires_at))
+app/routes/spav2/login_v3.py:199:    user = User.query.filter_by(email=email, is_deleted=False).first()
+app/routes/spav2/login_v3.py:200:    if not user:
+app/routes/spav2/login_v3.py:201:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/login_v3.py:203:    otp = LoginOtp.query.filter_by(user_id=user.id, code=code, used=False).order_by(LoginOtp.id.desc()).first()
+app/routes/spav2/login_v3.py:232:    user = User.query.filter_by(email=email, is_deleted=False).first()
+app/routes/spav2/login_v3.py:233:    if not user:
+app/routes/spav2/login_v3.py:234:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/login_v3.py:236:    if not user.password_hash or not user.check_password(password):
+app/routes/spav2/login_v3.py:239:    session_token = _make_session(user)
+app/routes/spav2/login_v3.py:242:    return jsonify({'success': True, 'data': {'user': _serialize_user(user), 'session_token': session_token}})
+app/routes/spav2/login_v3.py:257:    user = User.query.filter_by(email=email, is_deleted=False).first()
+app/routes/spav2/login_v3.py:258:    if not user:
+app/routes/spav2/login_v3.py:259:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/login_v3.py:261:    session_token = _make_session(user)
+app/routes/spav2/login_v3.py:264:    return jsonify({'success': True, 'data': {'user': _serialize_user(user), 'session_token': session_token}})
+app/routes/spav2/login_v3.py:276:    if User.query.filter_by(email=email, is_deleted=False).first():
+app/routes/spav2/login_v3.py:341:    username = sanitize_string(data.get('username', ''), max_length=32)
+app/routes/spav2/login_v3.py:351:    if User.query.filter_by(email=email, is_deleted=False).first():
+app/routes/spav2/login_v3.py:355:    if len(username) < 3 or not re.match(r'^[a-zA-Z0-9_]+$', username):
+app/routes/spav2/login_v3.py:356:        errors['username'] = '3-32 chars, letters, numbers, underscores'
+app/routes/spav2/login_v3.py:357:    if User.query.filter_by(username=username, is_deleted=False).first():
+app/routes/spav2/login_v3.py:358:        errors['username'] = 'Username taken'
+app/routes/spav2/login_v3.py:368:    user = User(
+app/routes/spav2/login_v3.py:369:        username=username,
+app/routes/spav2/login_v3.py:371:        display_name=display_name or username,
+app/routes/spav2/login_v3.py:376:    db.session.add(user)
+app/routes/spav2/login_v3.py:381:        return jsonify({'success': False, 'error': {'code': 'DUPLICATE', 'message': 'Email or username already taken'}}), 409
+app/routes/spav2/login_v3.py:384:        inviter = User.query.filter_by(username=ref_code, is_deleted=False).first()
+app/routes/spav2/login_v3.py:385:        if inviter and inviter.id != user.id:
+app/routes/spav2/login_v3.py:386:            existing_ref = Referral.query.filter_by(invited_user_id=user.id).first()
+app/routes/spav2/login_v3.py:389:                    ref = Referral(inviter_id=inviter.id, invited_user_id=user.id)
+app/routes/spav2/login_v3.py:399:                    current_app.logger.warning(f"Duplicate referral for user {user.id}")
+app/routes/spav2/login_v3.py:401:    session_token = _make_session(user)
+app/routes/spav2/login_v3.py:404:    return jsonify({'success': True, 'data': {'user': _serialize_user(user), 'session_token': session_token}})
+app/routes/spav2/calls.py:8:from app.models import User, Call, VideoCall, VideoCallParticipant, PushSubscription
+app/routes/spav2/calls.py:9:from app.utils.helpers import get_current_user_id, get_current_user
+app/routes/spav2/calls.py:44:def _send_push_to_user(user_id, payload):
+app/routes/spav2/calls.py:45:    """Send push notification to all subscriptions of a user."""
+app/routes/spav2/calls.py:46:    subs = PushSubscription.query.filter_by(user_id=user_id).all()
+app/routes/spav2/calls.py:51:def _notify_ws(user_id, data):
+app/routes/spav2/calls.py:52:    """Send WebSocket message to a user via the notify signaler."""
+app/routes/spav2/calls.py:54:        from app.notify_ws import notify_users
+app/routes/spav2/calls.py:55:        notify_users(user_id, data)
+app/routes/spav2/calls.py:63:    current_user_id = get_current_user_id()
+app/routes/spav2/calls.py:64:    if not current_user_id:
+app/routes/spav2/calls.py:75:    if callee_id == current_user_id:
+app/routes/spav2/calls.py:78:    callee = User.query.filter(User.id == callee_id, User.is_deleted == False).first()
+app/routes/spav2/calls.py:80:        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+app/routes/spav2/calls.py:82:    caller = User.query.get(current_user_id)
+app/routes/spav2/calls.py:87:        caller_id=current_user_id,
+app/routes/spav2/calls.py:101:            'username': caller.username if caller else 'User',
+app/routes/spav2/calls.py:102:            'user_id': current_user_id,
+app/routes/spav2/calls.py:103:            'name': f"{caller.username if caller else 'User'}'s Call",
+app/routes/spav2/calls.py:120:        creator_id=current_user_id,
+app/routes/spav2/calls.py:130:        user_id=current_user_id,
+app/routes/spav2/calls.py:142:    caller_name = caller.display_name if caller and hasattr(caller, 'display_name') else (caller.username if caller else 'Unknown')
+app/routes/spav2/calls.py:146:        'caller_id': current_user_id,
+app/routes/spav2/calls.py:154:    _send_push_to_user(callee_id, {
+app/routes/spav2/calls.py:160:        'url': f'/k?chat=personal:{current_user_id}'
+app/routes/spav2/calls.py:176:    current_user_id = get_current_user_id()
+app/routes/spav2/calls.py:177:    if not current_user_id:
+app/routes/spav2/calls.py:183:    if call.receiver_id != current_user_id:
+app/routes/spav2/calls.py:219:    current_user_id = get_current_user_id()
+app/routes/spav2/calls.py:220:    if not current_user_id:
+app/routes/spav2/calls.py:226:    if call.receiver_id != current_user_id:
+app/routes/spav2/calls.py:250:    current_user_id = get_current_user_id()
+app/routes/spav2/calls.py:251:    if not current_user_id:
+app/routes/spav2/calls.py:257:    if call.caller_id != current_user_id and call.receiver_id != current_user_id:
+app/routes/spav2/calls.py:280:    other_id = call.receiver_id if call.caller_id == current_user_id else call.caller_id
+app/routes/spav2/calls.py:292:    current_user_id = get_current_user_id()
+app/routes/spav2/calls.py:293:    if not current_user_id:
+app/routes/spav2/calls.py:301:        (Call.caller_id == current_user_id) | (Call.receiver_id == current_user_id)
+app/routes/spav2/calls.py:310:        peer_ids.add(call.receiver_id if call.caller_id == current_user_id else call.caller_id)
+app/routes/spav2/calls.py:311:    peers = {u.id: u for u in User.query.filter(User.id.in_(peer_ids), User.is_deleted == False).all()}
+app/routes/spav2/calls.py:315:        is_outgoing = call.caller_id == current_user_id
+app/routes/spav2/calls.py:323:            'peer_name': peer.display_name if peer and hasattr(peer, 'display_name') else (peer.username if peer else 'Unknown'),
+app/routes/spav2/calls.py:325:                'user_id': peer_id,
+app/routes/spav2/calls.py:326:                'username': peer.username if peer else None,
+app/routes/spav2/calls.py:342:    current_user_id = get_current_user_id()
+app/routes/spav2/calls.py:343:    if not current_user_id:
+app/routes/spav2/calls.py:346:    user = get_current_user()
+app/routes/spav2/calls.py:350:            'username': user.username if user else 'User',
+app/routes/spav2/calls.py:351:            'user_id': current_user_id,
+app/routes/spav2/calls.py:352:            'name': f"{user.username if user else 'User'}'s Video Call",
+app/routes/spav2/calls.py:364:            creator_id=current_user_id,
+app/routes/spav2/calls.py:374:            user_id=current_user_id,
+app/routes/spav2/oauth.py:7:from app.models import User, UserSession
+app/routes/spav2/oauth.py:14:        'userinfo_url': 'https://www.googleapis.com/oauth2/v3/userinfo',
+app/routes/spav2/oauth.py:15:        'userinfo_fn': lambda info: {
+app/routes/spav2/oauth.py:25:        'userinfo_url': 'https://api.github.com/user',
+app/routes/spav2/oauth.py:26:        'userinfo_fn': lambda info: {
+app/routes/spav2/oauth.py:36:        'userinfo_url': 'https://discord.com/api/users/@me',
+app/routes/spav2/oauth.py:37:        'userinfo_fn': lambda info: {
+app/routes/spav2/oauth.py:40:            'name': info.get('global_name') or info.get('username'),
+app/routes/spav2/oauth.py:69:def _fetch_userinfo(provider_name, token):
+app/routes/spav2/oauth.py:74:        cfg['userinfo_url'],
+app/routes/spav2/oauth.py:81:                'https://api.github.com/user/emails',
+app/routes/spav2/oauth.py:88:        return cfg['userinfo_fn'](gh_info)
+app/routes/spav2/oauth.py:89:    return cfg['userinfo_fn'](resp.json())
+app/routes/spav2/oauth.py:92:def _find_or_create_user(provider_name, userinfo):
+app/routes/spav2/oauth.py:95:    provider_id = userinfo['provider_id']
+app/routes/spav2/oauth.py:96:    email = userinfo.get('email')
+app/routes/spav2/oauth.py:97:    name = userinfo.get('name')
+app/routes/spav2/oauth.py:98:    picture = userinfo.get('picture')
+app/routes/spav2/oauth.py:101:    user = User.query.filter_by(**kwargs).first()
+app/routes/spav2/oauth.py:102:    if not user:
+app/routes/spav2/oauth.py:104:            user = User.query.filter_by(email=email).first()
+app/routes/spav2/oauth.py:105:        if not user:
+app/routes/spav2/oauth.py:106:            base_username = email.split('@')[0] if email else provider_name + '_user'
+app/routes/spav2/oauth.py:107:            username = base_username
+app/routes/spav2/oauth.py:109:            while User.query.filter_by(username=username).first():
+app/routes/spav2/oauth.py:110:                username = f"{base_username}{counter}"
+app/routes/spav2/oauth.py:112:            user = User(
+app/routes/spav2/oauth.py:113:                username=username,
+app/routes/spav2/oauth.py:120:            db.session.add(user)
+app/routes/spav2/oauth.py:122:            setattr(user, id_field, provider_id)
+app/routes/spav2/oauth.py:123:            if not user.avatar_url:
+app/routes/spav2/oauth.py:124:                user.avatar_url = picture
+app/routes/spav2/oauth.py:125:            if not user.display_name:
+app/routes/spav2/oauth.py:126:                user.display_name = name
+app/routes/spav2/oauth.py:127:            if not user.email_verified and email == user.email:
+app/routes/spav2/oauth.py:128:                user.email_verified = True
+app/routes/spav2/oauth.py:130:        user.display_name = name
+app/routes/spav2/oauth.py:131:        user.avatar_url = picture
+app/routes/spav2/oauth.py:132:        if not user.email_verified:
+app/routes/spav2/oauth.py:133:            user.email_verified = True
+app/routes/spav2/oauth.py:136:    return user
+app/routes/spav2/oauth.py:139:def _make_session(user):
+app/routes/spav2/oauth.py:141:    session['user_id'] = user.id
+app/routes/spav2/oauth.py:142:    session['username'] = user.username
+app/routes/spav2/oauth.py:143:    user.is_online = True
+app/routes/spav2/oauth.py:144:    user.last_seen = datetime.now(timezone.utc).replace(tzinfo=None)
+app/routes/spav2/oauth.py:145:    db.session.add(UserSession(
+app/routes/spav2/oauth.py:146:        user_id=user.id,
+app/routes/spav2/oauth.py:148:        device=f'{user.username} Web (OAuth)',
+app/routes/spav2/oauth.py:185:    userinfo = _fetch_userinfo(provider, token)
+app/routes/spav2/oauth.py:186:    if not userinfo or not userinfo.get('provider_id'):
+app/routes/spav2/oauth.py:188:            {'success': False, 'error': {'code': 'OAUTH_FAILED', 'message': 'Failed to fetch user info'}}
+app/routes/spav2/oauth.py:192:        user = _find_or_create_user(provider, userinfo)
+app/routes/spav2/oauth.py:193:        session_token = _make_session(user)
+app/routes/spav2/oauth.py:195:        current_app.logger.error(f"OAuth {provider} user creation error: {e}")
+app/routes/spav2/oauth.py:204:            'user': {
+app/routes/spav2/oauth.py:205:                'user_id': user.id,
+app/routes/spav2/oauth.py:206:                'username': user.username,
+app/routes/spav2/oauth.py:207:                'email': user.email,
+app/routes/spav2/oauth.py:208:                'display_name': user.display_name or user.username,
+app/routes/spav2/oauth.py:209:                'avatar_url': user.avatar_url,
+app/routes/spav2/oauth.py:210:                'bio': getattr(user, 'bio', None),
+app/routes/spav2/oauth.py:211:                'is_premium': user.premium.is_premium if user.premium else False,
+app/routes/spav2/oauth.py:212:                'is_admin': getattr(user, 'is_admin', False),
+app/routes/spav2/oauth.py:215:                'created_at': user.created_at.isoformat() if user.created_at else datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+app/routes/spav2/push.py:4:from app.utils.helpers import get_current_user
+app/routes/spav2/push.py:10:    user = get_current_user()
+app/routes/spav2/push.py:11:    if not user:
+app/routes/spav2/push.py:21:        existing.user_id = user.id
+app/routes/spav2/push.py:25:        sub = PushSubscription(user_id=user.id, endpoint=endpoint, p256dh=p256dh, auth=auth)
+app/routes/spav2/push.py:32:    user = get_current_user()
+app/routes/spav2/push.py:33:    if not user:
+app/routes/spav2/push.py:40:        PushSubscription.query.filter_by(user_id=user.id).delete()

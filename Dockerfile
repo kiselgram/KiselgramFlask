@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt -r video_server/requirements.
 
 COPY . .
 
-RUN mkdir -p logs status uploads/images uploads/documents uploads/media instance && \
+RUN mkdir -p logs status uploads/images uploads/documents uploads/media uploads/avatars instance && \
     adduser --disabled-password --gecos '' appuser && \
     chown -R appuser:appuser /app
 

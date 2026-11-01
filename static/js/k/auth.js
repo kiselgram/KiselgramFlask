@@ -299,11 +299,10 @@ K.auth = {
     if (btn) btn.disabled = false;
   },
   async oauthLogin(provider) {
-    const popup = window.open(V2 + '/auth/oauth/' + provider + '/login', 'oauth', `width=${OAUTH_POPUP_WIDTH},height=${OAUTH_POPUP_HEIGHT},left=${OAUTH_POPUP_LEFT},top=${OAUTH_POPUP_TOP}`);
-    if (!popup) { K.ui.toast('Please allow popups for this site', 'error'); return; }
     if (K.auth._oauthHandler) window.removeEventListener('message', K.auth._oauthHandler);
+    let popup = null;
     K.auth._oauthHandler = async (e) => {
-      if (e.source !== popup) return;
+      if (popup && e.source !== popup) return;
       try {
         const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
         if (data.success && data.data && data.data.session_token) {
@@ -323,6 +322,13 @@ K.auth = {
       K.auth._oauthHandler = null;
     };
     window.addEventListener('message', K.auth._oauthHandler);
+    popup = window.open(V2 + '/auth/oauth/' + provider + '/login', 'oauth', `width=${OAUTH_POPUP_WIDTH},height=${OAUTH_POPUP_HEIGHT},left=${OAUTH_POPUP_LEFT},top=${OAUTH_POPUP_TOP}`);
+    if (!popup) {
+      window.removeEventListener('message', K.auth._oauthHandler);
+      K.auth._oauthHandler = null;
+      K.ui.toast('Please allow popups for this site', 'error');
+      return;
+    }
     const checkClosed = setInterval(() => {
       if (popup.closed) {
         clearInterval(checkClosed);

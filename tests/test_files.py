@@ -92,7 +92,11 @@ class TestUploadAvatar:
     """POST /files/upload_avatar"""
 
     def test_upload_avatar(self, logged_in_client, user):
-        data = {"avatar": (io.BytesIO(b"fake-png-data"), "avatar.png")}
+        import io as _io
+        from PIL import Image as _Img
+        _buf = _io.BytesIO()
+        _Img.new("RGB", (1, 1), color="red").save(_buf, format="PNG")
+        data = {"avatar": (_io.BytesIO(_buf.getvalue()), "avatar.png")}
         resp = logged_in_client.post("/files/upload_avatar", data=data,
                                      content_type="multipart/form-data")
         assert resp.status_code == 200

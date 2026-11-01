@@ -21,7 +21,7 @@ class TestV2CallHistory:
         from datetime import datetime
         call = Call(call_type="voice", caller_id=user.id,
                     receiver_id=user2.id, status="ended",
-                    started_at=datetime.utcnow())
+                    created_at=datetime.utcnow())
         db.session.add(call)
         db.session.commit()
         resp = logged_in_client.get(f"{API_PREFIX}/calls/history")

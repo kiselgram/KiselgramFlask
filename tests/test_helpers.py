@@ -2,8 +2,10 @@
 from app.utils.helpers import hash_password, generate_invite_link, format_file_size, allowed_file
 
 def test_hash_password():
-    assert len(hash_password("test")) == 64
-    assert hash_password("test") == hash_password("test")
+    h = hash_password("test")
+    assert isinstance(h, str) and len(h) > 0
+    from werkzeug.security import check_password_hash
+    assert check_password_hash(h, "test") is True
 
 def test_generate_invite_link():
     link = generate_invite_link()

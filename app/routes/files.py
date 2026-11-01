@@ -98,7 +98,9 @@ def get_uploads_dir():
 def safe_path_in_uploads(*parts):
     uploads_dir = get_uploads_dir()
     path = os.path.normpath(os.path.join(uploads_dir, *parts))
-    if not path.startswith(uploads_dir):
+    # exact dir or strictly inside it (prefix match alone would allow
+    # a sibling like uploads_evil/ — Sputnik path-traversal class fix)
+    if path != uploads_dir and not path.startswith(uploads_dir + os.sep):
         return None
     return path
 
@@ -233,6 +235,12 @@ def upload_file():
                 return jsonify({'success': False, 'error': 'Channel not found'}), 404
             if chat.owner_id != user_id:
                 return jsonify({'success': False, 'error': 'Only channel owner can post'}), 403
+
+        if group_id or channel_id:
+            from app.utils.helpers import slow_mode_ok
+            ok, retry = slow_mode_ok(user_id, int(group_id or channel_id))
+            if not ok:
+                return jsonify({'success': False, 'error': f'Slow mode: wait {retry}s'}), 429
 
         file_ext = file.filename.rsplit('.', 1)[1].lower()
         unique_filename = f"{uuid.uuid4().hex}.{file_ext}"

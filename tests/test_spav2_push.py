@@ -4,7 +4,7 @@ from app import db
 from app.models import PushSubscription
 
 
-API_PREFIX = "/api.v2/api"
+API_PREFIX = "/api"
 
 
 class TestV2Push:

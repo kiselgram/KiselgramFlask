@@ -6,7 +6,7 @@ from app import db
 from app.models import User, Report, LoginOtp, Chat, ChatMember, Message
 
 
-API_PREFIX = "/api.v2/api"
+API_PREFIX = "/api"
 
 
 class TestV2AdminDashboard:
@@ -179,6 +179,8 @@ class TestV2AdminChats:
         db.session.flush()
         msg = Message(content="Delete from admin", sender_id=user.id,
                       receiver_id=user2.id, chat_id=c.id, timestamp=datetime.utcnow())
+        db.session.add(msg)
+        db.session.flush()
         resp = logged_in_admin.post(
             f"{API_PREFIX}/admin/chats/{c.id}/messages/{msg.id}/delete")
         assert resp.status_code == 200

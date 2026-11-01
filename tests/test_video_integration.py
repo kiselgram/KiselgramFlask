@@ -43,8 +43,10 @@ class TestVideoCreateRoom:
         resp = client.post("/video/create-room", json={})
         assert resp.status_code == 302
 
+    @patch("app.routes.video_integration.check_video_server")
     @patch("app.routes.video_integration._vs")
-    def test_create_room_logged_in(self, mock_vs, logged_in_client, user):
+    def test_create_room_logged_in(self, mock_vs, mock_check, logged_in_client, user):
+        mock_check.return_value = True
         mock_vs.return_value = {"room_id": "room-123", "success": True}
         resp = logged_in_client.post("/video/create-room", json={
             "room_name": "My Room",
@@ -55,8 +57,10 @@ class TestVideoCreateRoom:
 class TestVideoListRooms:
     """GET /video/rooms"""
 
+    @patch("app.routes.video_integration.check_video_server")
     @patch("app.routes.video_integration._vs")
-    def test_list_rooms(self, mock_vs, logged_in_client, user):
+    def test_list_rooms(self, mock_vs, mock_check, logged_in_client, user):
+        mock_check.return_value = True
         mock_vs.return_value = {"rooms": []}
         resp = logged_in_client.get("/video/rooms")
         assert resp.status_code == 200
@@ -69,8 +73,10 @@ class TestVideoJoinRoom:
         resp = client.get("/video/room/test-room")
         assert resp.status_code == 302
 
+    @patch("app.routes.video_integration.check_video_server")
     @patch("app.routes.video_integration._vs")
-    def test_join_room_logged_in(self, mock_vs, logged_in_client, user):
+    def test_join_room_logged_in(self, mock_vs, mock_check, logged_in_client, user):
+        mock_check.return_value = True
         resp = logged_in_client.get("/video/room/test-room")
         assert resp.status_code == 302  # redirects to video server
 
@@ -78,8 +84,10 @@ class TestVideoJoinRoom:
 class TestVideoRoomInfo:
     """GET /video/room/<room_id>/info"""
 
+    @patch("app.routes.video_integration.check_video_server")
     @patch("app.routes.video_integration._vs")
-    def test_room_info(self, mock_vs, logged_in_client, user):
+    def test_room_info(self, mock_vs, mock_check, logged_in_client, user):
+        mock_check.return_value = True
         mock_vs.return_value = {"room_id": "room-123", "participants": []}
         resp = logged_in_client.get("/video/room/room-123/info")
         assert resp.status_code == 200
@@ -88,8 +96,10 @@ class TestVideoRoomInfo:
 class TestVideoCall:
     """POST /video/call/<user_id>"""
 
+    @patch("app.routes.video_integration.check_video_server")
     @patch("app.routes.video_integration._vs")
-    def test_initiate_call(self, mock_vs, logged_in_client, user, user2):
+    def test_initiate_call(self, mock_vs, mock_check, logged_in_client, user, user2):
+        mock_check.return_value = True
         mock_vs.return_value = {"call_id": "call-123", "success": True}
         resp = logged_in_client.post(f"/video/call/{user2.id}", json={
             "callee_username": "friend",
@@ -100,8 +110,10 @@ class TestVideoCall:
 class TestVideoIncomingCalls:
     """GET /video/calls/incoming"""
 
+    @patch("app.routes.video_integration.check_video_server")
     @patch("app.routes.video_integration._vs")
-    def test_incoming_calls(self, mock_vs, logged_in_client, user):
+    def test_incoming_calls(self, mock_vs, mock_check, logged_in_client, user):
+        mock_check.return_value = True
         mock_vs.return_value = {"calls": []}
         resp = logged_in_client.get("/video/calls/incoming")
         assert resp.status_code == 200
@@ -110,20 +122,26 @@ class TestVideoIncomingCalls:
 class TestVideoAcceptDeclineEnd:
     """POST /video/calls/<call_id>/accept|decline|end"""
 
+    @patch("app.routes.video_integration.check_video_server")
     @patch("app.routes.video_integration._vs")
-    def test_accept_call(self, mock_vs, logged_in_client, user):
+    def test_accept_call(self, mock_vs, mock_check, logged_in_client, user):
+        mock_check.return_value = True
         mock_vs.return_value = {"success": True}
         resp = logged_in_client.post("/video/calls/call-123/accept")
         assert resp.status_code == 200
 
+    @patch("app.routes.video_integration.check_video_server")
     @patch("app.routes.video_integration._vs")
-    def test_decline_call(self, mock_vs, logged_in_client, user):
+    def test_decline_call(self, mock_vs, mock_check, logged_in_client, user):
+        mock_check.return_value = True
         mock_vs.return_value = {"success": True}
         resp = logged_in_client.post("/video/calls/call-123/decline")
         assert resp.status_code == 200
 
+    @patch("app.routes.video_integration.check_video_server")
     @patch("app.routes.video_integration._vs")
-    def test_end_call(self, mock_vs, logged_in_client, user):
+    def test_end_call(self, mock_vs, mock_check, logged_in_client, user):
+        mock_check.return_value = True
         mock_vs.return_value = {"success": True}
         resp = logged_in_client.post("/video/calls/call-123/end")
         assert resp.status_code == 200

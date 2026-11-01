@@ -53,9 +53,13 @@ CALLBACK_HTML = '''<!DOCTYPE html>
   var data = {{DATA}};
   if (window.opener) {
     window.opener.postMessage(data, '*');
-    window.close();
+    setTimeout(function() { window.close(); }, 500);
   } else {
-    document.body.innerHTML = '<p>' + (data.error || 'Account added! You can close this window.') + '</p>';
+    var msg = (data && data.error && data.error.message) ? data.error.message : (data.error || 'Account added! You can close this window.');
+    document.body.innerHTML = '<p>' + msg + '</p><p style="font-size:12px;opacity:0.6">If this window does not close, <a href="/" style="color:#5e72e4">return to Kiselgram</a></p>';
+    setTimeout(function() {
+      try { window.location.href = '/?oauth_result=' + encodeURIComponent(JSON.stringify(data)); } catch(e) {}
+    }, 1000);
   }
 })();
 <\/script>

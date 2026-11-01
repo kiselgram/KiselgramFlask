@@ -46,7 +46,7 @@ def terminate_session(session_id):
         return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Session not found'}}), 404
 
     try:
-        db.session.delete(s)
+        s.is_active = False
         db.session.commit()
         return jsonify({'success': True, 'data': {'message': 'Session terminated'}})
     except Exception as e:

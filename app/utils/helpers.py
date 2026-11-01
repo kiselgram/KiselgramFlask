@@ -21,6 +21,25 @@ def get_current_user():
     auth = request.headers.get('Authorization', '')
     if auth.startswith('Bearer '):
         token = auth[7:]
+        # Try JWT first (guest tokens are JWTs, not UserSession rows)
+        try:
+            import jwt as pyjwt
+            from flask import current_app
+            payload = pyjwt.decode(token, current_app.config['SECRET_KEY'], algorithms=['HS256'])
+            uid = payload.get('sub')
+            if uid:
+                u = User.query.get(uid)
+                if u and not u.is_deleted:
+                    # Guest expiry enforcement
+                    if u.is_guest and u.guest_expires_at:
+                        from datetime import datetime, timezone
+                        now = datetime.now(timezone.utc).replace(tzinfo=None)
+                        if now > u.guest_expires_at:
+                            return None
+                    return u
+        except Exception:
+            pass
+        # Fall back to UserSession token
         us = UserSession.query.filter_by(session_token=token, is_active=True).first()
         if us:
             return User.query.get(us.user_id)
@@ -31,13 +50,84 @@ def get_current_user():
     return None
 
 
+def presence_visible(viewer_id, target_user):
+    """Sputnik-style presence privacy: honor target's privacy_last_seen.
+
+    'everyone' -> visible; 'nobody' -> hidden; 'contacts' (default) ->
+    visible only if viewer is in target's contacts. Own presence always visible.
+    """
+    if target_user is None:
+        return False
+    if viewer_id is not None and viewer_id == target_user.id:
+        return True
+    policy = getattr(target_user, 'privacy_last_seen', 'everyone') or 'everyone'
+    if policy == 'everyone':
+        return True
+    if policy == 'nobody':
+        return False
+    from app.models import Contact
+    try:
+        return Contact.query.filter_by(user_id=target_user.id, contact_id=viewer_id).first() is not None
+    except Exception:
+        return False
+
+
+_slow_buckets = {}
+
+
+def slow_mode_ok(user_id, chat_id):
+    """Telegram slow-mode gate: (allowed, retry_after_seconds).
+
+    Applies to groups (owners/admins bypass). In-memory buckets, same
+    caveat as RateLimiter (single worker). Returns (True, 0) when no
+    slow mode is set or the user may post.
+    """
+    import time
+    from app.models import Chat, ChatMember, ChannelAdmin
+    chat = Chat.query.get(chat_id)
+    secs = getattr(chat, 'slow_mode', 0) if chat else 0
+    if not chat or not secs or not user_id:
+        return True, 0
+    if chat.owner_id == user_id:
+        return True, 0
+    m = ChatMember.query.filter_by(chat_id=chat.id, user_id=user_id).first()
+    if m and (m.role or '') in ('owner', 'admin'):
+        return True, 0
+    if ChannelAdmin.query.filter_by(chat_id=chat.id, user_id=user_id).first():
+        return True, 0
+    now = time.time()
+    last = _slow_buckets.get((chat.id, user_id), 0)
+    if now - last < secs:
+        return False, int(secs - (now - last)) + 1
+    _slow_buckets[(chat.id, user_id)] = now
+    return True, 0
+
+
 def get_current_user_id():
     from flask import session, request
-    from app.models import UserSession
+    from app.models import User, UserSession
 
     auth = request.headers.get('Authorization', '')
     if auth.startswith('Bearer '):
         token = auth[7:]
+        # JWT guest tokens
+        try:
+            import jwt as pyjwt
+            from flask import current_app
+            payload = pyjwt.decode(token, current_app.config['SECRET_KEY'], algorithms=['HS256'])
+            uid = payload.get('sub')
+            if uid:
+                u = User.query.get(uid)
+                if u and not u.is_deleted:
+                    if u.is_guest and u.guest_expires_at:
+                        from datetime import datetime, timezone
+                        now = datetime.now(timezone.utc).replace(tzinfo=None)
+                        if now > u.guest_expires_at:
+                            return None
+                    return u.id
+        except Exception:
+            pass
+        # UserSession tokens
         us = UserSession.query.filter_by(session_token=token, is_active=True).first()
         if us:
             return us.user_id
@@ -156,10 +246,29 @@ _EMOJI_MANIFEST_PATH = os.path.join(
 )
 _EMOJI_PACK = 'animatedemojies'
 _EMOJI_FILE_MAX = 128
+_ANIMATED_EMOJI_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    'uploads', 'animated_emojis',
+)
 
 
 def get_animated_emojis():
-    """Return list of {file, emoji} from the animatedemojies sticker pack."""
+    """Return list of {file, emoji} from server storage, fallback to manifest."""
+    # Check server storage first (uploads/animated_emojis)
+    try:
+        if os.path.isdir(_ANIMATED_EMOJI_DIR):
+            files = [f for f in os.listdir(_ANIMATED_EMOJI_DIR) if re.fullmatch(r'[A-Za-z0-9_]+\.(webp|tgs|gif)', f)]
+            if files:
+                try:
+                    with open(_EMOJI_MANIFEST_PATH, 'r', encoding='utf-8') as fh:
+                        manifest = json.load(fh)
+                    stickers = manifest.get(_EMOJI_PACK, {}).get('stickers', [])
+                    emoji_map = {s['file']: s.get('emoji', '') for s in stickers}
+                except (OSError, ValueError, KeyError):
+                    emoji_map = {}
+                return [{'file': f, 'emoji': emoji_map.get(f, '')} for f in sorted(files)]
+    except Exception:
+        pass
     try:
         with open(_EMOJI_MANIFEST_PATH, 'r', encoding='utf-8') as fh:
             manifest = json.load(fh)
@@ -191,10 +300,31 @@ def validate_emoji(emoji_file, emoji='', size=96, count=1):
     if not 1 <= count <= 100:
         return None, 'emoji count out of range'
 
+    # Check server storage first
+    server_path = os.path.join(_ANIMATED_EMOJI_DIR, file_name)
+    if os.path.isfile(server_path):
+        return {'file': file_name, 'emoji': emoji[:16] or '', 'size': size, 'count': count}, None
     manifest_files = {s.get('file') for s in get_animated_emojis()}
     if file_name not in manifest_files:
         return None, 'emoji_file not found in manifest'
     return {'file': file_name, 'emoji': emoji[:16] or '', 'size': size, 'count': count}, None
+
+def get_animated_file_for_emoji(emoji_char):
+    """Return animated file for a unicode emoji, or None."""
+    if not emoji_char or not isinstance(emoji_char, str):
+        return None
+    emoji_char = emoji_char.strip()
+    if not emoji_char:
+        return None
+    for item in get_animated_emojis():
+        if item.get('emoji') == emoji_char:
+            return item.get('file')
+    stripped = emoji_char.replace('\ufe0f', '')
+    if stripped != emoji_char:
+        for item in get_animated_emojis():
+            if item.get('emoji') == stripped or item.get('emoji', '').replace('\ufe0f', '') == stripped:
+                return item.get('file')
+    return None
 
 def has_active_story(user_id):
     try:
@@ -237,6 +367,12 @@ def message_to_dict(message, current_user_id):
         'timestamp_formatted': message.timestamp.strftime('%H:%M') if message.timestamp else '',
         'is_own': message.sender_id == current_user_id,
         'is_read': message.is_read,
+        'silent': bool(getattr(message, 'silent', False)),
+        'contact_name': getattr(message, 'contact_name', None),
+        'contact_phone': getattr(message, 'contact_phone', None),
+        'send_when_online': bool(getattr(message, 'send_when_online', False)),
+        'reminder_at': message.reminder_at.isoformat() if getattr(message, 'reminder_at', None) else None,
+        'waveform': getattr(message, 'waveform', None),
         'has_attachment': message.has_attachment,
         'reply_to_id': None,
         'reply_to_content': None,
@@ -244,7 +380,7 @@ def message_to_dict(message, current_user_id):
         'forwarded_from': None,
         'emoji': message.emoji,
         'emoji_file': message.emoji_file,
-        'emoji_url': f"/static/stickers/animatedemojies/{message.emoji_file}" if message.emoji_file else None,
+        'emoji_url': f"/uploads/animated_emojis/{message.emoji_file}" if message.emoji_file else None,
         'emoji_size': message.emoji_size or 96,
         'emoji_count': message.emoji_count or 1,
         'reactions': {}

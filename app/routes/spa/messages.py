@@ -74,7 +74,7 @@ def send_personal_message():
             chat = Chat(chat_type='personal', user1_id=a, user2_id=b)
             db.session.add(chat)
             db.session.flush()
-        new_message = Message(content=content, sender_id=current_user_id, receiver_id=receiver_id, chat_id=chat.id, timestamp=datetime.utcnow())
+        new_message = Message(content=content, sender_id=current_user_id, receiver_id=receiver_id, chat_id=chat.id, timestamp=datetime.utcnow(), silent=bool(data.get('silent')), send_when_online=bool(data.get('send_when_online')))
         db.session.add(new_message)
         db.session.flush()
         if reply_to_id:

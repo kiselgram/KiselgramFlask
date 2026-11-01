@@ -112,18 +112,28 @@ K.qrlogin = {
       try {
         const d = await K.api.get(V3 + '/auth/qr/status/' + token);
         if (d.success && d.data) {
-          if (d.data.authorized && !d.data.consumed) {
-            K.qrlogin._stopPolling();
-            if (K.qrlogin._isUnAuth) {
+          if (K.qrlogin._isUnAuth) {
+            // Mode B: this device logs in once the other side authorizes.
+            if (d.data.authorized && !d.data.consumed) {
+              K.qrlogin._stopPolling();
               $('qrStatus').innerHTML = '<span style="color:var(--success)"><i class="fas fa-check-circle"></i> Authorized! Logging in...</span>';
               await K.qrlogin._completeLogin();
-            } else {
-              $('qrStatus').innerHTML = '<span style="color:var(--success)"><i class="fas fa-check-circle"></i> Scanned successfully!</span>';
-              setTimeout(() => { K.qrlogin._cleanup(); K.modals.close(); K.loginV3._blankOverlay(false); location.reload(); }, 1000);
+            } else if (d.data.expired) {
+              K.qrlogin._stopPolling();
+              $('qrStatus').innerHTML = '<span style="color:var(--error)">Expired. <a href="#" onclick="K.qrlogin._generate();return false" style="color:var(--accent-blue)">Regenerate</a></span>';
             }
-          } else if (d.data.expired) {
-            K.qrlogin._stopPolling();
-            $('qrStatus').innerHTML = '<span style="color:var(--error)">Expired. <a href="#" onclick="K.qrlogin._generate();return false" style="color:var(--accent-blue)">Regenerate</a></span>';
+          } else {
+            // Mode A: this device is already logged in — the token carries
+            // our user_id from the start, so `authorized` is true immediately.
+            // Only count the scan when the other device completes login.
+            if (d.data.consumed) {
+              K.qrlogin._stopPolling();
+              $('qrStatus').innerHTML = '<span style="color:var(--success)"><i class="fas fa-check-circle"></i> Logged in on the other device!</span>';
+              setTimeout(() => { K.qrlogin._cleanup(); K.modals.close(); K.loginV3._blankOverlay(false); }, 1500);
+            } else if (d.data.expired) {
+              K.qrlogin._stopPolling();
+              $('qrStatus').innerHTML = '<span style="color:var(--error)">Expired. <a href="#" onclick="K.qrlogin._generate();return false" style="color:var(--accent-blue)">Regenerate</a></span>';
+            }
           }
         }
       } catch(_) {}

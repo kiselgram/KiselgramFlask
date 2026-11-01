@@ -6,12 +6,36 @@ from sqlalchemy.exc import IntegrityError
 from app import db
 from app.models import User, Message, Chat, LoginOtp, UserSession, EmailVerification, PreloadedAvatar, Referral
 from app.utils.helpers import get_current_user
-from app.utils.security import rate_limit, sanitize_string
+from app.utils.security import rate_limit, sanitize_string, account_lockout, note_account_failure, clear_account_failures
 import re
 
 spav2_login_v3_bp = Blueprint('spav2_login_v3', __name__, url_prefix='/api/auth')
 
 KISELGRAM_USER_ID = None
+
+
+def _new_otp_code():
+    """5-digit numeric OTP code (matches the K.otpWidget pill count)."""
+    return str(random.randint(10000, 99999))
+
+
+def _mail_configured():
+    """True when SMTP credentials are actually set (not defaults/empty)."""
+    srv = current_app.config.get('MAIL_SERVER', '') or ''
+    usr = current_app.config.get('MAIL_USERNAME', '') or ''
+    return bool(srv) and srv != 'localhost' and bool(usr)
+
+
+def _send_mail_fast(msg, timeout=8):
+    """Send mail with a hard socket cap so one bad SMTP never hangs workers."""
+    import socket
+    from flask_mail import Mail
+    prev = socket.getdefaulttimeout()
+    socket.setdefaulttimeout(timeout)
+    try:
+        Mail(current_app).send(msg)
+    finally:
+        socket.setdefaulttimeout(prev)
 
 
 def _ensure_kiselgram_user():
@@ -130,7 +154,7 @@ def send_otp():
     if not user:
         return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
 
-    code = str(random.randint(100000, 999999))
+    code = _new_otp_code()
     expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=5)
     db.session.add(LoginOtp(user_id=user.id, code=code, expires_at=expires_at))
     try:
@@ -160,7 +184,7 @@ def send_otp_email():
     if not user:
         return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
 
-    code = str(random.randint(100000, 999999))
+    code = _new_otp_code()
     expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=5)
     db.session.add(LoginOtp(user_id=user.id, code=code, expires_at=expires_at))
     try:
@@ -170,15 +194,17 @@ def send_otp_email():
         return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Failed to save OTP'}}), 500
 
     try:
-        from flask_mail import Mail, Message as MailMessage
-        mail = Mail(current_app)
+        from flask_mail import Message as MailMessage
         msg = MailMessage(
             subject='Your Kiselgram login code',
             sender=current_app.config.get('MAIL_DEFAULT_SENDER'),
             recipients=[email],
         )
         msg.body = f"Your login code: {code}\nIt expires in 5 minutes.\n\nIf you didn't request this, ignore this email."
-        mail.send(msg)
+        if _mail_configured():
+            _send_mail_fast(msg)
+        else:
+            raise RuntimeError('SMTP not configured')
         current_app.logger.info(f"OTP for {email}: {code}")
     except Exception as e:
         current_app.logger.error(f"Failed to send OTP via email: {e}")
@@ -191,6 +217,7 @@ def send_otp_email():
 
 @spav2_login_v3_bp.route('/verify-otp', methods=['POST'])
 @rate_limit('verify_otp', max_requests=10, window=60)
+@account_lockout(lambda req: ((req.get_json(silent=True) or {}).get('email', '') or '').strip().lower())
 def verify_otp():
     data = request.get_json() or {}
     email = sanitize_string(data.get('email', '').strip().lower(), max_length=128)
@@ -202,13 +229,16 @@ def verify_otp():
 
     otp = LoginOtp.query.filter_by(user_id=user.id, code=code, used=False).order_by(LoginOtp.id.desc()).first()
     if not otp:
+        note_account_failure(email)
         return jsonify({'success': False, 'error': {'code': 'INVALID_CODE', 'message': 'Invalid code'}}), 400
     if otp.expires_at < datetime.now(timezone.utc).replace(tzinfo=None):
+        note_account_failure(email)
         return jsonify({'success': False, 'error': {'code': 'EXPIRED_CODE', 'message': 'Code expired'}}), 400
 
     otp.used = True
     try:
         db.session.commit()
+        clear_account_failures(email)
     except Exception:
         db.session.rollback()
         return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Failed to verify code'}}), 500
@@ -220,6 +250,7 @@ def verify_otp():
 
 @spav2_login_v3_bp.route('/login-password', methods=['POST'])
 @rate_limit('login_password', max_requests=5, window=60)
+@account_lockout(lambda req: ((req.get_json(silent=True) or {}).get('email', '') or '').strip().lower())
 def login_password():
     data = request.get_json() or {}
     email = sanitize_string(data.get('email', '').strip().lower(), max_length=128)
@@ -234,11 +265,13 @@ def login_password():
         return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
 
     if not user.password_hash or not user.check_password(password):
+        note_account_failure(email)
         return jsonify({'success': False, 'error': {'code': 'INVALID_CREDENTIALS', 'message': 'Invalid password'}}), 401
 
     session_token = _make_session(user)
     if not session_token:
         return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Session creation failed'}}), 500
+    clear_account_failures(email)
     return jsonify({'success': True, 'data': {'user': _serialize_user(user), 'session_token': session_token}})
 
 
@@ -276,7 +309,7 @@ def register_send_code():
     if User.query.filter_by(email=email, is_deleted=False).first():
         return jsonify({'success': False, 'error': {'code': 'EMAIL_TAKEN', 'message': 'Email already registered'}}), 409
 
-    code = str(random.randint(100000, 999999))
+    code = _new_otp_code()
     expires_at = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=10)
 
     existing = EmailVerification.query.filter_by(email=email, verified=False).first()
@@ -292,18 +325,25 @@ def register_send_code():
         return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Failed to send code'}}), 500
 
     try:
-        from flask_mail import Mail, Message as MailMessage
-        mail = Mail(current_app)
+        from flask_mail import Message as MailMessage
         msg = MailMessage(
             subject='Your Kiselgram verification code',
             sender=current_app.config.get('MAIL_DEFAULT_SENDER'),
             recipients=[email],
         )
         msg.body = f"Your verification code: {code}\nThis code expires in 10 minutes.\n\nIf you didn't request this, ignore this email."
-        mail.send(msg)
+        if _mail_configured():
+            _send_mail_fast(msg)
+        else:
+            raise RuntimeError('SMTP not configured')
         current_app.logger.info(f"Registration code for {email}: {code}")
     except Exception as e:
         current_app.logger.error(f"Failed to send registration code via email: {e}")
+        current_app.logger.info(f"Registration code for {email}: {code}")
+        if current_app.debug:
+            # Dev fallback: no SMTP here, hand the code to the caller so the
+            # flow can be completed (never enabled in production).
+            return jsonify({'success': True, 'data': {'message': 'Code sent to email', 'debug_code': code}})
         return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Failed to send email'}}), 500
 
     return jsonify({'success': True, 'data': {'message': 'Code sent to email'}})
@@ -343,9 +383,18 @@ def register_finish():
     bio = sanitize_string(data.get('bio', ''), max_length=200) or None
     avatar = data.get('avatar', '')
     email_verified = data.get('email_verified', False)
+    ref_code = data.get('ref', '').strip()
+    friend_verified = bool(data.get('friend_verified', False))
+
+    ref_inviter = None
+    if ref_code:
+        ref_inviter = User.query.filter_by(username=ref_code, is_deleted=False).first()
 
     if not email_verified:
-        return jsonify({'success': False, 'error': {'code': 'VERIFY_REQUIRED', 'message': 'Verify email first'}}), 400
+        # Friend code replaces email verification: a valid code from an
+        # existing user vouches for the new account (but never yourself).
+        if not (friend_verified and ref_inviter and ref_inviter.username.lower() != (username or '').lower()):
+            return jsonify({'success': False, 'error': {'code': 'VERIFY_REQUIRED', 'message': 'Verify email first'}}), 400
     if not email or '@' not in email:
         return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': 'Valid email required'}}), 400
     if User.query.filter_by(email=email, is_deleted=False).first():
@@ -389,11 +438,8 @@ def register_finish():
                     ref = Referral(inviter_id=inviter.id, invited_user_id=user.id)
                     db.session.add(ref)
                     db.session.flush()
-                    count = Referral.query.filter_by(inviter_id=inviter.id).count()
-                    if count >= 10 and not inviter.is_premium:
-                        inviter.is_premium = True
-                        if not inviter.status_emoji:
-                            inviter.status_emoji = '\u2b50'
+                    from app.routes.spav2.referrals import grant_referral_reward
+                    grant_referral_reward(inviter)
                 except IntegrityError:
                     db.session.rollback()
                     current_app.logger.warning(f"Duplicate referral for user {user.id}")
@@ -415,3 +461,73 @@ def list_preloaded_avatars():
     except Exception as e:
         current_app.logger.error(f"Failed to list preloaded avatars: {e}")
         return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Failed to list avatars'}})
+
+
+# ── Guest mode: server-issued JWT, 24h TTL, no email verification ──────────
+
+GUEST_TTL_HOURS = 24
+GUEST_JWT_ALG = 'HS256'
+
+
+def _issue_guest_jwt(user):
+    """Sign a server-side JWT for a guest user. Verified on every request."""
+    import jwt as pyjwt
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    payload = {
+        'sub': user.id,
+        'username': user.username,
+        'is_guest': True,
+        'iat': now,
+        'exp': now + timedelta(hours=GUEST_TTL_HOURS),
+    }
+    token = pyjwt.encode(payload, current_app.config['SECRET_KEY'], algorithm=GUEST_JWT_ALG)
+    return token if isinstance(token, str) else token.decode('utf-8')
+
+
+@spav2_login_v3_bp.route('/guest', methods=['POST'])
+@rate_limit('guest_login', max_requests=10, window=300)
+def guest_login():
+    """Create (or reuse) a guest account and return a server-signed JWT.
+
+    Guests get full chat + room creation for 24h. The JWT is verified
+    server-side on every authenticated request; no email verification.
+    """
+    import random as _random
+    import string as _string
+
+    # Random guest username: guest_XXXXXX (letters+digits)
+    suffix = ''.join(_random.choices(_string.ascii_lowercase + _string.digits, k=6))
+    username = f'guest_{suffix}'
+    while User.query.filter_by(username=username, is_deleted=False).first():
+        suffix = ''.join(_random.choices(_string.ascii_lowercase + _string.digits, k=6))
+        username = f'guest_{suffix}'
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    user = User(
+        username=username,
+        email=f'{username}@guest.local',
+        display_name=f'Guest {suffix[:4].upper()}',
+        is_guest=True,
+        guest_expires_at=now + timedelta(hours=GUEST_TTL_HOURS),
+        email_verified=True,
+    )
+    db.session.add(user)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Failed to create guest'}}), 500
+
+    jwt_token = _issue_guest_jwt(user)
+    # Also create a UserSession row so Bearer auth works uniformly
+    session_token = _make_session(user)
+    if not session_token:
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Session creation failed'}}), 500
+
+    return jsonify({'success': True, 'data': {
+        'user': _serialize_user(user),
+        'session_token': session_token,
+        'jwt': jwt_token,
+        'is_guest': True,
+        'expires_at': user.guest_expires_at.isoformat(),
+    }}), 201

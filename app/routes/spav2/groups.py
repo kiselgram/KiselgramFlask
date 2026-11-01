@@ -5,7 +5,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from app import db
 from app.models import User, Chat, ChatMember, GroupPermission, Message, File, Reply
-from app.utils.helpers import get_current_user_id, validate_emoji
+from app.utils.helpers import get_current_user_id, validate_emoji, get_animated_file_for_emoji
 
 spav2_groups_bp = Blueprint('spav2_groups', __name__, url_prefix='/api')
 
@@ -155,8 +155,9 @@ def get_group_messages(group_id):
     after_id = request.args.get('after', 0, type=int)
     limit = min(request.args.get('limit', 50, type=int), 100)
 
-    messages = Message.query.options(db.joinedload(Message.reactions)).filter_by(chat_id=group_id).filter(Message.id > after_id).order_by(Message.timestamp.asc()).limit(limit).all()
-    has_more = len(messages) == limit
+    messages = Message.query.options(db.joinedload(Message.reactions)).filter_by(chat_id=group_id).filter(Message.id > after_id).order_by(Message.timestamp.asc()).limit(limit + 1).all()
+    has_more = len(messages) > limit
+    messages = messages[:limit]
 
     result = []
     for msg in messages:
@@ -174,7 +175,7 @@ def get_group_messages(group_id):
             'file_type': msg.file_type,
             'emoji': msg.emoji,
             'emoji_file': msg.emoji_file,
-            'emoji_url': f"/static/stickers/animatedemojies/{msg.emoji_file}" if msg.emoji_file else None,
+            'emoji_url': f"/uploads/animated_emojis/{msg.emoji_file}" if msg.emoji_file else None,
             'emoji_size': msg.emoji_size or 96,
             'emoji_count': msg.emoji_count or 1,
             'timestamp': msg.timestamp.isoformat() if msg.timestamp else None,
@@ -245,7 +246,14 @@ def send_group_message():
     if not group_id:
         return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': 'group_id is required'}}), 400
 
+    # Auto-convert single unicode emoji (e.g., 😋) to animated
     emoji_data = None
+    if content and not data.get('emoji_file'):
+        anim_file = get_animated_file_for_emoji(content.strip())
+        if anim_file:
+            emoji_data, _ = validate_emoji(anim_file, content.strip(), 96, 1)
+            if emoji_data:
+                content = ''
     if data.get('emoji_file'):
         emoji_data, emoji_err = validate_emoji(
             data.get('emoji_file'), data.get('emoji', ''), data.get('size', 96), data.get('count', 1))
@@ -257,6 +265,11 @@ def send_group_message():
     membership = ChatMember.query.filter_by(user_id=current_user_id, chat_id=group_id).first()
     if not membership:
         return jsonify({'success': False, 'error': {'code': 'NOT_MEMBER', 'message': 'You are not a member of this group'}}), 403
+
+    from app.utils.helpers import slow_mode_ok
+    ok, retry = slow_mode_ok(current_user_id, group_id)
+    if not ok:
+        return jsonify({'success': False, 'error': {'code': 'SLOW_MODE', 'message': f'Slow mode: wait {retry}s'}}), 429
 
     msg = Message(sender_id=current_user_id, chat_id=group_id, receiver_id=current_user_id, content=content, timestamp=datetime.utcnow())
     if emoji_data:
@@ -289,7 +302,7 @@ def send_group_message():
         'file_type': None,
         'emoji': msg.emoji,
         'emoji_file': msg.emoji_file,
-        'emoji_url': f"/static/stickers/animatedemojies/{msg.emoji_file}" if msg.emoji_file else None,
+        'emoji_url': f"/uploads/animated_emojis/{msg.emoji_file}" if msg.emoji_file else None,
         'emoji_size': msg.emoji_size or 96,
         'emoji_count': msg.emoji_count or 1,
         'timestamp': msg.timestamp.isoformat() if msg.timestamp else None,
@@ -418,3 +431,47 @@ def leave_group(group_id):
         db.session.rollback()
         return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': str(e)}}), 500
     return jsonify({'success': True, 'data': {'message': 'Successfully left the group', 'group_id': group_id}})
+
+
+# ── Group mute (Telegram parity) ─────────────────────────
+
+@spav2_groups_bp.route('/groups/<int:group_id>/mute', methods=['POST'])
+def mute_group(group_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    chat = Chat.query.get(group_id)
+    if not chat or chat.chat_type != 'group':
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Group not found'}}), 404
+    data = request.get_json() or {}
+    until = data.get('until')  # ISO datetime or None for forever
+    if until:
+        try:
+            chat.muted_until = datetime.fromisoformat(until.replace('Z', '+00:00')).replace(tzinfo=None)
+        except Exception:
+            chat.muted_until = datetime(2099, 1, 1)
+    else:
+        chat.muted_until = datetime(2099, 1, 1)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'muted': True, 'muted_until': chat.muted_until.isoformat()}})
+
+
+@spav2_groups_bp.route('/groups/<int:group_id>/unmute', methods=['POST'])
+def unmute_group(group_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    chat = Chat.query.get(group_id)
+    if not chat or chat.chat_type != 'group':
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Group not found'}}), 404
+    chat.muted_until = None
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'muted': False}})

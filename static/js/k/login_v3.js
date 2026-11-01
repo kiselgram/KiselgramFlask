@@ -4,7 +4,7 @@ K.loginV3 = {
 
   _hasClose() { return K.auth.accounts && K.auth.accounts.length > 0; },
 
-  _v3Url(path) { return (K.api._base||V2).replace('api.v2', 'api.v3') + path; },
+  _v3Url(path) { return (window.V3 || V2.replace('api.v2', 'api.v3')) + path; },
 
   _blankOverlay(blank) {
     const o = $('modalOverlay');
@@ -26,6 +26,12 @@ K.loginV3 = {
         <button class="k-btn k-btn-secondary" style="width:100%;padding:14px;font-size:15px;margin-bottom:10px" onclick="K.loginV3._cleanup();K.qrlogin.showQR()">
           <i class="fas fa-qrcode"></i> QR Code Login
         </button>
+        <button class="k-btn k-btn-secondary" style="width:100%;padding:14px;font-size:15px;margin-bottom:10px" onclick="K.loginV3._cleanup();K.loginV3._guest()">
+          <i class="fas fa-user-clock"></i> Guest Mode
+        </button>
+        <button class="k-btn k-btn-secondary" style="width:100%;padding:14px;font-size:15px;margin-bottom:10px" onclick="K.loginV3._cleanup();K.loginV3._stepFriend()">
+          <i class="fas fa-user-plus"></i> I have a friend code
+        </button>
         <div style="display:flex;align-items:center;gap:8px;margin:16px 0;opacity:0.4"><span style="flex:1;height:1px;background:var(--border-color)"></span><span style="font-size:12px;white-space:nowrap;color:var(--text-muted)">or continue with</span><span style="flex:1;height:1px;background:var(--border-color)"></span></div>
         <button class="k-oauth-btn k-oauth-google" style="width:100%;padding:12px;font-size:14px" onclick="K.auth.oauthLogin('google')">
           <svg viewBox="0 0 24 24" width="18" height="18"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
@@ -37,6 +43,81 @@ K.loginV3 = {
   _cleanup() {
     if (K.loginV3._pollTimer) { clearInterval(K.loginV3._pollTimer); K.loginV3._pollTimer = null; }
     K.loginV3._state = {};
+  },
+
+  async _guest() {
+    const o = $('modalOverlay'); o.style.display = 'flex';
+    $('modalContent').innerHTML = `
+      <div class="k-modal-header"><h3>Guest Mode</h3>${K.loginV3._closeBtn()}</div>
+      <div class="k-modal-body" style="text-align:center;padding:30px 20px">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Creating a temporary account...<br>Full access for 24 hours, no email needed.</p>
+        <div style="color:var(--text-muted)"><i class="fas fa-spinner fa-spin"></i></div>
+      </div>`;
+    try {
+      const d = await K.api.post(K.loginV3._v3Url('/auth/guest'), {});
+      if (d.success && d.data) {
+        const u = d.data.user;
+        K.auth.accounts.push({username: u.username, displayName: u.display_name || u.username, avatarUrl: u.avatar_url || '', userId: u.user_id, token: d.data.session_token});
+        K.auth.activeIdx = K.auth.accounts.length - 1;
+        K.auth._save();
+        K.auth.renderTabs();
+        K.ui.toast('Welcome, @' + u.username + '!', 'success');
+        K.loginV3._finalizeLogin();
+      } else {
+        $('modalContent').innerHTML = `
+          <div class="k-modal-header"><h3>Guest Mode</h3>${K.loginV3._closeBtn()}</div>
+          <div class="k-modal-body" style="text-align:center;padding:30px 20px">
+            <p style="color:var(--error)">${d.error?.message || 'Failed to create guest account'}</p>
+            <button class="k-btn k-btn-secondary" style="margin-top:12px" onclick="K.loginV3._cleanup();K.loginV3.showPicker()">← Back</button>
+          </div>`;
+      }
+    } catch(e) {
+      $('modalContent').innerHTML = `
+        <div class="k-modal-header"><h3>Guest Mode</h3>${K.loginV3._closeBtn()}</div>
+        <div class="k-modal-body" style="text-align:center;padding:30px 20px">
+          <p style="color:var(--error)">Connection error</p>
+          <button class="k-btn k-btn-secondary" style="margin-top:12px" onclick="K.loginV3._cleanup();K.loginV3.showPicker()">← Back</button>
+        </div>`;
+    }
+  },
+
+  // ── Friend code: skip email verification, friend vouches ───
+
+  _stepFriend() {
+    $('modalContent').innerHTML = `
+      <div class="k-modal-header"><h3>Friend code</h3>${K.loginV3._closeBtn()}</div>
+      <div class="k-modal-body" style="text-align:center">
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">Enter your friend's username — no email code needed, and they earn Premium!</p>
+        <input class="k-input" id="v3FriendCode" placeholder="Friend's username" autocomplete="off" style="text-align:center;font-size:18px">
+        <input class="k-input" id="v3FriendEmail" placeholder="Your email" autocomplete="off" style="text-align:center;font-size:16px">
+        <div id="v3FriendError" style="font-size:12px;color:var(--error);margin-bottom:8px;display:none"></div>
+        <button class="k-btn k-btn-primary" id="v3FriendBtn" style="width:100%;padding:12px;font-size:14px" onclick="K.loginV3._submitFriend()">Continue</button>
+        <p style="margin-top:8px;font-size:12px"><a href="#" onclick="K.loginV3._cleanup();K.loginV3.showPicker();return false" style="color:var(--text-muted)">← Back</a></p>
+      </div>`;
+    setTimeout(() => $('v3FriendCode')?.focus(), 100);
+    $('v3FriendCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') K.loginV3._submitFriend(); });
+    $('v3FriendEmail').addEventListener('keydown', (e) => { if (e.key === 'Enter') K.loginV3._submitFriend(); });
+  },
+
+  async _submitFriend() {
+    const code = $('v3FriendCode')?.value?.trim().replace(/^@/, '');
+    const email = $('v3FriendEmail')?.value?.trim().toLowerCase();
+    const btn = $('v3FriendBtn'); const err = $('v3FriendError');
+    if (!code) { err.textContent = 'Enter the friend code'; err.style.display = 'block'; return; }
+    if (!email || !email.includes('@')) { err.textContent = 'Enter a valid email'; err.style.display = 'block'; return; }
+    err.style.display = 'none';
+    btn.disabled = true; btn.textContent = 'Checking...';
+    try {
+      const d = await K.api.post(K.loginV3._v3Url('/referrals/check'), { code });
+      if (!d.success) { err.textContent = d.error?.message || 'Unknown friend code'; err.style.display = 'block'; btn.disabled = false; btn.textContent = 'Continue'; return; }
+      K.loginV3._state.email = email;
+      K.loginV3._state.ref = d.data.username;
+      K.loginV3._state.friend_verified = true;
+      try { sessionStorage.setItem('k_pending_ref', d.data.username); } catch (_) {}
+      K.loginV3._stepRegFinish();
+    } catch (e) {
+      err.textContent = 'Connection error'; err.style.display = 'block'; btn.disabled = false; btn.textContent = 'Continue';
+    }
   },
 
   // ── Version 1: Email Login ─────────────────────────────────
@@ -99,14 +180,50 @@ K.loginV3 = {
   _stepOtp() {
     $('modalContent').innerHTML = `
       <div class="k-modal-header"><h3>Check your chat</h3>${K.loginV3._closeBtn()}</div>
+      <div class="k-modal-body">
+        <div id="v3OtpWidget"></div>
+      </div>`;
+    K.loginV3._sendOtp();
+    if (window.K && K.otpWidget) {
+      K.otpWidget.mount($('v3OtpWidget'), {
+        digits: 5,
+        bare: true,
+        texts: {
+          title: 'Enter login code',
+          loadingTitle: 'Verifying...',
+          loadingSubtitle: 'Checking the code.',
+          successTitle: 'Verified',
+          successSubtitle: 'Welcome back!',
+          errorTitle: 'Wrong code',
+          badge: 'OK',
+          errorText: 'Incorrect code. Please try again.',
+          resend: "Didn't get it? <span>Resend</span>",
+          resendWait: "Didn't get it? <span>Wait…</span>",
+        },
+        subtitle: 'A 5-digit code was sent to your Kiselgram chat',
+        verify: async (code) => {
+          try {
+            const d = await K.api.post(K.loginV3._v3Url('/auth/verify-otp'), {email: K.loginV3._state.email, code});
+            if (!d.success) return {ok: false, error: d.error?.message || 'Invalid code'};
+            K.loginV3._state.otp_verified = true;
+            return {ok: true};
+          } catch(e) { return {ok: false, error: 'Connection error'}; }
+        },
+        resend: () => K.loginV3._sendOtp(),
+        onSuccess: () => K.loginV3._stepPass(),
+      });
+      return;
+    }
+    // Fallback when the widget script is not loaded.
+    $('modalContent').innerHTML = `
+      <div class="k-modal-header"><h3>Check your chat</h3>${K.loginV3._closeBtn()}</div>
       <div class="k-modal-body" style="text-align:center">
         <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">We sent a code to your Kiselgram chat</p>
-        <input class="k-input" id="v3Otp" type="text" inputmode="numeric" maxlength="6" placeholder="000000" style="text-align:center;font-size:24px;letter-spacing:8px;font-family:monospace">
+        <input class="k-input" id="v3Otp" type="text" inputmode="numeric" maxlength="5" placeholder="00000" style="text-align:center;font-size:24px;letter-spacing:8px;font-family:monospace">
         <div id="v3OtpError" style="font-size:12px;color:var(--error);margin-bottom:8px;display:none"></div>
         <button class="k-btn k-btn-primary" id="v3OtpBtn" style="width:100%;padding:12px;font-size:14px" onclick="K.loginV3._submitOtp()">Verify Code</button>
         <p style="margin-top:8px;font-size:12px"><a href="#" onclick="K.loginV3._sendOtp();return false" style="color:var(--accent-blue)">Resend code</a></p>
       </div>`;
-    K.loginV3._sendOtp();
     setTimeout(() => $('v3Otp')?.focus(), 100);
     $('v3Otp').addEventListener('keydown', (e) => { if (e.key === 'Enter') K.loginV3._submitOtp(); });
   },
@@ -194,11 +311,45 @@ K.loginV3 = {
 
   _stepRegVerify() {
     K.loginV3._sendRegCode();
+    const email = K.loginV3._state.email;
+    if (window.K && K.otpWidget) {
+      $('modalContent').innerHTML = `
+        <div class="k-modal-header"><h3>Verify email</h3>${K.loginV3._closeBtn()}</div>
+        <div class="k-modal-body"><div id="v3RegWidget"></div></div>`;
+      K.otpWidget.mount($('v3RegWidget'), {
+        digits: 5,
+        bare: true,
+        texts: {
+          title: 'Check your email',
+          loadingTitle: 'Verifying...',
+          loadingSubtitle: 'Checking the code.',
+          successTitle: 'Email verified',
+          successSubtitle: 'Creating your account…',
+          errorTitle: 'Wrong code',
+          badge: 'OK',
+          errorText: 'Incorrect code. Please try again.',
+          resend: "Didn't get it? <span>Resend</span>",
+          resendWait: "Didn't get it? <span>Wait…</span>",
+        },
+        subtitle: 'A 5-digit code was sent to ' + email,
+        verify: async (code) => {
+          try {
+            const d = await K.api.post(K.loginV3._v3Url('/auth/register-verify-code'), {email, code});
+            if (!d.success) return {ok: false, error: d.error?.message || 'Invalid code'};
+            K.loginV3._state.email_verified = true;
+            return {ok: true};
+          } catch(e) { return {ok: false, error: 'Connection error'}; }
+        },
+        resend: () => K.loginV3._sendRegCode(),
+        onSuccess: () => K.loginV3._stepRegFinish(),
+      });
+      return;
+    }
     $('modalContent').innerHTML = `
-      <div class="k-modal-header"><h3>Create account</h3>${K.loginV3._closeBtn()}</div>
+      <div class="k-modal-header"><h3>Verify email</h3>${K.loginV3._closeBtn()}</div>
       <div class="k-modal-body" style="text-align:center">
         <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">We sent a code to <b>${esc(K.loginV3._state.email)}</b></p>
-        <input class="k-input" id="v3RegCode" type="text" inputmode="numeric" maxlength="6" placeholder="000000" style="text-align:center;font-size:24px;letter-spacing:8px;font-family:monospace">
+        <input class="k-input" id="v3RegCode" type="text" inputmode="numeric" maxlength="5" placeholder="00000" style="text-align:center;font-size:24px;letter-spacing:8px;font-family:monospace">
         <div id="v3RegCodeError" style="font-size:12px;color:var(--error);margin-bottom:8px;display:none"></div>
         <button class="k-btn k-btn-primary" id="v3RegCodeBtn" style="width:100%;padding:12px;font-size:14px" onclick="K.loginV3._submitRegCode()">Verify Email</button>
         <p style="margin-top:8px;font-size:12px"><a href="#" onclick="K.loginV3._sendRegCode();return false" style="color:var(--accent-blue)">Resend code</a></p>
@@ -208,7 +359,12 @@ K.loginV3 = {
   },
 
   async _sendRegCode() {
-    try { await K.api.post(K.loginV3._v3Url('/auth/register-send-code'), {email: K.loginV3._state.email}); } catch(_) { K.ui.toast('Failed to send code', 'error'); }
+    try {
+      const d = await K.api.post(K.loginV3._v3Url('/auth/register-send-code'), {email: K.loginV3._state.email});
+      if (d && d.success && d.data && d.data.debug_code && K.ui && K.ui.toast) {
+        K.ui.toast('Dev code: ' + d.data.debug_code, 'success');
+      }
+    } catch(_) { K.ui.toast('Failed to send code', 'error'); }
   },
 
   async _submitRegCode() {
@@ -251,6 +407,15 @@ K.loginV3 = {
         <button class="k-btn k-btn-primary" id="v3RegFinishBtn" style="width:100%;padding:12px;font-size:14px" onclick="K.loginV3._submitRegFinish()">Create Account</button>
       </div>`;
     if (avatars.length) K.loginV3._state.selectedAvatar = avatars[0];
+    try {
+      const ref = (window.K && K.invite) ? K.invite.pendingRef() : null;
+      if (ref) {
+        const note = document.createElement('p');
+        note.style.cssText = 'font-size:12px;color:var(--text-muted);text-align:center;margin-bottom:8px';
+        note.textContent = 'Invited by @' + ref + ' — they will earn Premium!';
+        $('v3RegFinishBtn')?.before(note);
+      }
+    } catch (_) {}
     setTimeout(() => $('v3RegUser')?.focus(), 100);
     $('v3RegUser').addEventListener('keydown', (e) => { if (e.key === 'Enter') K.loginV3._submitRegFinish(); });
   },
@@ -269,6 +434,8 @@ K.loginV3 = {
         username, display_name, bio,
         avatar: K.loginV3._state.selectedAvatar || '',
         email_verified: true,
+        ref: K.loginV3._state.ref || '',
+        friend_verified: !!K.loginV3._state.friend_verified,
       });
       if (!d.success) {
         const msg = d.error?.fields?.username || d.error?.message || 'Error';
@@ -277,6 +444,11 @@ K.loginV3 = {
       }
       K.loginV3._state.session_token = d.data.session_token;
       K.loginV3._state.user = d.data.user;
+      try {
+        if (window.K && K.invite && d.data.user && d.data.user.user_id) {
+          await K.invite.applyReferral(d.data.user.user_id);
+        }
+      } catch (_) {}
       K.loginV3._finalizeLogin();
     } catch(e) {
       err.textContent = 'Connection error'; err.style.display = 'block'; btn.disabled = false; btn.textContent = 'Create Account';

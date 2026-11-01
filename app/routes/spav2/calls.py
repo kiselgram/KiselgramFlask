@@ -59,14 +59,17 @@ def _notify_ws(user_id, data):
 
 # ── Start a call: creates Call + VideoCall room + pushes notification ──
 @spav2_calls_bp.route('/calls/start', methods=['POST'])
+@spav2_calls_bp.route('/calls/make', methods=['POST'])
 def start_call():
     current_user_id = get_current_user_id()
     if not current_user_id:
         return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
 
     data = request.get_json() or {}
-    callee_id = data.get('callee_id')
-    call_type = data.get('type', 'audio')
+    callee_id = data.get('callee_id') or data.get('receiver_id')
+    call_type = data.get('type') or data.get('call_type', 'audio')
+    if call_type not in ('audio', 'video', 'voice'):
+        return jsonify({'success': False, 'error': {'code': 'INVALID_INPUT', 'message': 'Invalid call type'}}), 400
 
     if not callee_id:
         return jsonify({'success': False, 'error': {'code': 'INVALID_INPUT', 'message': 'callee_id required'}}), 400
@@ -163,6 +166,14 @@ def start_call():
     return jsonify({
         'success': True,
         'data': {
+            'call': {
+                'id': call.id,
+                'call_type': call.call_type,
+                'status': call.status,
+                'room_token': room_token,
+                'room_id': room_id,
+                'room_url': room_url
+            },
             'call_id': call.id,
             'room_id': room_id,
             'room_url': room_url

@@ -5,7 +5,7 @@ import secrets
 from app import db
 from app.models import User, EmailVerification, UserSession
 from app.utils.helpers import get_current_user
-from app.utils.security import rate_limit, validate_password, sanitize_string
+from app.utils.security import rate_limit, validate_password, sanitize_string, account_lockout, note_account_failure, clear_account_failures
 
 spav2_auth_bp = Blueprint('spav2_auth', __name__, url_prefix='/api/auth')
 
@@ -74,6 +74,7 @@ def register():
 
 @spav2_auth_bp.route('login', methods=['POST'])
 @rate_limit('login', max_requests=10, window=60)
+@account_lockout(lambda req: (req.get_json(silent=True) or {}).get('username', ''))
 def login():
     try:
         data = request.get_json() or {}
@@ -85,6 +86,7 @@ def login():
 
         user = User.query.filter_by(username=username).filter(User.is_deleted == False).first()
         if not user or not user.check_password(password):
+            note_account_failure(username)
             return jsonify({'success': False, 'error': {'code': 'INVALID_CREDENTIALS', 'message': 'Invalid username or password'}}), 401
 
         if not user.email_verified:
@@ -97,6 +99,7 @@ def login():
         user.last_seen = datetime.utcnow()
         db.session.add(UserSession(user_id=user.id, session_token=session_token, device='K Web', created_at=datetime.utcnow(), last_activity=datetime.utcnow(), is_active=True))
         db.session.commit()
+        clear_account_failures(username)
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': str(e)}}), 500

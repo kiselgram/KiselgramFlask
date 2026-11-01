@@ -10,12 +10,12 @@ from flask import request, jsonify, session, current_app, g
 
 CSP_POLICY = (
     "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline' https://kit.fontawesome.com https://cdn.jsdelivr.net; "
+    "script-src 'self' 'unsafe-inline' https://kit.fontawesome.com https://cdn.jsdelivr.net https://cdn.socket.io; "
+    "connect-src 'self' ws: wss: https://cdn.socket.io https://cdn.jsdelivr.net; "
     "style-src 'self' 'unsafe-inline' https://kit.fontawesome.com https://cdn.jsdelivr.net https://fonts.googleapis.com https://cdnjs.cloudflare.com https://p.typekit.net https://use.typekit.net; "
     "font-src 'self' data: https://kit.fontawesome.com https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
     "img-src 'self' data: blob: https: http:; "
     "media-src 'self' blob: https:; "
-    "connect-src 'self' ws: wss:; "
     "frame-src 'self' https: http:; "
     "object-src 'none'; "
     "base-uri 'self'; "
@@ -67,6 +67,21 @@ class RateLimiter:
             return False
         return True
 
+    def is_allowed(self, key, max_requests=10, window=60):
+        """Convenience check that takes a fully-formed key (no request context needed)."""
+        now = time.time()
+        entry = self._store.get(key)
+        if entry is None:
+            self._store[key] = {'count': 1, 'reset': now + window}
+            return True
+        if now > entry['reset']:
+            self._store[key] = {'count': 1, 'reset': now + window}
+            return True
+        entry['count'] += 1
+        if entry['count'] > max_requests:
+            return False
+        return True
+
     def cleanup(self, max_age=300):
         now = time.time()
         stale = [k for k, v in self._store.items() if now > v['reset'] + max_age]
@@ -74,6 +89,67 @@ class RateLimiter:
             del self._store[k]
 
 rate_limiter = RateLimiter()
+
+# ─── PER-ACCOUNT LOCKOUT (Sputnik anti-bruteforce idea) ────────────────────
+# In-memory: 5 failures -> block key for 5 minutes. Tracks the *account*
+# identifier (username/email/user id), so rotating IPs does not bypass it.
+# Note: in-memory, like RateLimiter above — use Redis/db for multi-worker.
+_ACCOUNT_FAILURES = {}
+_ACCOUNT_MAX = 5
+_ACCOUNT_WINDOW = 300
+
+
+def account_locked(key):
+    if not key:
+        return False
+    entry = _ACCOUNT_FAILURES.get(str(key))
+    if not entry:
+        return False
+    if time.time() > entry['reset']:
+        _ACCOUNT_FAILURES.pop(str(key), None)
+        return False
+    return entry['count'] >= _ACCOUNT_MAX
+
+
+def note_account_failure(key):
+    if not key:
+        return
+    now = time.time()
+    entry = _ACCOUNT_FAILURES.get(str(key))
+    if entry is None or now > entry['reset']:
+        _ACCOUNT_FAILURES[str(key)] = {'count': 1, 'reset': now + _ACCOUNT_WINDOW}
+    else:
+        entry['count'] += 1
+
+
+def clear_account_failures(key):
+    if key:
+        _ACCOUNT_FAILURES.pop(str(key), None)
+
+
+def account_lockout(key_fn, limit=_ACCOUNT_MAX):
+    """Decorator: 429 when the account key is locked; counts failures.
+
+    key_fn(request) -> account identifier string. The wrapped view must call
+    clear_account_failures(key) on success and note_account_failure(key) on
+    bad credentials (use the same key_fn(request) value).
+    """
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            try:
+                key = key_fn(request)
+            except Exception:
+                key = None
+            if account_locked(key):
+                return jsonify({
+                    'success': False,
+                    'error': {'code': 'ACCOUNT_LOCKED',
+                              'message': 'Too many failed attempts. Try again in 5 minutes.'}
+                }), 429
+            return f(*args, **kwargs)
+        return wrapper
+    return decorator
 
 def rate_limit(route, max_requests=10, window=60):
     def decorator(f):
@@ -126,10 +202,14 @@ def validate_password(password):
         errors.append('Password must be at least 8 characters')
     if len(password) > 128:
         errors.append('Password must be at most 128 characters')
-    if not re.search(r'[A-Za-z]', password):
-        errors.append('Password must contain at least one letter')
+    if not re.search(r'[A-Z]', password):
+        errors.append('Password must contain at least one uppercase letter')
+    if not re.search(r'[a-z]', password):
+        errors.append('Password must contain at least one lowercase letter')
     if not re.search(r'[0-9]', password):
         errors.append('Password must contain at least one digit')
+    if not re.search(r'[^A-Za-z0-9]', password):
+        errors.append('Password must contain at least one special character')
     return errors
 
 # ─── INPUT SANITIZATION ─────────────────────────────────────────────────────
@@ -138,6 +218,8 @@ def sanitize_string(value, max_length=200):
     if not isinstance(value, str):
         return ''
     value = value.strip()
+    # Strip HTML tags
+    value = re.sub(r'<[^>]+>', '', value)
     if len(value) > max_length:
         value = value[:max_length]
     # Strip control characters except newline and tab

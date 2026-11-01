@@ -13,10 +13,13 @@ K.adminPage = {
   _chatDetailPage: 1,
   _chatDetailId: null,
   _chatDetailHasMore: false,
+  _loadSamples: [],
+  _loadTimer: null,
 
   init() {
     if ($('loading')) $('loading').style.display = '';
-    Promise.all([this.loadDashboard(), this.loadReports()]).then(() => {
+    this.loadLoad();
+    Promise.all([this.loadReports()]).then(() => {
       if ($('loading')) $('loading').style.display = 'none';
     });
   },
@@ -46,23 +49,106 @@ K.adminPage = {
     }
   },
 
-  // ── Dashboard ─────────────────────────────────────────
+  // ── Dashboard / load graph ────────────────────────────
 
-  async loadDashboard() {
-    const el = $('stats'); if (!el) return;
+  async loadLoad() {
     try {
-      const d = await K.api.get('/api/admin/dashboard');
-      if (d.success && d.data) {
-        el.innerHTML = `
-          <div class="stat"><div class="stat-value">${d.data.total_users}</div><div class="stat-label">Total Users</div></div>
-          <div class="stat"><div class="stat-value">${d.data.users_today}</div><div class="stat-label">Users Today</div></div>
-          <div class="stat"><div class="stat-value">${d.data.total_reports}</div><div class="stat-label">Total Reports</div></div>
-          <div class="stat"><div class="stat-value">${d.data.pending_reports}</div><div class="stat-label">Pending Reports</div></div>
-        `;
+      const d = await K.api.get('/api/admin/load');
+      if (!d.success || !d.data) return;
+      const s = d.data;
+      this._renderStats(s);
+
+      this._loadSamples.push({ msgs: s.messages_min, users: s.active_users });
+      if (this._loadSamples.length > 60) this._loadSamples.shift();
+      this._drawLoadGraph();
+
+      const up = $('loadUptime');
+      if (up) up.textContent = 'UP ' + this._fmtUptime(s.uptime_seconds);
+      const cpu = $('loadCpu');
+      if (cpu) cpu.textContent = s.cpu_percent != null ? 'CPU ' + s.cpu_percent + '%' : 'CPU n/a';
+      const mem = $('loadMem');
+      if (mem) mem.textContent = s.memory_mb != null ? 'MEM ' + s.memory_mb + 'MB' : 'MEM n/a';
+
+      if (!this._loadTimer) {
+        this._loadTimer = setInterval(() => this.loadLoad(), 3000);
       }
-    } catch(e) {
-      if (el) el.innerHTML = '<div class="stat"><div class="stat-label">Failed to load stats</div></div>';
+    } catch (e) {
+      const el = $('stats');
+      if (el && !el.innerHTML) el.innerHTML = '<div class="stat"><div class="stat-label">Failed to load stats</div></div>';
     }
+  },
+
+  _renderStats(s) {
+    const el = $('stats'); if (!el) return;
+    el.innerHTML = `
+      <div class="stat"><div class="stat-value">${s.active_users}</div><div class="stat-label">Active Users</div></div>
+      <div class="stat"><div class="stat-value">${s.messages_min}</div><div class="stat-label">Messages / min</div></div>
+      <div class="stat"><div class="stat-value">${s.delivery_rate}%</div><div class="stat-label">Delivery Rate</div></div>
+      <div class="stat"><div class="stat-value">${s.avg_latency_ms}<span class="stat-unit">ms</span></div><div class="stat-label">Avg Latency</div></div>
+      <div class="stat"><div class="stat-value">${s.total_users}</div><div class="stat-label">Total Users</div></div>
+      <div class="stat"><div class="stat-value">${s.pending_reports}</div><div class="stat-label">Pending Reports</div></div>
+      <div class="stat"><div class="stat-value">${s.users_today}</div><div class="stat-label">Users Today</div></div>
+    `;
+  },
+
+  _fmtUptime(sec) {
+    const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600),
+          m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    return (d ? d + 'd ' : '') + (h ? h + 'h ' : '') + m + 'm ' + s + 's';
+  },
+
+  _drawLoadGraph() {
+    const cvs = $('loadGraph');
+    if (!cvs || !cvs.getContext) return;
+    const ctx = cvs.getContext('2d');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = cvs.clientWidth || cvs.parentElement.clientWidth || 800;
+    const H = 140;
+    if (cvs.width !== Math.floor(W * dpr)) {
+      cvs.width = Math.floor(W * dpr);
+      cvs.height = Math.floor(H * dpr);
+      cvs.style.height = H + 'px';
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    const samples = this._loadSamples;
+    if (!samples.length) return;
+
+    const msgs = samples.map(p => p.msgs);
+    const users = samples.map(p => p.users);
+    const maxMsgs = Math.max(1, ...msgs);
+    const maxUsers = Math.max(1, ...users);
+    const n = samples.length;
+    const x = i => (i / Math.max(1, n - 1)) * (W - 8) + 4;
+
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent-rgb').trim() || '0,229,255';
+    const accent2 = '#a855f7';
+
+    const gridLines = 3;
+    ctx.strokeStyle = 'rgba(120,200,255,.08)';
+    ctx.lineWidth = 1;
+    for (let g = 0; g <= gridLines; g++) {
+      const gy = 6 + (H - 12) * (g / gridLines);
+      ctx.beginPath(); ctx.moveTo(4, gy); ctx.lineTo(W - 4, gy); ctx.stroke();
+    }
+
+    const plot = (vals, max, color) => {
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8;
+      vals.forEach((v, i) => {
+        const y = 6 + (H - 12) * (1 - v / max);
+        if (i === 0) ctx.moveTo(x(i), y); else ctx.lineTo(x(i), y);
+      });
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    };
+
+    plot(msgs, maxMsgs, `rgba(${accent},1)`);
+    plot(users, maxUsers, accent2);
   },
 
   // ── Reports ───────────────────────────────────────────
@@ -72,19 +158,36 @@ K.adminPage = {
     const s = status || ($('reportStatus') ? $('reportStatus').value : 'pending');
     try {
       const d = await K.api.get('/api/admin/reports?status=' + s);
-      if (!d.success) { el.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:12px">Failed</td></tr>'; return; }
+      if (!d.success) {
+        el.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:12px">Failed</td></tr>';
+        return;
+      }
       const reports = d.data?.reports || [];
-      el.innerHTML = reports.map(r => `
-        <tr>
+      el.innerHTML = reports.map(r => {
+        const reporter = esc(r.reporter_username || ('User #' + (r.reporter_id || '?')));
+        const reported = esc(r.reported_username || ('User #' + (r.reported_user_id || '?')));
+        const hasMsg = r.reported_message_id != null;
+        const uid = r.reported_user_id == null ? 'null' : r.reported_user_id;
+
+        const actions = s === 'pending' ? `
+          <button class="btn btn-sm" onclick="K.adminPage.resolveReport(${r.id})" title="Resolve"><i class="fas fa-check"></i></button>
+          <button class="btn btn-sm btn-outline" onclick="K.adminPage.dismissReport(${r.id})" title="Dismiss"><i class="fas fa-times"></i></button>
+          <button class="btn btn-sm btn-warning" onclick="K.adminPage.actionReport(${r.id},${uid},'warn')" title="Warn user"><i class="fas fa-exclamation-triangle"></i></button>
+          ${hasMsg ? `<button class="btn btn-sm btn-warning" onclick="K.adminPage.actionReport(${r.id},${uid},'delete_message')" title="Delete message"><i class="fas fa-trash"></i></button>` : ''}
+          <button class="btn btn-sm btn-danger" onclick="K.adminPage.actionReport(${r.id},${uid},'ban_user')" title="Ban user"><i class="fas fa-ban"></i></button>
+          <button class="btn btn-sm btn-outline" onclick="K.adminPage.actionReport(${r.id},${uid},'timeout')" title="Mark timeout"><i class="fas fa-clock"></i></button>
+        ` : `<span class="badge badge-${s === 'resolved' ? 'resolved' : s === 'dismissed' ? 'pending' : 'active'}">${esc(s)}</span>`;
+
+        return `<tr>
           <td>${r.id}</td>
-          <td>${esc(r.reporter_username || r.reporter_id)}</td>
-          <td>${esc(r.reported_username || r.reported_user_id || '-')}</td>
-          <td>${esc((r.reason||'').substring(0,60))}</td>
+          <td>${reporter}</td>
+          <td>${reported}</td>
+          <td>${esc((r.reason || '').substring(0, 60))}</td>
           <td>${r.created_at ? (safeDate(r.created_at)?.toLocaleDateString() || '') : ''}</td>
-          <td>${s === 'pending' ? '<button class="btn btn-sm" onclick="K.adminPage.resolveReport('+r.id+')"><i class="fas fa-check"></i> Resolve</button>' : '<span class="badge badge-resolved">Resolved</span>'}</td>
-        </tr>
-      `).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:12px">No reports</td></tr>';
-    } catch(e) {
+          <td><div class="btn-group">${actions}</div></td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:12px">No reports</td></tr>';
+    } catch (e) {
       el.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:12px">Error</td></tr>';
     }
   },
@@ -94,6 +197,20 @@ K.adminPage = {
       const d = await K.api.post('/api/admin/reports/' + id + '/resolve');
       if (d.success) this.loadReports();
     } catch(e) { K.ui.toast('Error resolving report', 'error'); }
+  },
+
+  async dismissReport(id) {
+    try {
+      const d = await K.api.post('/api/admin/reports/' + id + '/dismiss');
+      if (d.success) this.loadReports();
+    } catch(e) { K.ui.toast('Error dismissing report', 'error'); }
+  },
+
+  async actionReport(id, userId, actionType) {
+    try {
+      const d = await K.api.post('/api/admin/reports/' + id + '/action', { user_id: userId, action_type: actionType });
+      if (d.success) this.loadReports();
+    } catch(e) { K.ui.toast('Error performing action', 'error'); }
   },
 
   // ── Users ─────────────────────────────────────────────
