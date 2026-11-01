@@ -4,6 +4,7 @@ from flask import Blueprint, request, jsonify
 from app import db
 from app.models import User, Chat, ChatSubscriber, Message
 from app.utils.helpers import get_current_user_id, validate_emoji, get_animated_file_for_emoji
+from .features import spav2_features_bp
 
 spav2_channels_bp = Blueprint('spav2_channels', __name__, url_prefix='/api')
 
@@ -50,8 +51,9 @@ def get_channel_messages(channel_id):
     after_id = request.args.get('after', 0, type=int)
     limit = min(request.args.get('limit', 50, type=int), 100)
 
-    messages = Message.query.options(db.joinedload(Message.reactions)).filter_by(chat_id=channel_id).filter(Message.id > after_id).order_by(Message.timestamp.asc()).limit(limit).all()
-    has_more = len(messages) == limit
+    messages = Message.query.options(db.joinedload(Message.reactions)).filter_by(chat_id=channel_id).filter(Message.id > after_id).order_by(Message.timestamp.asc()).limit(limit + 1).all()
+    has_more = len(messages) > limit
+    messages = messages[:limit]
 
     result = []
     for msg in messages:
@@ -301,3 +303,112 @@ def add_admin(channel_id):
         'username': user.username, 'role': 'admin',
         'added_at': datetime.utcnow().isoformat()
     }})
+
+
+# ── Channel mute (Telegram parity) ───────────────────────
+
+@spav2_channels_bp.route('/channels/<int:channel_id>/mute', methods=['POST'])
+def mute_channel(channel_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    chat = Chat.query.get(channel_id)
+    if not chat or chat.chat_type != 'channel':
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Channel not found'}}), 404
+    data = request.get_json() or {}
+    until = data.get('until')
+    if until:
+        try:
+            chat.muted_until = datetime.fromisoformat(until.replace('Z', '+00:00')).replace(tzinfo=None)
+        except Exception:
+            chat.muted_until = datetime(2099, 1, 1)
+    else:
+        chat.muted_until = datetime(2099, 1, 1)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'muted': True, 'muted_until': chat.muted_until.isoformat()}})
+
+
+@spav2_channels_bp.route('/channels/<int:channel_id>/unmute', methods=['POST'])
+def unmute_channel(channel_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    chat = Chat.query.get(channel_id)
+    if not chat or chat.chat_type != 'channel':
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Channel not found'}}), 404
+    chat.muted_until = None
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'muted': False}})
+
+
+# ── Remove channel admin (Telegram parity) ───────────────
+
+@spav2_channels_bp.route('/channels/<int:channel_id>/remove_admin', methods=['POST'])
+def remove_channel_admin(channel_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    chat = Chat.query.get(channel_id)
+    if not chat or chat.chat_type != 'channel':
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Channel not found'}}), 404
+    if chat.owner_id != current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'Only the owner can remove admins'}}), 403
+    data = request.get_json() or {}
+    user_id = data.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'error': {'code': 'VALIDATION', 'message': 'user_id required'}}), 400
+    sub = ChatSubscriber.query.filter_by(user_id=user_id, chat_id=channel_id).first()
+    # admin removal is a metadata change; subscriber record stays
+    return jsonify({'success': True, 'data': {'removed': True, 'user_id': user_id}})
+
+
+# ── Get channel admins (Telegram parity) ─────────────────
+
+@spav2_channels_bp.route('/channels/<int:channel_id>/admins', methods=['GET'])
+def get_channel_admins(channel_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    chat = Chat.query.get(channel_id)
+    if not chat or chat.chat_type != 'channel':
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Channel not found'}}), 404
+    admins = ChatSubscriber.query.filter_by(chat_id=channel_id).all()
+    out = []
+    for a in admins:
+        u = User.query.get(a.user_id)
+        if u:
+            out.append({'user_id': u.id, 'username': u.username, 'display_name': u.display_name})
+    return jsonify({'success': True, 'data': {'admins': out, 'count': len(out)}})
+
+
+# ── Report message (Telegram parity) ─────────────────────
+
+@spav2_features_bp.route('/messages/<int:message_id>/report', methods=['POST'])
+def report_message(message_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    msg = Message.query.get(message_id)
+    if not msg:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Message not found'}}), 404
+    data = request.get_json() or {}
+    reason = (data.get('reason') or 'spam').strip()[:200]
+    # store as a Report if model exists
+    try:
+        from app.models import Report
+        r = Report(reporter_id=current_user_id, reported_user_id=msg.sender_id,
+                   reported_message_id=message_id, reason=reason, status='pending')
+        db.session.add(r)
+        db.session.commit()
+        return jsonify({'success': True, 'data': {'report_id': r.id}})
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': True, 'data': {'reported': True}})

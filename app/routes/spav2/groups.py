@@ -155,8 +155,9 @@ def get_group_messages(group_id):
     after_id = request.args.get('after', 0, type=int)
     limit = min(request.args.get('limit', 50, type=int), 100)
 
-    messages = Message.query.options(db.joinedload(Message.reactions)).filter_by(chat_id=group_id).filter(Message.id > after_id).order_by(Message.timestamp.asc()).limit(limit).all()
-    has_more = len(messages) == limit
+    messages = Message.query.options(db.joinedload(Message.reactions)).filter_by(chat_id=group_id).filter(Message.id > after_id).order_by(Message.timestamp.asc()).limit(limit + 1).all()
+    has_more = len(messages) > limit
+    messages = messages[:limit]
 
     result = []
     for msg in messages:
@@ -430,3 +431,47 @@ def leave_group(group_id):
         db.session.rollback()
         return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': str(e)}}), 500
     return jsonify({'success': True, 'data': {'message': 'Successfully left the group', 'group_id': group_id}})
+
+
+# ── Group mute (Telegram parity) ─────────────────────────
+
+@spav2_groups_bp.route('/groups/<int:group_id>/mute', methods=['POST'])
+def mute_group(group_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    chat = Chat.query.get(group_id)
+    if not chat or chat.chat_type != 'group':
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Group not found'}}), 404
+    data = request.get_json() or {}
+    until = data.get('until')  # ISO datetime or None for forever
+    if until:
+        try:
+            chat.muted_until = datetime.fromisoformat(until.replace('Z', '+00:00')).replace(tzinfo=None)
+        except Exception:
+            chat.muted_until = datetime(2099, 1, 1)
+    else:
+        chat.muted_until = datetime(2099, 1, 1)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'muted': True, 'muted_until': chat.muted_until.isoformat()}})
+
+
+@spav2_groups_bp.route('/groups/<int:group_id>/unmute', methods=['POST'])
+def unmute_group(group_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    chat = Chat.query.get(group_id)
+    if not chat or chat.chat_type != 'group':
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Group not found'}}), 404
+    chat.muted_until = None
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'muted': False}})

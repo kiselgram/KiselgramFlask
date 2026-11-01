@@ -16,15 +16,69 @@ spa_auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 mail = Mail()
 
 # ========== LOGIN — redirect to K SPA ==========
-@spa_auth_bp.route('/login', methods=['GET'])
+@spa_auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
-    return redirect('/k#login')
+    if request.method == 'GET':
+        return redirect('/k#login')
+
+    username = (request.form.get('username') or '').strip()
+    password = request.form.get('password', '')
+    if not username or not password:
+        return "Username and password required", 400
+
+    user = User.query.filter_by(username=username).first()
+    if not user or not user.check_password(password):
+        return "Invalid username or password", 401
+    if not getattr(user, 'email_verified', True):
+        return "Please verify your email first", 400
+
+    session['user_id'] = user.id
+    session['username'] = user.username
+    user.is_online = True
+    user.last_seen = datetime.utcnow()
+    db.session.commit()
+    return redirect('/chat_list')
 
 
 # ========== REGISTER — redirect to K SPA ==========
-@spa_auth_bp.route('/register', methods=['GET'])
+@spa_auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
-    return redirect('/k#register')
+    if request.method == 'GET':
+        return redirect('/k#register')
+
+    username = (request.form.get('username') or '').strip()
+    email = (request.form.get('email') or '').strip()
+    password = request.form.get('password', '')
+    confirm = request.form.get('confirm_password', '')
+
+    if not username or not email or not password:
+        return "Username, email and password are required", 400
+    if len(username) < 3:
+        return "Username must be at least 3 characters", 400
+    if not re.match(r'^[a-zA-Z0-9_]+$', username):
+        return "Username can only contain letters, numbers, and underscores", 400
+    if len(password) < 6:
+        return "Password must be at least 6 characters", 400
+    if password != confirm:
+        return "Passwords do not match", 400
+    if User.query.filter_by(username=username).first():
+        return "Username already taken", 400
+    if User.query.filter_by(email=email).first():
+        return "Email already registered", 400
+
+    user = User(username=username, email=email, display_name=username)
+    user.set_password(password)
+    user.email_verified = False
+    db.session.add(user)
+    db.session.flush()
+
+    verify_token = secrets.token_urlsafe(32)
+    expires = datetime.utcnow() + timedelta(hours=24)
+    ver = EmailVerification(user_id=user.id, token=verify_token, expires_at=expires)
+    db.session.add(ver)
+    db.session.commit()
+
+    return redirect('/auth/check_email')
 
 
 @spa_auth_bp.route('/check-email')
@@ -76,9 +130,35 @@ def verify_email(token):
     return redirect('/k#login')
 
 
-@spa_auth_bp.route('/complete-registration', methods=['GET'])
+@spa_auth_bp.route('/complete-registration', methods=['GET', 'POST'])
 def complete_registration():
-    return redirect('/k#register')
+    if request.method == 'GET':
+        if not session.get('user_id'):
+            return redirect('/auth/login')
+        return redirect('/k#register')
+
+    user_id = session.get('user_id')
+    if not user_id:
+        return redirect('/auth/login')
+
+    user = User.query.get(user_id)
+    if not user:
+        return redirect('/auth/login')
+
+    username = (request.form.get('username') or '').strip()
+    display_name = (request.form.get('display_name') or '').strip()
+    avatar = (request.form.get('avatar') or '').strip()
+
+    if len(username) < 3:
+        return "Username must be at least 3 characters", 400
+
+    user.username = username
+    if display_name:
+        user.display_name = display_name
+    if avatar:
+        user.avatar_url = f"/uploads/avatars/{avatar}"
+    db.session.commit()
+    return redirect('/chat_list')
 
 
 # ========== GOOGLE OAUTH ==========

@@ -67,6 +67,21 @@ class RateLimiter:
             return False
         return True
 
+    def is_allowed(self, key, max_requests=10, window=60):
+        """Convenience check that takes a fully-formed key (no request context needed)."""
+        now = time.time()
+        entry = self._store.get(key)
+        if entry is None:
+            self._store[key] = {'count': 1, 'reset': now + window}
+            return True
+        if now > entry['reset']:
+            self._store[key] = {'count': 1, 'reset': now + window}
+            return True
+        entry['count'] += 1
+        if entry['count'] > max_requests:
+            return False
+        return True
+
     def cleanup(self, max_age=300):
         now = time.time()
         stale = [k for k, v in self._store.items() if now > v['reset'] + max_age]
@@ -187,10 +202,14 @@ def validate_password(password):
         errors.append('Password must be at least 8 characters')
     if len(password) > 128:
         errors.append('Password must be at most 128 characters')
-    if not re.search(r'[A-Za-z]', password):
-        errors.append('Password must contain at least one letter')
+    if not re.search(r'[A-Z]', password):
+        errors.append('Password must contain at least one uppercase letter')
+    if not re.search(r'[a-z]', password):
+        errors.append('Password must contain at least one lowercase letter')
     if not re.search(r'[0-9]', password):
         errors.append('Password must contain at least one digit')
+    if not re.search(r'[^A-Za-z0-9]', password):
+        errors.append('Password must contain at least one special character')
     return errors
 
 # ─── INPUT SANITIZATION ─────────────────────────────────────────────────────
@@ -199,6 +218,8 @@ def sanitize_string(value, max_length=200):
     if not isinstance(value, str):
         return ''
     value = value.strip()
+    # Strip HTML tags
+    value = re.sub(r'<[^>]+>', '', value)
     if len(value) > max_length:
         value = value[:max_length]
     # Strip control characters except newline and tab

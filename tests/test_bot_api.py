@@ -197,7 +197,8 @@ def test_bot_send_message(logged_in_premium, premium_user, user2, session):
     assert data["success"] == True
     assert data["message"]["content"] == "Hello from bot!"
 
-    msg = Message.query.filter_by(content="Hello from bot!").first()
+    msgs = Message.query.filter_by(sender_id=bot_id, receiver_id=user2.id).all()
+    msg = next((m for m in msgs if m.content == "Hello from bot!"), None)
     assert msg is not None
     assert msg.sender_id == bot_id
     assert msg.receiver_id == user2.id

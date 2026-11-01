@@ -233,17 +233,24 @@ class TestV2GetTyping:
 
     def test_get_typing_no_one(self, logged_in_client, user, user2):
         resp = logged_in_client.get(
-            f"{API_PREFIX}/typing/personal/{user2.id}")
+            f"{API_PREFIX}/typing/personal/{user.id}")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["data"]["typing_users"] == []
 
-    def test_get_typing_after_set(self, logged_in_client, logged_in_user2, user, user2):
+    def test_get_typing_after_set(self, app, user, user2):
         # user2 starts typing
-        logged_in_user2.post(f"{API_PREFIX}/typing/personal/{user.id}")
+        c2 = app.test_client()
+        with c2.session_transaction() as sess:
+            sess['user_id'] = user2.id
+            sess['username'] = user2.username
+        c2.post(f"{API_PREFIX}/typing/personal/{user.id}")
         # user checks
-        resp = logged_in_client.get(
-            f"{API_PREFIX}/typing/personal/{user2.id}")
+        c1 = app.test_client()
+        with c1.session_transaction() as sess:
+            sess['user_id'] = user.id
+            sess['username'] = user.username
+        resp = c1.get(f"{API_PREFIX}/typing/personal/{user.id}")
         assert resp.status_code == 200
         data = resp.get_json()
         assert len(data["data"]["typing_users"]) >= 1

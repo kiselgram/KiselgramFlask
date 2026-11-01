@@ -220,3 +220,224 @@ def upload_avatar():
         'avatar_url': current_user.avatar_url,
         'updated_at': datetime.utcnow().isoformat()
     }})
+
+
+# ── Account: change password (Telegram parity) ────────────
+
+@spav2_profile_bp.route('/profile/change_password', methods=['POST'])
+def change_password():
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    data = request.get_json() or {}
+    old_pw = data.get('old_password') or ''
+    new_pw = data.get('new_password') or ''
+    if not new_pw or len(new_pw) < 6:
+        return jsonify({'success': False, 'error': {'code': 'VALIDATION', 'message': 'New password must be at least 6 characters'}}), 400
+    if old_pw and not current_user.check_password(old_pw):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'Current password is incorrect'}}), 403
+    current_user.set_password(new_pw)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'message': 'Password changed'}})
+
+
+# ── Account: change email (Telegram parity) ──────────────
+
+@spav2_profile_bp.route('/profile/change_email', methods=['POST'])
+def change_email():
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    data = request.get_json() or {}
+    new_email = (data.get('email') or '').strip().lower()
+    if not new_email or '@' not in new_email:
+        return jsonify({'success': False, 'error': {'code': 'VALIDATION', 'message': 'Valid email required'}}), 400
+    existing = User.query.filter_by(email=new_email).first()
+    if existing and existing.id != current_user.id:
+        return jsonify({'success': False, 'error': {'code': 'CONFLICT', 'message': 'Email already in use'}}), 409
+    current_user.email = new_email
+    current_user.email_verified = False
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'message': 'Email changed', 'email': new_email}})
+
+
+# ── Account: change username (Telegram parity) ───────────
+
+@spav2_profile_bp.route('/profile/change_username', methods=['POST'])
+def change_username():
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    data = request.get_json() or {}
+    new_username = (data.get('username') or '').strip()
+    if len(new_username) < 3 or len(new_username) > 32:
+        return jsonify({'success': False, 'error': {'code': 'VALIDATION', 'message': 'Username must be 3-32 characters'}}), 400
+    existing = User.query.filter_by(username=new_username).first()
+    if existing and existing.id != current_user.id:
+        return jsonify({'success': False, 'error': {'code': 'CONFLICT', 'message': 'Username already in use'}}), 409
+    current_user.username = new_username
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'message': 'Username changed', 'username': new_username}})
+
+
+# ── Account info (Telegram parity) ───────────────────────
+
+@spav2_profile_bp.route('/account/info', methods=['GET'])
+def account_info():
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    from app.models import Message, Chat, ChatMember
+    msg_count = Message.query.filter_by(sender_id=current_user.id).count()
+    chat_count = ChatMember.query.filter_by(user_id=current_user.id).count()
+    return jsonify({'success': True, 'data': {
+        'id': current_user.id, 'username': current_user.username,
+        'display_name': current_user.display_name, 'email': current_user.email,
+        'bio': current_user.bio, 'avatar_url': current_user.avatar_url,
+        'is_admin': current_user.is_admin, 'is_premium': bool(current_user.premium and current_user.premium.is_premium),
+        'created_at': current_user.created_at.isoformat() if current_user.created_at else None,
+        'last_seen': current_user.last_seen.isoformat() if current_user.last_seen else None,
+        'messages_count': msg_count, 'chats_count': chat_count,
+        'theme': current_user.theme, 'font_size': current_user.font_size,
+    }})
+
+
+# ── Revoke all sessions (Telegram parity) ────────────────
+
+@spav2_profile_bp.route('/profile/revoke_all_sessions', methods=['POST'])
+def revoke_all_sessions():
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    from app.models import UserSession
+    data = request.get_json() or {}
+    keep_current = data.get('keep_current', True)
+    q = UserSession.query.filter_by(user_id=current_user.id, is_active=True)
+    revoked = 0
+    for s in q.all():
+        s.is_active = False
+        revoked += 1
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'revoked': revoked}})
+
+
+# ── Sessions list (Telegram parity) ──────────────────────
+
+@spav2_profile_bp.route('/profile/sessions', methods=['GET'])
+def list_sessions():
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    from app.models import UserSession
+    sessions = UserSession.query.filter_by(user_id=current_user.id).order_by(UserSession.id.desc()).all()
+    out = []
+    for s in sessions:
+        out.append({
+            'id': s.id, 'device': s.device, 'ip_address': s.ip_address,
+            'created_at': s.created_at.isoformat() if s.created_at else None,
+            'last_activity': s.last_activity.isoformat() if s.last_activity else None,
+            'is_active': bool(s.is_active),
+        })
+    return jsonify({'success': True, 'data': {'sessions': out, 'count': len(out)}})
+
+
+# ── Revoke session (Telegram parity) ─────────────────────
+
+@spav2_profile_bp.route('/profile/sessions/<int:session_id>/revoke', methods=['POST'])
+def revoke_session(session_id):
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    from app.models import UserSession
+    s = UserSession.query.filter_by(id=session_id, user_id=current_user.id).first()
+    if not s:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Session not found'}}), 404
+    s.is_active = False
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'revoked': True}})
+
+
+# ── Change phone (Telegram parity) ───────────────────────
+
+@spav2_profile_bp.route('/profile/change_phone', methods=['POST'])
+def change_phone():
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    data = request.get_json() or {}
+    new_phone = (data.get('phone') or '').strip()
+    if not new_phone or len(new_phone) < 5:
+        return jsonify({'success': False, 'error': {'code': 'VALIDATION', 'message': 'Valid phone required'}}), 400
+    current_user.phone = new_phone
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'message': 'Phone changed', 'phone': new_phone}})
+
+
+# ── Update privacy (Telegram parity) ─────────────────────
+
+@spav2_profile_bp.route('/profile/privacy', methods=['PUT'])
+def update_privacy():
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    data = request.get_json() or {}
+    for field in ('privacy_last_seen', 'privacy_photo', 'privacy_forward', 'privacy_calls', 'privacy_messages'):
+        if field in data and hasattr(current_user, field):
+            setattr(current_user, field, data[field])
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'message': 'Privacy updated'}})
+
+
+# ── Update settings (Telegram parity) ────────────────────
+
+@spav2_profile_bp.route('/profile/settings', methods=['POST'])
+def update_settings():
+    current_user = get_current_user()
+    if not current_user:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    data = request.get_json() or {}
+    if 'theme' in data:
+        current_user.theme = data['theme']
+    if 'font_size' in data:
+        try:
+            current_user.font_size = int(data['font_size'])
+        except (TypeError, ValueError):
+            pass
+    if 'my_message_color' in data:
+        current_user.my_message_color = data['my_message_color']
+    if 'their_message_color' in data:
+        current_user.their_message_color = data['their_message_color']
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'message': 'Settings updated'}})

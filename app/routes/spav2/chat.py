@@ -246,14 +246,15 @@ def get_personal_messages(user_id):
     if user_id == current_user_id:
         messages = Message.query.filter(
             (Message.sender_id == current_user_id) & (Message.receiver_id == current_user_id)
-        ).filter(Message.id > after_id).order_by(Message.timestamp.asc()).limit(limit).all()
+        ).filter(Message.id > after_id).order_by(Message.timestamp.asc()).limit(limit + 1).all()
     else:
         messages = Message.query.filter(
             ((Message.sender_id == current_user_id) & (Message.receiver_id == user_id)) |
             ((Message.sender_id == user_id) & (Message.receiver_id == current_user_id))
-        ).filter(Message.id > after_id).order_by(Message.timestamp.asc()).limit(limit).all()
+        ).filter(Message.id > after_id).order_by(Message.timestamp.asc()).limit(limit + 1).all()
 
-    has_more = len(messages) == limit
+    has_more = len(messages) > limit
+    messages = messages[:limit]
     next_cursor = messages[-1].id if messages else None
 
     return jsonify({'success': True, 'data': {
@@ -298,6 +299,7 @@ def get_typing(chat_type, chat_id):
             }
             for uid, ts in active.items():
                 user = users_map.get(uid)
+                print(f"DEBUG typing: uid={uid} current={current_user_id} user={user} typists={typists}", flush=True)
                 if user:
                     typists.append({
                         'user_id': uid,

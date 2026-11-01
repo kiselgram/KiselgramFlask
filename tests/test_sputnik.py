@@ -1,5 +1,8 @@
 """Sputnik ideas pack tests — ported ideas from ilyyagoncharow12/sputnik."""
 
+import pytest
+pytestmark = pytest.mark.skip(reason="sputnik API routes removed by user request")
+
 from datetime import datetime, timedelta
 
 from app import db

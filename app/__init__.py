@@ -158,6 +158,11 @@ def create_app():
         app.register_blueprint(spav2_push_bp)
     except ImportError as e:
         app.logger.warning(f"Push blueprint not loaded: {e}")
+    try:
+        from app.routes.spav2.bot_webhook import spav2_bot_webhook_bp
+        app.register_blueprint(spav2_bot_webhook_bp)
+    except ImportError as e:
+        app.logger.warning(f"Bot webhook blueprint not loaded: {e}")
 
     # Register video blueprint if enabled
     if app.config.get('VIDEO_ENABLED', False):

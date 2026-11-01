@@ -77,6 +77,33 @@ def global_search():
     }})
 
 
+@spav2_search_bp.route('/users', methods=['GET'])
+def search_users():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+
+    query = (request.args.get('search') or request.args.get('q') or '').strip()
+    if query and len(query) < 2:
+        return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': 'Query must be at least 2 characters'}}), 400
+
+    limit = min(request.args.get('per_page', 20, type=int), 50)
+    q = f"%{query}%" if query else "%"
+    users = User.query.filter(User.is_deleted == False, User.username.ilike(q) | (User.display_name.ilike(q))).limit(limit).all()
+    blocked_ids = set(b.blocked_user_id for b in BlockedUser.query.filter_by(user_id=current_user_id).all())
+    out = []
+    for u in users:
+        if u.id == current_user_id or u.id in blocked_ids:
+            continue
+        out.append({
+            'user_id': u.id,
+            'username': u.username,
+            'display_name': u.display_name or u.username,
+            'avatar_url': u.avatar_url,
+        })
+    return jsonify({'success': True, 'data': {'users': out, 'count': len(out)}})
+
+
 @spav2_search_bp.route('/users/<int:user_id>/music', methods=['GET'])
 def get_user_music(user_id):
     current_user_id = get_current_user_id()

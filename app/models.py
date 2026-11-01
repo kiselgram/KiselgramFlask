@@ -68,6 +68,9 @@ class User(db.Model):
     is_deleted = db.Column(db.Boolean, default=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
 
+    # Telegram-style account self-destruction after inactivity (days)
+    self_destruct_days = db.Column(db.Integer, nullable=True)
+
     # Account freeze (suspend without deleting)
     is_frozen = db.Column(db.Boolean, default=False, index=True)
     frozen_at = db.Column(db.DateTime, nullable=True)
@@ -79,6 +82,9 @@ class User(db.Model):
     # Google OAuth
     google_id = db.Column(db.String(100), unique=True, nullable=True)
     profile_pic = db.Column(db.String(200), nullable=True)
+
+    # Telegram parity: phone number
+    phone = db.Column(db.String(30), nullable=True)
 
     # Relationships
     sent_messages = db.relationship('Message', foreign_keys='Message.sender_id', backref='sender', lazy=True)
@@ -304,6 +310,22 @@ class Message(db.Model):
     scheduled_at = db.Column(db.DateTime, nullable=True)
 
     edited_at = db.Column(db.DateTime, nullable=True)
+
+    # Telegram-style silent send: no notification sound/push for recipients
+    silent = db.Column(db.Boolean, default=False)
+
+    # Telegram-style voice message waveform (array of amplitudes)
+    waveform = db.Column(db.JSON, nullable=True)
+
+    # Telegram-style contact sharing
+    contact_name = db.Column(db.String(120), nullable=True)
+    contact_phone = db.Column(db.String(40), nullable=True)
+
+    # Telegram-style send when online: defer delivery until recipient is online
+    send_when_online = db.Column(db.Boolean, default=False)
+
+    # Telegram-style message reminder
+    reminder_at = db.Column(db.DateTime, nullable=True)
 
     file_id = db.Column(db.Integer, db.ForeignKey('files.id', ondelete='SET NULL'), nullable=True)
     file = db.relationship('File', backref=db.backref('messages', lazy='dynamic'), lazy=True)
@@ -716,6 +738,8 @@ class UserMusic(db.Model):
     duration = db.Column(db.Integer, default=0)
     source_message_id = db.Column(db.Integer, db.ForeignKey('message.id', ondelete='SET NULL'), nullable=True)
     added_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref='music_tracks', lazy=True)
 
     __table_args__ = (db.UniqueConstraint('user_id', 'file_url', name='unique_user_music'),)
 

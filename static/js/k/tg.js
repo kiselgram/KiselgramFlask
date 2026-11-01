@@ -1,7 +1,7 @@
 'use strict';
 /* K.tg — Telegram parity pack frontend (topics, dice, geo, voice, etc.).
  * Backend: /api.v2/api/tg/* (see app/routes/spav2/telegram.py).
- * Self-mounting helpers; safe to load after chat.js/sputnik.js.
+ * Self-mounting helpers; safe to load after chat.js/extras.js/misc.js.
  */
 (function () {
   const V2 = (window.V2 || '/api.v2/api');
@@ -94,7 +94,7 @@
     };
     wrap.appendChild(face);
     wrap.appendChild(btn);
-    if (window.K && K.sputnik && K.sputnik.showModal) K.sputnik.showModal('Dice', wrap);
+    if (window.K && K.extras && K.extras.showModal) K.extras.showModal('Dice', wrap);
     else { document.body.appendChild(wrap); }
   }
 
@@ -135,7 +135,7 @@
     }).catch(function () {});
   }
 
-  // Decorate chat messages: big dice, geo links. Chain-aware like sputnik
+  // Decorate chat messages: big dice, geo links. Chain-aware like extras
   // (shared _spChain — each layer applies exactly once).
   function decorate() {
     if (!window.K || !K.chat || !K.chat._messageHtml) return;
@@ -207,7 +207,7 @@
       wrap.appendChild(bar);
       wrap.appendChild(list);
       load('');
-      if (window.K && K.sputnik && K.sputnik.showModal) K.sputnik.showModal('Tagged', wrap);
+      if (window.K && K.extras && K.extras.showModal) K.extras.showModal('Tagged', wrap);
     });
   }
 
@@ -288,7 +288,7 @@
     sendBtn.disabled = true;
     row.appendChild(recBtn); row.appendChild(flipBtn); row.appendChild(sendBtn);
     wrap.appendChild(vid); wrap.appendChild(timer); wrap.appendChild(row);
-    const show = (window.K && K.sputnik && K.sputnik.showModal) ? K.sputnik.showModal('Circle', wrap) : null;
+    const show = (window.K && K.extras && K.extras.showModal) ? K.extras.showModal('Circle', wrap) : null;
     if (!show) document.body.appendChild(wrap);
     let stream = null, rec = null, chunks = [], secs = 0, tick = 0, facing = 'user', blob = null;
     function stopTracks() { if (stream) stream.getTracks().forEach((t) => t.stop()); stream = null; }
@@ -388,7 +388,7 @@
       });
     }
     refresh();
-    if (window.K && K.sputnik && K.sputnik.showModal) K.sputnik.showModal('Names', wrap);
+    if (window.K && K.extras && K.extras.showModal) K.extras.showModal('Names', wrap);
   }
 
   if (document.readyState === 'loading') {

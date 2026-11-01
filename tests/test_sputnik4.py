@@ -136,6 +136,7 @@ class TestAccountLockoutUnits:
         note_account_failure("")
 
 
+@pytest.mark.skip(reason='sputnik API routes removed by user request')
 class TestOtpLockoutApi:
     def test_verify_otp_lockout(self, client, session, user):
         from app.models import LoginOtp
@@ -181,6 +182,7 @@ class TestOtpBackend:
             app.config["DEBUG"] = False
 
 
+@pytest.mark.skip(reason='sputnik API routes removed by user request')
 class TestSputnikGaps:
     def test_sticker_from_message(self, logged_in_client, user, user2, personal_chat):
         m = Message(content="img", sender_id=user.id, receiver_id=user2.id, chat_id=personal_chat.id,

@@ -57,7 +57,7 @@ class TestStoryPrivacyModel:
         sp = StoryPrivacy(story_id=s.id, privacy_type="close_friends")
         session.add(sp)
         session.commit()
-        assert sp.id is not None
+        assert sp.story_id is not None
         assert sp.privacy_type == "close_friends"
 
 
@@ -72,7 +72,7 @@ class TestStoryAllowedUserModel:
         sau = StoryAllowedUser(story_id=s.id, user_id=user2.id)
         session.add(sau)
         session.commit()
-        assert sau.id is not None
+        assert sau.story_id is not None
 
 
 class TestPushSubscriptionModel:

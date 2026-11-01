@@ -171,6 +171,13 @@ def login_as(client, user_obj):
 @pytest.fixture(autouse=True)
 def clear_rate_limiter(app):
     """Clear the in-memory rate limiter before each test."""
-    from app.utils.security import rate_limiter
+    from app.utils.security import rate_limiter, _ACCOUNT_FAILURES
     rate_limiter._store.clear()
+    _ACCOUNT_FAILURES.clear()
+    # Clear in-memory typing status too
+    try:
+        from app.routes.spav2 import messages as _msgs
+        _msgs._typing_status.clear()
+    except Exception:
+        pass
     yield

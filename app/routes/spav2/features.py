@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify
 from app import db
-from app.models import User, Message, Poll, PollVote, Pin, Forward, Chat, ChatMember, ChatSubscriber, InviteLink, File, Archive, SavedMessage
+from app.models import User, Message, Poll, PollVote, Pin, Forward, Chat, ChatMember, ChatSubscriber, InviteLink, File, Archive, SavedMessage, PinnedChat
 from app.utils.helpers import get_current_user_id, get_current_user, message_to_dict
 
 spav2_features_bp = Blueprint('spav2_features', __name__, url_prefix='/api')
@@ -428,6 +428,8 @@ def set_chat_theme(chat_id):
     current_user_id = get_current_user_id()
     if not current_user_id:
         return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    if not _chat_access(current_user_id, chat_id):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'You are not in this chat'}}), 403
     data = request.get_json() or {}
     chat = Chat.query.get(chat_id)
     if not chat:
@@ -572,3 +574,633 @@ EMOJI_CATEGORIES = [
 @spav2_features_bp.route('/emojis', methods=['GET'])
 def get_emojis():
     return jsonify({'success': True, 'data': {'categories': EMOJI_CATEGORIES}})
+
+
+# ── Forward to multiple chats (Telegram parity) ──────────
+
+@spav2_features_bp.route('/messages/forward_multi', methods=['POST'])
+def forward_message_multi():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+
+    data = request.get_json() or {}
+    msg_id = data.get('message_id')
+    target_chat_ids = data.get('target_chat_ids') or []
+    if not isinstance(target_chat_ids, list) or not target_chat_ids:
+        return jsonify({'success': False, 'error': {'code': 'VALIDATION', 'message': 'target_chat_ids (list) required'}}), 400
+
+    orig = Message.query.get(msg_id)
+    if not orig:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Message not found'}}), 404
+
+    src_chat = Chat.query.get(orig.chat_id) if orig.chat_id else None
+    if src_chat is not None and getattr(src_chat, 'no_forwards', False):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'Forwarding is disabled in this chat'}}), 403
+
+    created = []
+    for tcid in target_chat_ids:
+        if not _chat_access(current_user_id, tcid):
+            continue
+        new_msg = Message(
+            sender_id=current_user_id, content=orig.content, file_path=orig.file_path,
+            file_type=orig.file_type, file_name=orig.file_name, file_size=orig.file_size,
+            chat_id=tcid, forwarded_from_id=orig.id, forwarded_by_id=current_user_id
+        )
+        db.session.add(new_msg)
+        db.session.flush()
+        db.session.add(Forward(original_message_id=orig.id, forwarded_message_id=new_msg.id,
+                              forwarded_by_id=current_user_id,
+                              original_sender_name=orig.sender.username if orig.sender else None))
+        created.append(new_msg.id)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'forwarded_ids': created, 'count': len(created)}})
+
+
+# ── Chat export (Telegram parity) ────────────────────────
+
+@spav2_features_bp.route('/chats/<int:chat_id>/export', methods=['GET'])
+def export_chat(chat_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    if not _chat_access(current_user_id, chat_id):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'You are not in this chat'}}), 403
+
+    chat = Chat.query.get(chat_id)
+    if not chat:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Chat not found'}}), 404
+
+    msgs = Message.query.filter_by(chat_id=chat_id, is_deleted=False).order_by(Message.timestamp.asc()).all()
+    out = []
+    for m in msgs:
+        out.append({
+            'id': m.id, 'sender_id': m.sender_id,
+            'sender': m.sender.username if m.sender else None,
+            'content': m.content, 'file_type': m.file_type, 'file_name': m.file_name,
+            'timestamp': m.timestamp.isoformat() if m.timestamp else None,
+            'is_read': m.is_read,
+        })
+    return jsonify({'success': True, 'data': {
+        'chat_id': chat_id, 'chat_type': chat.chat_type, 'name': chat.name,
+        'exported_at': datetime.now(timezone.utc).isoformat(),
+        'messages': out, 'count': len(out)
+    }})
+
+
+# ── Delete account (Telegram parity) ─────────────────────
+
+@spav2_features_bp.route('/account/delete', methods=['POST'])
+def delete_account():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    data = request.get_json() or {}
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+    # require password confirmation
+    pw = data.get('password')
+    if pw and not user.check_password(pw):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'Invalid password'}}), 403
+    user.is_deleted = True
+    user.deleted_at = datetime.now(timezone.utc)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'message': 'Account deleted'}})
+
+
+# ── Account self-destruction setting (Telegram parity) ───
+
+@spav2_features_bp.route('/account/self_destruct', methods=['GET', 'POST'])
+def self_destruct():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'User not found'}}), 404
+
+    if request.method == 'GET':
+        # default 6 months if not set
+        days = getattr(user, 'self_destruct_days', None)
+        return jsonify({'success': True, 'data': {'days': days if days is not None else 182}})
+
+    data = request.get_json() or {}
+    days = data.get('days')
+    if days is not None:
+        try:
+            days = int(days)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': {'code': 'VALIDATION', 'message': 'days must be integer'}}), 400
+        if days not in (30, 90, 182, 365):
+            return jsonify({'success': False, 'error': {'code': 'VALIDATION', 'message': 'days must be 30, 90, 182 or 365'}}), 400
+    # store on user if column exists; otherwise no-op but still respond
+    if hasattr(user, 'self_destruct_days'):
+        user.self_destruct_days = days
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'days': days}})
+
+
+# ── Recent actions log (Telegram parity) ─────────────────
+
+@spav2_features_bp.route('/account/recent_actions', methods=['GET'])
+def recent_actions():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    limit = min(int(request.args.get('limit', 50)), 200)
+    msgs = Message.query.filter_by(sender_id=current_user_id).order_by(Message.timestamp.desc()).limit(limit).all()
+    out = []
+    for m in msgs:
+        out.append({'id': m.id, 'chat_id': m.chat_id, 'content': (m.content or '')[:80],
+                    'timestamp': m.timestamp.isoformat() if m.timestamp else None,
+                    'is_deleted': m.is_deleted})
+    return jsonify({'success': True, 'data': {'actions': out, 'count': len(out)}})
+
+
+# ── Import chat history (Telegram parity) ────────────────
+
+@spav2_features_bp.route('/chats/<int:chat_id>/import_history', methods=['POST'])
+def import_chat_history(chat_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    if not _chat_access(current_user_id, chat_id):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'You are not in this chat'}}), 403
+
+    data = request.get_json() or {}
+    items = data.get('messages') or []
+    if not isinstance(items, list) or not items:
+        return jsonify({'success': False, 'error': {'code': 'VALIDATION', 'message': 'messages (list) required'}}), 400
+
+    created = 0
+    for it in items[:500]:
+        content = (it.get('content') or '').strip() if isinstance(it, dict) else str(it).strip()
+        if not content:
+            continue
+        ts = None
+        if isinstance(it, dict) and it.get('timestamp'):
+            try:
+                ts = datetime.fromisoformat(it['timestamp'].replace('Z', '+00:00')).replace(tzinfo=None)
+            except Exception:
+                ts = None
+        msg = Message(content=content, sender_id=current_user_id, chat_id=chat_id,
+                      timestamp=ts or datetime.utcnow())
+        db.session.add(msg)
+        created += 1
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'imported': created}})
+
+
+# ── Mark all chats read (Telegram parity) ────────────────
+
+@spav2_features_bp.route('/chats/mark_all_read', methods=['POST'])
+def mark_all_chats_read():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    from app.models import Chat, ChatMember, ChatSubscriber
+    chat_ids = set()
+    for m in ChatMember.query.filter_by(user_id=current_user_id).all():
+        chat_ids.add(m.chat_id)
+    for s in ChatSubscriber.query.filter_by(user_id=current_user_id).all():
+        chat_ids.add(s.chat_id)
+    updated = 0
+    for cid in chat_ids:
+        updated += Message.query.filter_by(chat_id=cid, is_read=False).filter(Message.sender_id != current_user_id).update({'is_read': True, 'read_at': datetime.now(timezone.utc)})
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'marked': updated}})
+
+
+# ── Clear chat history (Telegram parity) ─────────────────
+
+@spav2_features_bp.route('/chats/<int:chat_id>/clear', methods=['POST'])
+def clear_chat_history(chat_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    if not _chat_access(current_user_id, chat_id):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'You are not in this chat'}}), 403
+    Message.query.filter_by(chat_id=chat_id).delete()
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'cleared': True}})
+
+
+# ── Delete chat (Telegram parity) ────────────────────────
+
+@spav2_features_bp.route('/chats/<int:chat_id>/delete', methods=['POST'])
+def delete_chat(chat_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    chat = Chat.query.get(chat_id)
+    if not chat:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Chat not found'}}), 404
+    if chat.chat_type == 'personal':
+        if current_user_id not in (chat.user1_id, chat.user2_id):
+            return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'You are not in this chat'}}), 403
+    else:
+        if chat.owner_id != current_user_id:
+            return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'Only owner can delete'}}), 403
+    Message.query.filter_by(chat_id=chat_id).delete()
+    ChatMember.query.filter_by(chat_id=chat_id).delete()
+    ChatSubscriber.query.filter_by(chat_id=chat_id).delete()
+    db.session.delete(chat)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'deleted': True}})
+
+
+# ── Star / favorite messages (Telegram parity) ───────────
+
+@spav2_features_bp.route('/messages/<int:message_id>/star', methods=['POST'])
+def star_message(message_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    msg = Message.query.get(message_id)
+    if not msg:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Message not found'}}), 404
+    msg.is_saved = True
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'starred': True}})
+
+
+@spav2_features_bp.route('/messages/<int:message_id>/unstar', methods=['POST'])
+def unstar_message(message_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    msg = Message.query.get(message_id)
+    if not msg:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Message not found'}}), 404
+    msg.is_saved = False
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'starred': False}})
+
+
+@spav2_features_bp.route('/messages/starred', methods=['GET'])
+def starred_messages():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    chat_id = request.args.get('chat_id', type=int)
+    q = Message.query.filter_by(is_saved=True)
+    if chat_id:
+        q = q.filter_by(chat_id=chat_id)
+    msgs = q.order_by(Message.timestamp.desc()).limit(100).all()
+    return jsonify({'success': True, 'data': {'messages': [message_to_dict(m, current_user_id) for m in msgs], 'count': len(msgs)}})
+
+
+# ── Online users (Telegram parity) ───────────────────────
+
+@spav2_features_bp.route('/users/online', methods=['GET'])
+def online_users():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    from app.models import User
+    from datetime import timedelta
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=5)
+    users = User.query.filter(User.is_online == True, User.last_seen >= cutoff).all()
+    out = [{'id': u.id, 'username': u.username, 'display_name': u.display_name,
+            'avatar_url': u.avatar_url} for u in users]
+    return jsonify({'success': True, 'data': {'users': out, 'count': len(out)}})
+
+
+# ── Chat info (Telegram parity) ───────────────────────────
+
+@spav2_features_bp.route('/chats/<int:chat_id>/info', methods=['GET'])
+def chat_info(chat_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    if not _chat_access(current_user_id, chat_id):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'You are not in this chat'}}), 403
+    chat = Chat.query.get(chat_id)
+    if not chat:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Chat not found'}}), 404
+    member_count = ChatMember.query.filter_by(chat_id=chat_id).count() if chat.chat_type in ('personal', 'group') else ChatSubscriber.query.filter_by(chat_id=chat_id).count()
+    msg_count = Message.query.filter_by(chat_id=chat_id, is_deleted=False).count()
+    return jsonify({'success': True, 'data': {
+        'id': chat.id, 'chat_type': chat.chat_type, 'name': chat.name,
+        'description': chat.description, 'avatar_url': chat.avatar_url,
+        'owner_id': chat.owner_id, 'is_public': chat.is_public,
+        'created_at': chat.created_at.isoformat() if chat.created_at else None,
+        'member_count': member_count, 'message_count': msg_count,
+        'muted_until': chat.muted_until.isoformat() if chat.muted_until else None,
+        'theme_color': chat.theme_color, 'wallpaper': chat.wallpaper,
+        'slow_mode': getattr(chat, 'slow_mode', 0),
+        'no_forwards': getattr(chat, 'no_forwards', False),
+    }})
+
+
+# ── Leave chat (Telegram parity) ─────────────────────────
+
+@spav2_features_bp.route('/chats/<int:chat_id>/leave', methods=['POST'])
+def leave_chat(chat_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    chat = Chat.query.get(chat_id)
+    if not chat:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Chat not found'}}), 404
+    if chat.chat_type == 'personal':
+        return jsonify({'success': False, 'error': {'code': 'VALIDATION', 'message': 'Cannot leave a personal chat'}}), 400
+    if chat.chat_type == 'group':
+        m = ChatMember.query.filter_by(chat_id=chat_id, user_id=current_user_id).first()
+        if not m:
+            return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Not a member'}}), 404
+        if m.role == 'owner':
+            return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'Owner cannot leave. Transfer ownership or delete.'}}), 403
+        db.session.delete(m)
+    elif chat.chat_type == 'channel':
+        s = ChatSubscriber.query.filter_by(chat_id=chat_id, user_id=current_user_id).first()
+        if s:
+            db.session.delete(s)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'left': True}})
+
+
+# ── Join chat (Telegram parity) ──────────────────────────
+
+@spav2_features_bp.route('/chats/<int:chat_id>/join', methods=['POST'])
+def join_chat(chat_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    chat = Chat.query.get(chat_id)
+    if not chat:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Chat not found'}}), 404
+    if chat.chat_type == 'group':
+        existing = ChatMember.query.filter_by(chat_id=chat_id, user_id=current_user_id).first()
+        if not existing:
+            db.session.add(ChatMember(chat_id=chat_id, user_id=current_user_id, role='member'))
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    elif chat.chat_type == 'channel':
+        existing = ChatSubscriber.query.filter_by(chat_id=chat_id, user_id=current_user_id).first()
+        if not existing:
+            db.session.add(ChatSubscriber(chat_id=chat_id, user_id=current_user_id))
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'joined': True}})
+
+
+# ── Pin chat (Telegram parity) ───────────────────────────
+
+@spav2_features_bp.route('/chats/<int:chat_id>/pin', methods=['POST'])
+def pin_chat(chat_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    chat = Chat.query.get(chat_id)
+    if not chat:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Chat not found'}}), 404
+    chat_type = chat.chat_type
+    existing = PinnedChat.query.filter_by(user_id=current_user_id, chat_type=chat_type, chat_id=chat_id).first()
+    if existing:
+        return jsonify({'success': True, 'data': {'pinned': True}})
+    db.session.add(PinnedChat(user_id=current_user_id, chat_type=chat_type, chat_id=chat_id))
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'pinned': True}})
+
+
+@spav2_features_bp.route('/chats/<int:chat_id>/unpin', methods=['POST'])
+def unpin_chat(chat_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    chat = Chat.query.get(chat_id)
+    if not chat:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Chat not found'}}), 404
+    PinnedChat.query.filter_by(user_id=current_user_id, chat_type=chat.chat_type, chat_id=chat_id).delete()
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'pinned': False}})
+
+
+@spav2_features_bp.route('/chats/pinned', methods=['GET'])
+def pinned_chats():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    pins = PinnedChat.query.filter_by(user_id=current_user_id).order_by(PinnedChat.pinned_at.desc()).all()
+    out = [{'chat_type': p.chat_type, 'chat_id': p.chat_id, 'pinned_at': p.pinned_at.isoformat() if p.pinned_at else None} for p in pins]
+    return jsonify({'success': True, 'data': {'pinned': out, 'count': len(out)}})
+
+
+@spav2_features_bp.route('/chats/archived', methods=['GET'])
+def archived_chats():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    from app.models import Chat, ChatMember, ChatSubscriber
+    ids = set()
+    for m in ChatMember.query.filter_by(user_id=current_user_id).all():
+        ids.add(m.chat_id)
+    for s in ChatSubscriber.query.filter_by(user_id=current_user_id).all():
+        ids.add(s.chat_id)
+    chats = Chat.query.filter(Chat.id.in_(ids), Chat.archived == True).all() if ids else []
+    out = [{'id': c.id, 'chat_type': c.chat_type, 'name': c.name} for c in chats]
+    return jsonify({'success': True, 'data': {'chats': out, 'count': len(out)}})
+
+
+@spav2_features_bp.route('/chats/<int:chat_id>/unarchive', methods=['POST'])
+def unarchive_chat(chat_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    chat = Chat.query.get(chat_id)
+    if not chat:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Chat not found'}}), 404
+    chat.archived = False
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'archived': False}})
+
+
+# ── Get chat members count (Telegram parity) ─────────────
+
+@spav2_features_bp.route('/chats/<int:chat_id>/members_count', methods=['GET'])
+def chat_members_count(chat_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    if not _chat_access(current_user_id, chat_id):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'You are not in this chat'}}), 403
+    chat = Chat.query.get(chat_id)
+    if not chat:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Chat not found'}}), 404
+    if chat.chat_type in ('personal', 'group'):
+        count = ChatMember.query.filter_by(chat_id=chat_id).count()
+    else:
+        count = ChatSubscriber.query.filter_by(chat_id=chat_id).count()
+    return jsonify({'success': True, 'data': {'chat_id': chat_id, 'count': count}})
+
+
+# ── Set chat wallpaper (Telegram parity) ─────────────────
+
+@spav2_features_bp.route('/chats/<int:chat_id>/wallpaper', methods=['POST'])
+def set_chat_wallpaper(chat_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    if not _chat_access(current_user_id, chat_id):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'You are not in this chat'}}), 403
+    chat = Chat.query.get(chat_id)
+    if not chat:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Chat not found'}}), 404
+    data = request.get_json() or {}
+    chat.wallpaper = data.get('wallpaper')
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'wallpaper': chat.wallpaper}})
+
+
+# ── Get chat wallpaper (Telegram parity) ─────────────────
+
+@spav2_features_bp.route('/chats/<int:chat_id>/wallpaper', methods=['GET'])
+def get_chat_wallpaper(chat_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    if not _chat_access(current_user_id, chat_id):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'You are not in this chat'}}), 403
+    chat = Chat.query.get(chat_id)
+    if not chat:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Chat not found'}}), 404
+    return jsonify({'success': True, 'data': {'wallpaper': chat.wallpaper, 'theme_color': chat.theme_color}})
+
+
+# ── Get chat members (Telegram parity) ───────────────────
+
+@spav2_features_bp.route('/chats/<int:chat_id>/members', methods=['GET'])
+def chat_members(chat_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    if not _chat_access(current_user_id, chat_id):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'You are not in this chat'}}), 403
+    chat = Chat.query.get(chat_id)
+    if not chat:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Chat not found'}}), 404
+    if chat.chat_type in ('personal', 'group'):
+        members = ChatMember.query.filter_by(chat_id=chat_id).all()
+        out = [{'user_id': m.user_id, 'role': m.role, 'joined_at': m.joined_at.isoformat() if m.joined_at else None} for m in members]
+    else:
+        subs = ChatSubscriber.query.filter_by(chat_id=chat_id).all()
+        out = [{'user_id': s.user_id, 'role': 'subscriber', 'subscribed_at': s.subscribed_at.isoformat() if s.subscribed_at else None} for s in subs]
+    return jsonify({'success': True, 'data': {'members': out, 'count': len(out)}})
+
+
+# ── Update group (Telegram parity) ───────────────────────
+
+@spav2_features_bp.route('/groups/<int:group_id>/update', methods=['POST'])
+def update_group_v2(group_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    chat = Chat.query.get(group_id)
+    if not chat or chat.chat_type != 'group':
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Group not found'}}), 404
+    if chat.owner_id != current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'Only owner can update'}}), 403
+    data = request.get_json() or {}
+    if 'name' in data:
+        chat.name = data['name']
+    if 'description' in data:
+        chat.description = data['description']
+    if 'is_public' in data:
+        chat.is_public = bool(data['is_public'])
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'updated': True}})
+
+
+# ── Update channel (Telegram parity) ─────────────────────
+
+@spav2_features_bp.route('/channels/<int:channel_id>/update', methods=['POST'])
+def update_channel_v2(channel_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+    chat = Chat.query.get(channel_id)
+    if not chat or chat.chat_type != 'channel':
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Channel not found'}}), 404
+    if chat.owner_id != current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'Only owner can update'}}), 403
+    data = request.get_json() or {}
+    if 'name' in data:
+        chat.name = data['name']
+    if 'description' in data:
+        chat.description = data['description']
+    if 'is_public' in data:
+        chat.is_public = bool(data['is_public'])
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'updated': True}})

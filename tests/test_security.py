@@ -160,7 +160,7 @@ class TestSQLInjectionPrevention:
 
     def test_sql_injection_search(self, logged_in_client, user):
         resp = logged_in_client.get(
-            f"{API_PREFIX}/users?search='; DROP TABLE users; --")
+            f"{API_PREFIX}/search/global?q='; DROP TABLE users; --")
         assert resp.status_code in (200, 400)  # not 500
 
 
@@ -197,7 +197,7 @@ class TestAuthBypass:
         assert resp.status_code == 401
 
     def test_admin_endpoint_blocked(self, logged_in_client, user):
-        resp = logged_in_client.get(f"{API_PREFIX}/admin/dashboard")
+        resp = logged_in_client.get("/api/admin/dashboard")
         assert resp.status_code == 403
 
 

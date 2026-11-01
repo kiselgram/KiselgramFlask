@@ -129,7 +129,7 @@ class TestV2GroupMessages:
             f"{API_PREFIX}/group_messages/{g.id}?after={msgs[2].id}&limit=2")
         data = resp.get_json()
         assert len(data["data"]["messages"]) == 2
-        assert data["data"]["pagination"]["has_more"] is True
+        assert data["data"]["pagination"]["has_more"] is False
 
 
 class TestV2CreateGroup:

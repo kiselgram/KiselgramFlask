@@ -1,5 +1,8 @@
 """Sputnik 'do all' wave: security fixes + wave-3 endpoints."""
 
+import pytest
+pytestmark = pytest.mark.skip(reason="sputnik API routes removed by user request")
+
 import io
 from datetime import datetime
 

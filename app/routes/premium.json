@@ -102,10 +102,19 @@
     "SEX_SEVEN": {
       "duration_days": 30,
       "max_uses": 5,
-      "used_count": 1,
+      "used_count": 0,
       "created_at": "2026-04-11T17:49:01.908485",
       "created_by": "Danil Kisel",
       "expires_at": "2027-04-11T17:49:01.908796",
+      "active": true
+    },
+    "KISEL-RJ1G9Q-0YOC0W": {
+      "duration_days": 30,
+      "max_uses": 5,
+      "used_count": 0,
+      "created_at": "2026-10-31T19:25:37.050073",
+      "created_by": "admin",
+      "expires_at": "2027-10-31T19:25:37.050078",
       "active": true
     }
   },

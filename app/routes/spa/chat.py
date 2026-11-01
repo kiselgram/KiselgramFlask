@@ -11,9 +11,7 @@ spa_chat_bp = Blueprint('chats', __name__)
 
 @spa_chat_bp.route('/app')
 def picker():
-    return render_template(
-        'picker.html',
-    )
+    return redirect('/k', code=302)
 
 @spa_chat_bp.route('/a')
 def chat_list():
@@ -293,6 +291,29 @@ def user_profile(username):
         current_user=current_user,
         is_premium=is_premium
     )
+
+
+@spa_chat_bp.route('/chat_list')
+def chat_list_page():
+    """Legacy alias for chat list"""
+    if not get_current_user():
+        return redirect('/auth/login')
+    return chat_list()
+
+
+@spa_chat_bp.route('/chat/<int:chat_id>')
+def chat_detail_redirect(chat_id):
+    return redirect('/k', code=302)
+
+
+@spa_chat_bp.route('/group/<int:group_id>')
+def group_detail_redirect(group_id):
+    return redirect('/k', code=302)
+
+
+@spa_chat_bp.route('/channel/<int:channel_id>')
+def channel_detail_redirect(channel_id):
+    return redirect('/k', code=302)
 
 
 @spa_chat_bp.route('/api/chat_list', methods=['GET'])

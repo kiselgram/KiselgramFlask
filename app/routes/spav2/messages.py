@@ -1,5 +1,5 @@
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, session
 from sqlalchemy.orm import joinedload, selectinload
 from app import db
@@ -25,6 +25,12 @@ def _serialize_message(msg, current_user_id=None):
         'is_read': msg.is_read,
         'timestamp': msg.timestamp.isoformat() if msg.timestamp else None,
         'edited_at': msg.edited_at.isoformat() if msg.edited_at else None,
+        'silent': bool(msg.silent),
+        'contact_name': msg.contact_name,
+        'contact_phone': msg.contact_phone,
+        'send_when_online': bool(msg.send_when_online),
+        'reminder_at': msg.reminder_at.isoformat() if msg.reminder_at else None,
+        'waveform': msg.waveform,
         'emoji': msg.emoji,
         'emoji_file': msg.emoji_file,
         'emoji_url': f"/uploads/animated_emojis/{msg.emoji_file}" if msg.emoji_file else None,
@@ -95,7 +101,7 @@ def send_personal_message():
         db.session.add(chat)
         db.session.flush()
 
-    msg = Message(content=content, sender_id=current_user_id, receiver_id=receiver_id, chat_id=chat.id, timestamp=datetime.utcnow())
+    msg = Message(content=content, sender_id=current_user_id, receiver_id=receiver_id, chat_id=chat.id, timestamp=datetime.utcnow(), silent=bool(data.get('silent')), send_when_online=bool(data.get('send_when_online')), waveform=data.get('waveform'))
     if emoji_data:
         msg.emoji = emoji_data['emoji']
         msg.emoji_file = emoji_data['file']
@@ -298,3 +304,168 @@ def list_emojis():
             if fname.endswith('.webp'):
                 emojis.append({'file': fname, 'emoji': '', 'url': f"{check_url}/{fname}"})
     return jsonify({'success': True, 'data': {'emojis': emojis}})
+
+
+# ── Contact sharing (Telegram parity) ─────────────────────
+
+@spav2_messages_bp.route('/share_contact', methods=['POST'])
+def share_contact():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+
+    data = request.get_json() or {}
+    receiver_id = data.get('receiver_id')
+    contact_name = (data.get('contact_name') or data.get('name') or '').strip()
+    contact_phone = (data.get('contact_phone') or data.get('phone') or '').strip()
+
+    if not isinstance(receiver_id, int) or not receiver_id:
+        return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': 'receiver_id required'}}), 400
+    if not contact_name or not contact_phone:
+        uid = data.get('user_id')
+        if uid:
+            u = User.query.get(uid)
+            if u:
+                contact_name = u.display_name or u.username
+                contact_phone = getattr(u, 'phone', None) or contact_phone or ''
+    if not contact_name:
+        return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': 'contact_name required'}}), 400
+
+    a, b = sorted([current_user_id, receiver_id])
+    chat = Chat.query.filter_by(chat_type='personal', user1_id=a, user2_id=b).first()
+    if not chat:
+        chat = Chat(chat_type='personal', user1_id=a, user2_id=b)
+        db.session.add(chat)
+        db.session.flush()
+
+    msg = Message(content=None, sender_id=current_user_id, receiver_id=receiver_id,
+                  chat_id=chat.id, timestamp=datetime.utcnow(),
+                  contact_name=contact_name, contact_phone=contact_phone)
+    db.session.add(msg)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'message': _serialize_message(msg, current_user_id)}}), 201
+
+
+# ── Message reminders (Telegram parity) ───────────────────
+
+@spav2_messages_bp.route('/messages/<int:message_id>/remind', methods=['POST'])
+def remind_message(message_id):
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+
+    msg = Message.query.get(message_id)
+    if not msg:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Message not found'}}), 404
+
+    data = request.get_json() or {}
+    when = data.get('when') or data.get('reminder_at')
+    if when:
+        try:
+            from datetime import datetime as _dt
+            reminder_time = _dt.fromisoformat(when.replace('Z', '+00:00')).replace(tzinfo=None)
+        except Exception:
+            return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': 'Invalid when (ISO datetime)'}}), 400
+    else:
+        # default: 1 hour from now
+        reminder_time = datetime.utcnow() + timedelta(hours=1)
+
+    msg.reminder_at = reminder_time
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'message_id': message_id, 'reminder_at': reminder_time.isoformat()}})
+
+
+# ── GIF send (Telegram parity) ────────────────────────────
+
+@spav2_messages_bp.route('/send_gif', methods=['POST'])
+def send_gif():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+
+    data = request.get_json() or {}
+    receiver_id = data.get('receiver_id')
+    chat_id = data.get('chat_id')
+    gif_url = (data.get('gif_url') or data.get('url') or '').strip()
+    if not gif_url:
+        return jsonify({'success': False, 'error': {'code': 'VALIDATION', 'message': 'gif_url required'}}), 400
+
+    if not chat_id:
+        if not isinstance(receiver_id, int) or not receiver_id:
+            return jsonify({'success': False, 'error': {'code': 'VALIDATION', 'message': 'receiver_id or chat_id required'}}), 400
+        a, b = sorted([current_user_id, receiver_id])
+        chat = Chat.query.filter_by(chat_type='personal', user1_id=a, user2_id=b).first()
+        if not chat:
+            chat = Chat(chat_type='personal', user1_id=a, user2_id=b)
+            db.session.add(chat)
+            db.session.flush()
+        chat_id = chat.id
+
+    from .features import _chat_access
+    if not _chat_access(current_user_id, chat_id):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'You are not in this chat'}}), 403
+
+    msg = Message(content=None, sender_id=current_user_id, chat_id=chat_id,
+                  file_type='gif', file_path=gif_url, file_name='gif',
+                  timestamp=datetime.utcnow())
+    db.session.add(msg)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'message': _serialize_message(msg, current_user_id)}}), 201
+
+
+# ── Voice message send (Telegram parity) ─────────────────
+
+@spav2_messages_bp.route('/send_voice', methods=['POST'])
+def send_voice():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+
+    data = request.get_json() or {}
+    receiver_id = data.get('receiver_id')
+    chat_id = data.get('chat_id')
+    file_url = (data.get('file_url') or data.get('file_path') or '').strip()
+    duration = data.get('duration')
+    waveform = data.get('waveform')
+
+    if not file_url:
+        return jsonify({'success': False, 'error': {'code': 'VALIDATION', 'message': 'file_url required'}}), 400
+
+    if not chat_id:
+        if not isinstance(receiver_id, int) or not receiver_id:
+            return jsonify({'success': False, 'error': {'code': 'VALIDATION', 'message': 'receiver_id or chat_id required'}}), 400
+        a, b = sorted([current_user_id, receiver_id])
+        chat = Chat.query.filter_by(chat_type='personal', user1_id=a, user2_id=b).first()
+        if not chat:
+            chat = Chat(chat_type='personal', user1_id=a, user2_id=b)
+            db.session.add(chat)
+            db.session.flush()
+        chat_id = chat.id
+
+    from .features import _chat_access
+    if not _chat_access(current_user_id, chat_id):
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'You are not in this chat'}}), 403
+
+    msg = Message(content=None, sender_id=current_user_id, chat_id=chat_id,
+                  file_type='voice', file_path=file_url, file_name='voice.ogg',
+                  file_size=data.get('file_size'), waveform=waveform,
+                  timestamp=datetime.utcnow())
+    db.session.add(msg)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+    return jsonify({'success': True, 'data': {'message': _serialize_message(msg, current_user_id)}}), 201

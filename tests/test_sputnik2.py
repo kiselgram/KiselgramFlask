@@ -2,6 +2,9 @@
 profile media, discover, join requests, member perms, restrict, story
 share/replace, data export."""
 
+import pytest
+pytestmark = pytest.mark.skip(reason="sputnik API routes removed by user request")
+
 from datetime import datetime
 
 from app import db

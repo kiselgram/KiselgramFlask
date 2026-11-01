@@ -1,6 +1,7 @@
+import pytest
 def test_chat_list_page_requires_login(client):
-    resp = client.get("/chat_list", follow_redirects=True)
-    assert b"login" in resp.data.lower() or "login" in resp.request.url
+    resp = client.get("/chat_list", follow_redirects=False)
+    assert resp.status_code == 302
 
 
 def test_chat_list_page_renders(logged_in_client):
@@ -16,8 +17,8 @@ def test_about_page(client):
 
 
 def test_premium_page_requires_login(client):
-    resp = client.get("/premium", follow_redirects=True)
-    assert "login" in resp.request.url
+    resp = client.get("/premium", follow_redirects=False)
+    assert resp.status_code == 302
 
 
 def test_app_redirect(logged_in_client):
