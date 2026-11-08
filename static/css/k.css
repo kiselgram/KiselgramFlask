@@ -324,6 +324,37 @@
 .k-send-btn:hover { transform: scale(1.05); background: var(--accent-blue-dark); }
 .k-send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
+/* Burger options menu in the message input */
+.k-input-menu-wrap { position: relative; flex-shrink: 0; }
+.k-input-menu {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  min-width: 210px;
+  background: var(--bg-surface, #1d2733);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.45);
+  padding: 6px;
+  z-index: 60;
+}
+.k-input-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.k-input-menu-item i { width: 18px; text-align: center; font-size: 14px; color: var(--text-secondary); }
+.k-input-menu-item:hover { background: var(--hover-bg, rgba(255,255,255,0.06)); }
+.k-input-menu-item:hover i { color: var(--accent-blue); }
+
 .k-reply-bar { display: flex; align-items: center; gap: 8px; padding: 10px 20px; background: var(--bg-surface); border-top: 1px solid var(--border-color); }
 .k-reply-info { flex: 1; min-width: 0; }
 .k-reply-name { font-size: 12px; font-weight: 600; color: var(--accent-green); }
@@ -422,6 +453,101 @@
 .k-reaction-picker.active { opacity: 1; transform: translateY(0); }
 .k-reaction-picker span { cursor: pointer; font-size: 22px; padding: 2px; border-radius: 50%; transition: transform 0.15s; }
 .k-toast.show { opacity: 1; }
+
+/* ── Stacked toasts (top-right, progress bar) — module: notify.js ── */
+#toastStack {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 9999;
+  pointer-events: none;
+}
+.k-toast2 {
+  position: relative;
+  overflow: hidden;
+  min-width: 280px;
+  max-width: 380px;
+  background: var(--bg-surface, #1f2a36);
+  color: var(--text-primary, #fff);
+  padding: 14px 14px 18px;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  border-left: 6px solid var(--accent-blue, #3498db);
+  animation: k-toast-in 0.3s ease-out forwards;
+  pointer-events: auto;
+}
+.k-toast2 i { font-size: 16px; flex-shrink: 0; }
+.k-toast2.success { border-left-color: var(--accent-green, #2ecc71); }
+.k-toast2.success i { color: var(--accent-green, #2ecc71); }
+.k-toast2.error { border-left-color: var(--accent-red, #e74c3c); }
+.k-toast2.error i { color: var(--accent-red, #e74c3c); }
+.k-toast2.warning { border-left-color: #f0b040; }
+.k-toast2.warning i { color: #f0b040; }
+.k-toast2.info { border-left-color: var(--accent-blue, #3498db); }
+.k-toast2.info i { color: var(--accent-blue, #3498db); }
+.k-toast2-msg { flex: 1; word-break: break-word; }
+.k-toast2-close {
+  background: none; border: none; color: var(--text-secondary, #999);
+  font-size: 19px; cursor: pointer; line-height: 1; padding: 0 2px;
+  transition: color 0.2s ease; flex-shrink: 0;
+}
+.k-toast2-close:hover { color: var(--text-primary, #fff); }
+.k-toast2-progress {
+  position: absolute;
+  bottom: 0; left: 0;
+  height: 3px;
+  width: 100%;
+  transform-origin: left;
+  border-radius: 0 0 0 12px;
+  background: var(--accent-blue, #3498db);
+  animation: k-toast-bar linear forwards;
+}
+.k-toast2.success .k-toast2-progress { background-color: var(--accent-green, #2ecc71); }
+.k-toast2.error .k-toast2-progress { background-color: var(--accent-red, #e74c3c); }
+.k-toast2.warning .k-toast2-progress { background-color: #f0b040; }
+.k-toast2.fade-out { opacity: 0; transform: scale(0.92); transition: opacity 0.3s ease, transform 0.3s ease; }
+@keyframes k-toast-in { from { transform: translateX(110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes k-toast-bar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* ── Notification centre (bell) ── */
+.k-nav-badge {
+  position: absolute;
+  top: 6px; right: 18px;
+  min-width: 17px; height: 17px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--accent-red, #e74c3c);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+.k-notif-actions { display: flex; gap: 8px; margin-bottom: 12px; }
+.k-btn-sm { padding: 6px 12px; font-size: 12px; }
+.k-notif-list { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow-y: auto; }
+.k-notif-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 10px;
+  background: var(--bg-secondary); cursor: pointer;
+  border: 1px solid transparent; transition: background 0.15s, border-color 0.15s;
+}
+.k-notif-item:hover { background: var(--hover-bg); }
+.k-notif-item.unread { border-color: var(--accent-blue); }
+.k-notif-avatar { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; background: linear-gradient(135deg,var(--accent-blue),var(--accent-green)); color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.k-notif-text { flex: 1; min-width: 0; }
+.k-notif-title { font-size: 13px; font-weight: 600; }
+.k-notif-body { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.k-notif-time { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+.k-notif-empty { padding: 24px; text-align: center; color: var(--text-muted); font-size: 13px; }
 
 .k-theme-toggle { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--bg-surface); border-radius: 12px; cursor: pointer; font-size: 14px; }
 .k-theme-toggle span { display: flex; align-items: center; gap: 8px; }
@@ -917,3 +1043,79 @@ body.liquid-glass .k-msg.outgoing .k-msg-bubble {
 .k-tg-face.k-tg-f3 { transform: rotateY(-90deg) translateZ(32px); }
 .k-tg-face.k-tg-f4 { transform: rotateX(90deg) translateZ(32px); color: var(--accent-blue); }
 .k-tg-face.k-tg-f5 { transform: rotateX(-90deg) translateZ(32px); }
+
+/* Location sharing button */
+#locationBtn.k-loc-sharing { color: var(--accent-blue); animation: k-loc-pulse 1.5s infinite; }
+#liveLocationBtn.k-loc-live { color: var(--accent-red); animation: k-loc-pulse 1.5s infinite; }
+@keyframes k-loc-pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+/* Location message bubble */
+.k-msg-location {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  border-radius: 12px; background: var(--bg-surface); border: 1px solid var(--border-color);
+  cursor: pointer; transition: transform 0.1s, box-shadow 0.1s;
+}
+.k-msg-location:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.k-msg-location i { font-size: 20px; color: var(--accent-blue); flex-shrink: 0; }
+.k-msg-location-info { flex: 1; min-width: 0; }
+.k-msg-location-title { font-weight: 600; font-size: 13px; color: var(--text-primary); }
+.k-msg-location-coords { font-size: 11px; color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, monospace; }
+.k-msg-location-thumb { width: 120px; height: 80px; border-radius: 8px; object-fit: cover; margin-left: 10px; flex-shrink: 0; }
+
+/* Live location modal */
+.k-live-modal { max-width: 400px; width: 90%; }
+.k-live-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border-color); }
+.k-live-modal-header h3 { margin: 0; font-size: 16px; font-weight: 600; color: var(--text-primary); }
+.k-live-modal-body { padding: 20px; }
+.k-live-modal-section { margin-bottom: 16px; }
+.k-live-modal-title { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px; }
+.k-live-duration-options { display: flex; gap: 8px; flex-wrap: wrap; }
+.k-live-duration-btn { flex: 1; min-width: 70px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-primary); font-size: 13px; cursor: pointer; transition: all 0.2s; }
+.k-live-duration-btn:hover { background: var(--hover-bg); border-color: var(--accent-blue); }
+.k-live-duration-btn.active { background: var(--active-bg); border-color: var(--accent-blue); color: var(--accent-blue); font-weight: 600; }
+.k-live-modal-hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+.k-live-modal-actions { margin-top: 0; }
+
+/* Map panel — full screen (covers the whole .k-main area: panel + chat area) */
+.k-panel.map-panel { overflow: hidden; }
+.k-panel.map-panel.active {
+  width: 100%;
+  max-width: none;
+  flex: 1;
+  border-right: none;
+}
+.k-main.map-fullscreen > .k-chat-view { display: none !important; }
+.k-map-wrap { flex: 1; min-height: 0; position: relative; overflow: hidden; background: var(--bg-surface); }
+#map { width: 100%; height: 100%; display: block; }
+.leaflet-container { font: 12px/1.5 var(--font-family); }
+.k-map-popup { font-size: 12px; line-height: 1.3; }
+
+/* Location picker modal */
+.k-loc-pick-modal { width: 480px; max-width: 92vw; }
+.k-loc-pick-body { display: flex; flex-direction: column; gap: 12px; }
+.k-loc-pick-geo i { margin-right: 4px; }
+.k-loc-pick-map-wrap { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--border-color); }
+.k-loc-pick-map-wrap #locPickMap { width: 100%; height: 320px; }
+.k-loc-pick-hint {
+  position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+  background: rgba(255,255,255,0.92); color: #1e2f3e; font-size: 11px;
+  padding: 4px 10px; border-radius: 12px; pointer-events: none;
+  max-width: 90%; text-align: center; font-weight: 600;
+}
+.k-loc-pick-coords { font-size: 13px; font-weight: 600; color: var(--accent-blue); text-align: center; }
+.k-loc-pick-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Focused shared-location marker on the Map tab */
+.k-focus-marker { background: none; border: none; }
+.k-focus-dot {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--accent-red, #e74c3c);
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 4px rgba(231, 76, 60, 0.25), 0 2px 8px rgba(0,0,0,0.35);
+  animation: k-focus-pulse 1.6s ease-out infinite;
+}
+@keyframes k-focus-pulse {
+  0%   { box-shadow: 0 0 0 4px rgba(231,76,60,0.35), 0 2px 8px rgba(0,0,0,0.35); }
+  70%  { box-shadow: 0 0 0 16px rgba(231,76,60,0.12), 0 2px 8px rgba(0,0,0,0.35); }
+  100% { box-shadow: 0 0 0 4px rgba(231,76,60,0.35), 0 2px 8px rgba(0,0,0,0.35); }
+}

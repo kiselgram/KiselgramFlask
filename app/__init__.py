@@ -269,6 +269,14 @@ def create_app():
     try:
         with app.app_context():
             db.create_all()
+            # Add location columns to existing Message table (safe no-op if already present)
+            from sqlalchemy import text
+            try:
+                db.session.execute(text("ALTER TABLE message ADD COLUMN lat FLOAT NULL"))
+                db.session.execute(text("ALTER TABLE message ADD COLUMN lon FLOAT NULL"))
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
     except Exception:
         app.logger.warning("db.create_all() skipped (tables likely already exist)")
 

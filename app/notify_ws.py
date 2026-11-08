@@ -49,3 +49,29 @@ def notify_users(user_id, data):
         return
     from flask_socketio import emit
     emit('message', data, room=f'user_{user_id}', namespace='/notify')
+
+
+def notify_message(msg, chat_type, chat_id, target_user_ids):
+    """Push a realtime 'new-message' event to a list of users.
+
+    Called by the send endpoints after a successful commit. Never raises —
+    notification failures must not fail message delivery.
+    """
+    try:
+        preview = (msg.content or (msg.emoji or ''))[:80]
+        is_location = bool(getattr(msg, 'file_type', None) == 'geo' and msg.lat is not None and msg.lon is not None)
+        for uid in target_user_ids:
+            if not uid or uid == msg.sender_id:
+                continue
+            notify_users(uid, {
+                'type': 'new-message',
+                'chat_type': chat_type,
+                'chat_id': chat_id,
+                'message_id': msg.id,
+                'from_id': msg.sender_id,
+                'from_username': getattr(msg.sender, 'username', None),
+                'content_preview': '📍 Shared a location' if is_location else preview,
+                'is_location': is_location,
+            })
+    except Exception as e:
+        print(f'[notify] notify_message error: {e}')

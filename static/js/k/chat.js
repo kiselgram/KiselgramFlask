@@ -291,6 +291,19 @@ K.chat = {
         att = `<div class="k-msg-file"><i class="fas ${icon}"></i> <a href="${esc(fileUrl)}" target="_blank" rel="noopener">${esc(fileName||'File')}</a></div>`;
       }
     }
+    let locHtml = '';
+    if (m.is_location && m.lat != null && m.lon != null) {
+      const mapUrl = `https://www.openstreetmap.org/?mlat=${encodeURIComponent(m.lat)}&mlon=${encodeURIComponent(m.lon)}#map=15/${encodeURIComponent(m.lat)}/${encodeURIComponent(m.lon)}`;
+      const thumb = `https://tile.openstreetmap.org/15/${Math.floor((m.lon+180)/360*2**15)}/${Math.floor((1-Math.log(Math.tan(m.lat*Math.PI/180)+1/Math.cos(m.lat*Math.PI/180))/Math.PI)/2*2**15)}.png`;
+      locHtml = `<div class="k-msg-location" onclick="event.stopPropagation();K.chat.location.open(${m.lat},${m.lon},'${esc(m.sender_username||'')}')">
+        <i class="fas fa-map-marker-alt"></i>
+        <div class="k-msg-location-info">
+          <div class="k-msg-location-title">Shared location</div>
+          <div class="k-msg-location-coords">${m.lat.toFixed(5)}, ${m.lon.toFixed(5)}</div>
+        </div>
+        <img src="${esc(thumb)}" class="k-msg-location-thumb" alt="location preview" style="display:none" onerror="this.style.display='none'">
+      </div>`;
+    }
     let reply = '';
     if (m.reply_to_id) reply = `<div class="k-msg-reply"><div style="font-weight:600;font-size:11px">↩ Reply</div>${esc(m.reply_to_content||'')}</div>`;
     const showIds = K.settings?._showPeerIds?.();
@@ -322,7 +335,7 @@ K.chat = {
       if (count > 1) emojiHtml = emojiHtml.replace('</div>', `<span class="k-emoji-count">${count}</span></div>`);
     }
     return `<div class="k-msg ${cls}" data-msg-id="${mid}">
-      ${sName}${reply}${emojiHtml}${att}${content ? `<div class="k-msg-bubble">${content}<div class="k-msg-meta">${time} ${statusIcon}</div></div>` : (att || emojiHtml ? `<div class="k-msg-bubble"><div class="k-msg-meta">${time} ${statusIcon}</div></div>` : '')}${pollHtml}${reactions}
+      ${sName}${reply}${emojiHtml}${att}${locHtml}${content ? `<div class="k-msg-bubble">${content}<div class="k-msg-meta">${time} ${statusIcon}</div></div>` : (att || emojiHtml || locHtml ? `<div class="k-msg-bubble"><div class="k-msg-meta">${time} ${statusIcon}</div></div>` : '')}${pollHtml}${reactions}
       <div class="k-msg-actions">
         <button class="k-msg-action-btn" onclick="K.chat.reply.set(${mid},'${esc(K.markdown.strip(m.content||'').substring(0,40))}')" title="Reply"><i class="fas fa-reply"></i></button>
         <button class="k-msg-action-btn" onclick="K.features.showForwardDialog(${mid})" title="Forward"><i class="fas fa-forward"></i></button>
@@ -341,7 +354,9 @@ K.chat = {
     const input = $('messageInput'); if (!input) return;
     const content = input.value.trim();
     const selEmoji = K.state.emoji || null;
-    if ((!content && !selEmoji) || !K.state.activeChat) return;
+    if (!K.state.activeChat) return;
+    // A pending location (from the location picker) may be the whole message
+    if (!content && !selEmoji && !K.state.pendingLocation) return;
     const { type, id } = K.state.activeChat;
     let payload = { content };
     if (selEmoji) {
@@ -355,6 +370,12 @@ K.chat = {
     else if (type === 'group') { url = V2 + '/send_group_message'; payload.group_id = id; }
     else if (type === 'channel') { url = V2 + '/send_channel_message'; payload.channel_id = id; }
     if (K.state.replyTo) { payload.reply_to_id = K.state.replyTo; K.chat.reply.cancel(); }
+    if (K.state.pendingLocation) {
+      payload.lat = K.state.pendingLocation.lat;
+      payload.lon = K.state.pendingLocation.lon;
+      payload.content = K.state.pendingLocation.content || '';
+      delete K.state.pendingLocation;
+    }
     input.value = ''; input.style.height = 'auto'; K.chat.input.handle();
     if (selEmoji) { K.state.emoji = null; const eb = $('emojiBadge'); if (eb) eb.remove(); const ebBtn = $('emojiPickerBtn'); if (ebBtn) ebBtn.classList.remove('active'); }
     const tmpId = 'tmp_'+Date.now();
@@ -373,6 +394,275 @@ K.chat = {
       else { K.ui.toast('Send failed', 'error'); }
     } catch(e) { K.ui.toast('Message not sent', 'error'); }
   },
+  location: {
+    sharing: false,
+    live: {
+      active: false,
+      messageId: null,
+      watchId: null,
+      interval: null,
+      liveMinutes: 0,
+    },
+    async share() {
+      if (!K.state.activeChat) { K.ui.toast('Open a chat first', 'error'); return; }
+      if (!navigator.geolocation) { K.ui.toast('Geolocation not supported', 'error'); return; }
+      this.sharing = true;
+      const btn = $('locationBtn');
+      if (btn) { btn.classList.add('k-loc-sharing'); btn.title = 'Getting location...'; }
+      try {
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+        });
+        const { latitude, longitude } = pos.coords;
+        K.state.pendingLocation = {
+          lat: latitude,
+          lon: longitude,
+          content: `📍 ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
+        };
+        await K.chat.send();
+      } catch(e) {
+        K.ui.toast('Could not get location', 'error');
+      } finally {
+        this.sharing = false;
+        if (btn) { btn.classList.remove('k-loc-sharing'); btn.title = 'Share Location'; }
+      }
+    },
+    /* ── Location picker modal ─────────────────────────────────────────── */
+    _pickMap: null,
+    _pickDot: null,
+    pick() {
+      if (!K.state.activeChat) { K.ui.toast('Open a chat first', 'error'); return; }
+      if (typeof L === 'undefined') { this.share(); return; }  // Leaflet missing → fallback to plain geolocation share
+      $('locationPickOverlay').style.display = 'flex';
+      this._pickDot = null;
+      this._pickSetSend(false);
+      this._pickInitMap();
+      this._pickUpdateHint();
+      this.pickGeo(true);  // auto-attempt GPS silently ("try getting my location")
+    },
+    _isPremium() {
+      return !!(K.state.user && K.state.user.is_premium);
+    },
+    _pickUpdateHint() {
+      const hint = $('locPickHint');
+      if (!hint) return;
+      const isPrem = this._isPremium();
+      hint.textContent = isPrem
+        ? 'Click on the map to place a dot'
+        : 'Premium feature: pick a location by placing a dot. Otherwise use "Try getting my location".';
+      const btn = $('locPickGeoBtn');
+      if (btn && !(btn.classList.contains('k-btn-primary') && isPrem)) {
+        btn.classList.toggle('k-btn-primary', !isPrem);  // non-premium: GPS attempt is the primary action
+      }
+    },
+    _pickInitMap() {
+      if (this._pickMap) { setTimeout(() => this._pickMap.invalidateSize(), 100); return; }
+      const el = $('locPickMap');
+      if (!el) return;
+      const map = L.map(el, {
+        center: [20, 0], zoom: 2, minZoom: 1, maxZoom: 18,
+        scrollWheelZoom: true, attributionControl: false
+      });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, minZoom: 1 }).addTo(map);
+      map.on('click', (e) => this._pickPlace(e.latlng));
+      setTimeout(() => map.invalidateSize(), 100);
+      this._pickMap = map;
+    },
+    pickGeo(silent) {
+      if (!navigator.geolocation) { if (!silent) K.ui.toast('Geolocation not supported', 'error'); return; }
+      const label = $('locPickGeoLabel');
+      if (label) label.textContent = 'Locating…';
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          if (label) label.textContent = 'Try getting my location';
+          const ll = new L.LatLng(pos.coords.latitude, pos.coords.longitude);
+          if (this._pickMap) this._pickMap.setView(ll, 15);
+          this._placeDot(ll, 'geo');
+        },
+        () => {
+          if (label) label.textContent = 'Try getting my location';
+          if (!silent) K.ui.toast('Could not get location', 'error');
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    },
+    _pickPlace(latlng) {
+      if (!this._isPremium()) {
+        K.ui.toast('Placing a dot on the map is a Premium feature', 'error');
+        return;
+      }
+      this._placeDot(latlng, 'manual');
+    },
+    _placeDot(latlng, mode) {
+      if (!this._pickMap) return;
+      if (!this._pickDot) {
+        this._pickDot = new L.CircleMarker(latlng, {
+          radius: 9, weight: 3, color: '#1e6bff', fillColor: '#1e6bff', fillOpacity: 0.85
+        }).addTo(this._pickMap);
+      } else {
+        this._pickDot.setLatLng(latlng);
+      }
+      const coords = $('locPickCoords');
+      if (coords) {
+        coords.style.display = 'block';
+        coords.textContent = '📍 ' + latlng.lat.toFixed(5) + ', ' + latlng.lng.toFixed(5);
+      }
+      this._pickMode = mode;
+      this._pickSetSend(true);
+    },
+    _pickSetSend(on) {
+      const b = $('locPickSendBtn');
+      if (b) b.disabled = !on;
+    },
+    closePick() {
+      const o = $('locationPickOverlay');
+      if (o) o.style.display = 'none';
+    },
+    pickConfirm() {
+      if (!this._pickDot) return;
+      const ll = this._pickDot.getLatLng();
+      K.state.pendingLocation = {
+        lat: ll.lat,
+        lon: ll.lng,
+        content: '📍 ' + ll.lat.toFixed(5) + ', ' + ll.lng.toFixed(5)
+      };
+      this.closePick();
+      K.chat.send();
+    },
+    shareLive() {
+      if (!K.state.activeChat) { K.ui.toast('Open a chat first', 'error'); return; }
+      if (!navigator.geolocation) { K.ui.toast('Geolocation not supported', 'error'); return; }
+      if (this.live.active) {
+        this.stopLiveShare();
+        return;
+      }
+      this.live.liveMinutes = 15;
+      this._updateDurationButtons();
+      $('liveLocationOverlay').style.display = 'flex';
+    },
+    selectDuration(btn, min) {
+      this.live.liveMinutes = min;
+      this._updateDurationButtons(btn);
+    },
+    _updateDurationButtons(activeBtn) {
+      document.querySelectorAll('.k-live-duration-btn').forEach(b => {
+        b.classList.toggle('active', b === activeBtn || (parseInt(b.dataset.min, 10) === this.live.liveMinutes && !activeBtn));
+      });
+      const confirmBtn = $('liveLocationConfirmBtn');
+      if (confirmBtn) confirmBtn.disabled = false;
+    },
+    closeLiveModal() {
+      $('liveLocationOverlay').style.display = 'none';
+    },
+    async confirmLiveShare() {
+      if (!K.state.activeChat) return;
+      const { type, id } = K.state.activeChat;
+      const liveMin = this.live.liveMinutes;
+      let url, payload;
+      if (type === 'personal') { url = V2 + '/tg/geo/share'; payload = { chat_id: id, lat: 0, lon: 0, live_minutes: liveMin }; }
+      else if (type === 'group') { url = V2 + '/tg/geo/share'; payload = { group_id: id, lat: 0, lon: 0, live_minutes: liveMin }; }
+      else if (type === 'channel') { url = V2 + '/tg/geo/share'; payload = { channel_id: id, lat: 0, lon: 0, live_minutes: liveMin }; }
+      else { K.ui.toast('Cannot share live location in this chat', 'error'); return; }
+
+      try {
+        const d = await K.api.post(url, payload);
+        if (!d.success) { K.ui.toast('Failed to start live sharing', 'error'); return; }
+        const messageId = d.data.message_id;
+        this.live.active = true;
+        this.live.messageId = messageId;
+        this.live.liveMinutes = liveMin;
+
+        // Get initial position
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+        });
+        const { latitude, longitude } = pos.coords;
+        await this.updateLivePosition(latitude, longitude);
+
+        // Start watchPosition for continuous updates
+        this.live.watchId = navigator.geolocation.watchPosition(
+          (p) => this.updateLivePosition(p.coords.latitude, p.coords.longitude),
+          (e) => console.warn('Live location watch error', e),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+
+        // Poll update interval as backup
+        this.live.interval = setInterval(async () => {
+          try {
+            const pos2 = await new Promise((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+            });
+            await this.updateLivePosition(pos2.coords.latitude, pos2.coords.longitude);
+          } catch(_) {}
+        }, 30000);
+
+        this.closeLiveModal();
+        this._updateLiveButtonUI();
+        K.ui.toast('Live location sharing started', 'success');
+        if (K.map && K.map.loadSelectedLocations) K.map.loadSelectedLocations();
+      } catch(e) {
+        K.ui.toast('Could not start live sharing', 'error');
+      }
+    },
+    async updateLivePosition(lat, lon) {
+      if (!this.live.messageId) return;
+      try {
+        await K.api.post(V2 + `/tg/geo/${this.live.messageId}/update`, { lat, lon });
+      } catch(_) {}
+    },
+    async stopLiveShare() {
+      if (this.live.watchId) {
+        navigator.geolocation.clearWatch(this.live.watchId);
+        this.live.watchId = null;
+      }
+      if (this.live.interval) {
+        clearInterval(this.live.interval);
+        this.live.interval = null;
+      }
+      if (this.live.messageId) {
+        try { await K.api.post(V2 + `/tg/geo/${this.live.messageId}/stop`); } catch(_) {}
+        this.live.messageId = null;
+      }
+      this.live.active = false;
+      this.live.liveMinutes = 0;
+      this._updateLiveButtonUI();
+      K.ui.toast('Live location sharing stopped', 'info');
+      if (K.map && K.map.loadSelectedLocations) K.map.loadSelectedLocations();
+    },
+    _updateLiveButtonUI() {
+      const btn = $('liveLocationBtn');
+      if (!btn) return;
+      if (this.live.active) {
+        btn.classList.add('k-loc-live');
+        btn.title = 'Stop Live Location';
+        btn.style.color = 'var(--accent-red)';
+      } else {
+        btn.classList.remove('k-loc-live');
+        btn.title = 'Share Live Location';
+        btn.style.color = '';
+      }
+    },
+    open(lat, lon, sender) {
+      // Show the shared location on the in-app Map tab; fallback to OSM site if Leaflet is missing
+      if (typeof L !== 'undefined') {
+        if (K.views.show) K.views.show('map');
+        K.map.showLocation(Number(lat), Number(lon), sender);
+        return;
+      }
+      const name = sender ? ` — ${esc(sender)}` : '';
+      const url = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=15/${lat}/${lon}`;
+      if (confirm(`View shared location${name} on OpenStreetMap?\n${lat.toFixed(5)}, ${lon.toFixed(5)}`)) {
+        window.open(url, '_blank');
+      }
+    },
+    async loadLocations(chatId) {
+      try {
+        const d = await K.api.get(V2 + `/messages/locations/${chatId}`);
+        if (d.success) return d.data.locations || [];
+      } catch(e) {}
+      return [];
+    }
+  },
   input: {
     _typingTimer: null,
     handle() {
@@ -386,6 +676,33 @@ K.chat = {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); K.chat.send(); return; }
       if ((e.ctrlKey || e.metaKey) && e.key === 'b') { e.preventDefault(); K.chat.format.insert('**'); }
       if ((e.ctrlKey || e.metaKey) && e.key === 'i') { e.preventDefault(); K.chat.format.insert('*'); }
+    },
+    toggleMenu(ev) {
+      const m = $('inputMenu');
+      if (!m) return;
+      ev?.stopPropagation?.();
+      const opening = m.style.display === 'none';
+      this.closeMenu();
+      if (opening) {
+        m.style.display = 'block';
+        const off = (e) => {
+          if (!e.target.closest('#inputMenuWrap') && !e.target.closest('#inputMenu')) this.closeMenu();
+          document.removeEventListener('click', off);
+        };
+        setTimeout(() => document.addEventListener('click', off), 0);
+      }
+    },
+    closeMenu() {
+      const m = $('inputMenu');
+      if (m) m.style.display = 'none';
+    },
+    menuAction(kind) {
+      this.closeMenu();
+      if (kind === 'file') document.getElementById('fileInput')?.click();
+      else if (kind === 'emoji') K.features.toggleEmojiPicker();
+      else if (kind === 'location') K.chat.location.pick();
+      else if (kind === 'live') K.chat.location.shareLive();
+      else if (kind === 'voice') K.chat.voice.toggle();
     }
   },
   format: {

@@ -25,6 +25,8 @@ K.calls = {
         console.log('[notify] disconnected');
       });
       socket.on('message', (d) => {
+        // 'new-message' and other notification types are handled by K.notify
+        if (K.notify && K.notify.handleNotify && K.notify.handleNotify(d)) return;
         K.calls._handleNotify(d);
       });
       this._notifyWs = socket;
