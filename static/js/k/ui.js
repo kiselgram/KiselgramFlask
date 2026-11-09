@@ -3,6 +3,8 @@ const FOCUS_DELAY = 100;
 
 K.ui = {
   toast(msg, type='info') {
+    // Delegates to the stacked toast system in notify.js (single fallback if missing)
+    if (K.notify && K.notify.toast) { K.notify.toast(msg, type); return; }
     const t = $('toast'); if (!t) return;
     t.textContent = msg; t.className = 'k-toast show';
     clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), TOAST_TIMEOUT);

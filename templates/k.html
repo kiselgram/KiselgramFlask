@@ -6,6 +6,7 @@
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/k.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/otp_widget.css') }}?v=2">
+<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css" />
 {% endblock %}
 {% block content %}
 <div id="splashScreen" class="k-splash">
@@ -40,6 +41,8 @@
       <a class="k-nav-item" data-view="search" onclick="K.views.show('search')"><i class="fas fa-search"></i><span>Search</span></a>
       <a class="k-nav-item" data-view="calls" onclick="K.views.show('calls')"><i class="fas fa-phone-alt"></i><span>Calls</span></a>
       <a class="k-nav-item" data-view="music" onclick="K.views.show('music')"><i class="fas fa-music"></i><span>My Music</span></a>
+      <a class="k-nav-item" data-view="map" onclick="K.views.show('map')"><i class="fas fa-map-marked-alt"></i><span>Map</span></a>
+      <a class="k-nav-item" onclick="K.notify.open()"><i class="fas fa-bell"></i><span>Notifications</span><b class="k-nav-badge" id="notifBadge" style="display:none"></b></a>
     </nav>
     <div class="k-nav-bottom">
       <a class="k-nav-item" onclick="K.settings.toggleTheme()"><i class="fas fa-moon" id="navThemeIcon"></i><span id="navThemeLabel">Dark mode</span></a>
@@ -125,6 +128,20 @@
         <h2>My Music</h2>
       </div>
       <div class="k-messages-scroll" id="musicList"><div class="k-loader"></div></div>
+    </div>
+
+    <div class="k-panel map-panel" id="panel-map">
+      <div class="k-panel-header">
+        <button class="k-back-btn" onclick="K.views.show('chats')"><i class="fas fa-arrow-left"></i></button>
+        <h2>World Map</h2>
+        <select id="mapChatSelect" onchange="K.map.loadSelectedLocations()" style="margin-left:auto;font-size:12px;padding:4px 8px;border-radius:6px;background:var(--bg-surface);border:1px solid var(--border-color);color:var(--text-primary)">
+          <option value="all">All chats</option>
+        </select>
+      </div>
+      <div class="k-map-wrap" id="mapWrap">
+        <div id="map"></div>
+        <div id="mapLocationsCount" style="position:absolute;bottom:12px;left:12px;z-index:10;background:rgba(255,255,255,0.9);color:#1e2f3e;padding:6px 10px;border-radius:20px;font-size:12px;font-weight:600;display:none"></div>
+      </div>
     </div>
 
     <div class="k-panel settings-panel k-settings-full" id="panel-settings">
@@ -439,10 +456,17 @@
         <button class="k-format-btn" onclick="K.features.applyFormat('blockquote')" title="Blockquote"><i class="fas fa-quote-right"></i></button>
       </div>
       <div class="k-input-area k-hidden" id="inputArea">
-        <button class="k-icon-btn" onclick="document.getElementById('fileInput').click()"><i class="fas fa-paperclip"></i></button>
-        <button class="k-icon-btn" onclick="K.features.toggleEmojiPicker()" title="Emoji / GIF" id="emojiBtn"><i class="fas fa-smile"></i></button>
+        <div class="k-input-menu-wrap" id="inputMenuWrap">
+          <button class="k-icon-btn" id="inputMenuBtn" onclick="K.chat.input.toggleMenu(event)" title="Options"><i class="fas fa-bars"></i></button>
+          <div class="k-input-menu" id="inputMenu" style="display:none" onclick="event.stopPropagation()">
+            <div class="k-input-menu-item" onclick="K.chat.input.menuAction('file')"><i class="fas fa-paperclip"></i> Attachment</div>
+            <div class="k-input-menu-item" onclick="K.chat.input.menuAction('emoji')"><i class="fas fa-smile"></i> Emoji / GIF</div>
+            <div class="k-input-menu-item" onclick="K.chat.input.menuAction('location')"><i class="fas fa-map-marker-alt"></i> Send Location</div>
+            <div class="k-input-menu-item" onclick="K.chat.input.menuAction('live')"><i class="fas fa-clock"></i> Share Live Location</div>
+            <div class="k-input-menu-item" onclick="K.chat.input.menuAction('voice')"><i class="fas fa-microphone"></i> Voice Message</div>
+          </div>
+        </div>
         <textarea class="k-message-input" id="messageInput" placeholder="Type a message..." rows="1" oninput="K.chat.input.handle()" onkeydown="K.chat.input.keydown(event)"></textarea>
-        <button class="k-icon-btn" id="voiceBtn" onclick="K.chat.voice.toggle()" title="Voice message"><i class="fas fa-microphone"></i></button>
         <button class="k-send-btn" id="sendBtn" onclick="K.chat.send()"><i class="fas fa-paper-plane"></i></button>
       </div>
       <div class="k-voice-recorder" id="voiceRecorder" style="display:none">
@@ -459,7 +483,56 @@
     <div class="k-modal" id="modalContent" onclick="event.stopPropagation()"></div>
   </div>
 
+  <div class="k-modal-overlay" id="liveLocationOverlay" style="display:none" onclick="K.chat.location.closeLiveModal()">
+    <div class="k-modal k-live-modal" onclick="event.stopPropagation()">
+      <div class="k-modal-header">
+        <h3>Share Live Location</h3>
+        <button class="k-icon-btn" onclick="K.chat.location.closeLiveModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="k-live-modal-body">
+        <div class="k-live-modal-section">
+          <div class="k-live-modal-title">Share for</div>
+          <div class="k-live-duration-options">
+            <button class="k-live-duration-btn active" data-min="15" onclick="K.chat.location.selectDuration(this,15)">15 min</button>
+            <button class="k-live-duration-btn" data-min="60" onclick="K.chat.location.selectDuration(this,60)">1 hour</button>
+            <button class="k-live-duration-btn" data-min="480" onclick="K.chat.location.selectDuration(this,480)">8 hours</button>
+            <button class="k-live-duration-btn" data-min="1440" onclick="K.chat.location.selectDuration(this,1440)">24 hours</button>
+          </div>
+          <div class="k-live-modal-hint">Your location updates in real time while sharing is active.</div>
+        </div>
+        <div class="k-live-modal-actions" style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
+          <button class="k-btn k-btn-secondary" onclick="K.chat.location.closeLiveModal()">Cancel</button>
+          <button class="k-btn k-btn-primary" id="liveLocationConfirmBtn" onclick="K.chat.location.confirmLiveShare()">Start Sharing</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="k-modal-overlay" id="locationPickOverlay" style="display:none" onclick="K.chat.location.closePick()">
+    <div class="k-modal k-loc-pick-modal" onclick="event.stopPropagation()">
+      <div class="k-modal-header">
+        <h3 id="locPickTitle">Send Location</h3>
+        <button class="k-icon-btn" onclick="K.chat.location.closePick()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="k-loc-pick-body">
+        <button class="k-btn k-btn-secondary k-loc-pick-geo" id="locPickGeoBtn" onclick="K.chat.location.pickGeo()">
+          <i class="fas fa-location-arrow"></i> <span id="locPickGeoLabel">Try getting my location</span>
+        </button>
+        <div class="k-loc-pick-map-wrap" id="locPickMapWrap">
+          <div id="locPickMap"></div>
+          <div class="k-loc-pick-hint" id="locPickHint">Click on the map to place a dot</div>
+        </div>
+        <div class="k-loc-pick-coords" id="locPickCoords" style="display:none"></div>
+        <div class="k-loc-pick-actions">
+          <button class="k-btn k-btn-secondary" onclick="K.chat.location.closePick()">Cancel</button>
+          <button class="k-btn k-btn-primary" id="locPickSendBtn" disabled onclick="K.chat.location.pickConfirm()">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="k-toast" id="toast"></div>
+  <div id="toastStack"></div>
 </div>
 
 <div class="k-incoming-overlay" id="incomingCallOverlay" style="display:none">
@@ -544,9 +617,12 @@
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script src="{{ url_for('static', filename='js/k/calls.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/music.js') }}"></script>
+<script src="/static/vendor/leaflet/leaflet.js"></script>
+<script src="{{ url_for('static', filename='js/k/map.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/webapp.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/search.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/features.js') }}"></script>
+<script src="{{ url_for('static', filename='js/k/notify.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/extras.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/group_extras.js') }}"></script>
 <script src="{{ url_for('static', filename='js/k/channel_extras.js') }}"></script>

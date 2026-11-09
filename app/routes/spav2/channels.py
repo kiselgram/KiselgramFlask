@@ -128,13 +128,26 @@ def send_channel_message():
     data = request.get_json() or {}
     channel_id = data.get('channel_id')
     content = data.get('content', '').strip()
+    lat = data.get('lat')
+    lon = data.get('lon')
 
     if not channel_id:
         return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': 'channel_id is required'}}), 400
 
     # Auto-convert single unicode emoji (e.g., 😋) to animated
     emoji_data = None
-    if content and not data.get('emoji_file'):
+    is_location = False
+    if lat is not None or lon is not None:
+        try:
+            lat = float(lat)
+            lon = float(lon)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': 'Invalid location coordinates'}}), 400
+        if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+            return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': 'Location coordinates out of range'}}), 400
+        is_location = True
+        content = content or f'{lat},{lon}'
+    if content and not data.get('emoji_file') and not is_location:
         anim_file = get_animated_file_for_emoji(content.strip())
         if anim_file:
             emoji_data, _ = validate_emoji(anim_file, content.strip(), 96, 1)
@@ -145,7 +158,7 @@ def send_channel_message():
             data.get('emoji_file'), data.get('emoji', ''), data.get('size', 96), data.get('count', 1))
         if emoji_err:
             return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': emoji_err}}), 400
-    if not content and not emoji_data:
+    if not content and not emoji_data and not is_location:
         return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': 'content is required'}}), 400
 
     chat = Chat.query.get(channel_id)
@@ -161,6 +174,10 @@ def send_channel_message():
         return jsonify({'success': False, 'error': {'code': 'SLOW_MODE', 'message': f'Slow mode: wait {retry}s'}}), 429
 
     msg = Message(sender_id=current_user_id, chat_id=channel_id, receiver_id=current_user_id, content=content, timestamp=datetime.utcnow())
+    if is_location:
+        msg.file_type = 'geo'
+        msg.lat = lat
+        msg.lon = lon
     if emoji_data:
         msg.emoji = emoji_data['emoji']
         msg.emoji_file = emoji_data['file']
@@ -173,11 +190,18 @@ def send_channel_message():
         db.session.rollback()
         return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': str(e)}}), 500
 
+    # Realtime notification push to all channel subscribers
+    sub_ids = [s.user_id for s in ChatSubscriber.query.filter_by(chat_id=channel_id).all()]
+    from app.notify_ws import notify_message
+    notify_message(msg, 'channel', channel_id, sub_ids)
+
     return jsonify({'success': True, 'data': {'message': {
         'message_id': msg.id, 'sender_id': msg.sender_id,
         'sender_username': msg.sender.username if msg.sender else None,
         'channel_id': channel_id, 'content': msg.content,
-        'reply_to_id': None, 'file_path': None, 'file_type': None,
+        'reply_to_id': None, 'file_path': None, 'file_type': msg.file_type,
+        'lat': msg.lat, 'lon': msg.lon,
+        'is_location': bool(msg.file_type == 'geo' and msg.lat is not None and msg.lon is not None),
         'emoji': msg.emoji,
         'emoji_file': msg.emoji_file,
         'emoji_url': f"/uploads/animated_emojis/{msg.emoji_file}" if msg.emoji_file else None,

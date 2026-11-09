@@ -26,7 +26,7 @@ SECURITY_HEADERS = {
     'X-Content-Type-Options': 'nosniff',
     'X-XSS-Protection': '0',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Permissions-Policy': 'geolocation=()',
+    'Permissions-Policy': 'geolocation=(self)',
 }
 
 def add_security_headers(resp):

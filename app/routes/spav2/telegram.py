@@ -407,8 +407,12 @@ def tg_geo_live():
     for r in q.order_by(TgLiveLocation.updated_at.desc()).limit(100).all():
         if not _chat_access(uid, r.chat_id):
             continue
-        out.append({'message_id': r.message_id, 'user_id': r.user_id, 'chat_id': r.chat_id,
-                    'lat': r.lat, 'lon': r.lon, 'until': r.until.isoformat()})
+        user = User.query.get(r.user_id)
+        out.append({'message_id': r.message_id, 'user_id': r.user_id,
+                    'username': user.username if user else None,
+                    'avatar_url': user.avatar_url if user else None,
+                    'chat_id': r.chat_id, 'lat': r.lat, 'lon': r.lon,
+                    'until': r.until.isoformat() if r.until else None})
     return jsonify({'success': True, 'data': {'live': out}})
 
 

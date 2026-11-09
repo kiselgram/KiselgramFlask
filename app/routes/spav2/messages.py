@@ -36,6 +36,9 @@ def _serialize_message(msg, current_user_id=None):
         'emoji_url': f"/uploads/animated_emojis/{msg.emoji_file}" if msg.emoji_file else None,
         'emoji_size': msg.emoji_size or 96,
         'emoji_count': msg.emoji_count or 1,
+        'lat': msg.lat,
+        'lon': msg.lon,
+        'is_location': bool(msg.file_type == 'geo' and msg.lat is not None and msg.lon is not None),
         'reactions': {}
     }
     if msg.sender:
@@ -58,10 +61,25 @@ def send_personal_message():
     receiver_id = data.get('receiver_id')
     content = data.get('content', '').strip()
     reply_to_id = data.get('reply_to_id')
+    lat = data.get('lat')
+    lon = data.get('lon')
+
+    # Validate location coordinates if provided
+    is_location = False
+    if lat is not None or lon is not None:
+        try:
+            lat = float(lat)
+            lon = float(lon)
+        except (TypeError, ValueError):
+            return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': 'Invalid location coordinates'}}), 400
+        if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+            return jsonify({'success': False, 'error': {'code': 'VALIDATION_ERROR', 'message': 'Location coordinates out of range'}}), 400
+        is_location = True
+        content = content or f'{lat},{lon}'
 
     # Auto-convert single unicode emoji (e.g., 😋) to animated
     emoji_data = None
-    if content and not data.get('emoji_file'):
+    if content and not data.get('emoji_file') and not is_location:
         anim_file = get_animated_file_for_emoji(content.strip())
         if anim_file:
             emoji_data, _ = validate_emoji(anim_file, content.strip(), 96, 1)
@@ -79,7 +97,7 @@ def send_personal_message():
     if not receiver_id:
         errors['receiver_id'] = 'Receiver ID is required'
     has_file = data.get('file_url') or data.get('file_type')
-    if not content and not has_file and not emoji_data:
+    if not content and not has_file and not emoji_data and not is_location:
         errors['content'] = 'Message content cannot be empty'
     if len(content) > 5000:
         errors['content'] = 'Message content too long (max 5000 characters)'
@@ -102,6 +120,10 @@ def send_personal_message():
         db.session.flush()
 
     msg = Message(content=content, sender_id=current_user_id, receiver_id=receiver_id, chat_id=chat.id, timestamp=datetime.utcnow(), silent=bool(data.get('silent')), send_when_online=bool(data.get('send_when_online')), waveform=data.get('waveform'))
+    if is_location:
+        msg.file_type = 'geo'
+        msg.lat = lat
+        msg.lon = lon
     if emoji_data:
         msg.emoji = emoji_data['emoji']
         msg.emoji_file = emoji_data['file']
@@ -120,7 +142,62 @@ def send_personal_message():
     except Exception:
         db.session.rollback()
         return jsonify({'success': False, 'error': {'code': 'SERVER_ERROR', 'message': 'Database error'}}), 500
+
+    # Realtime notification push to the recipient's open sessions
+    if not (data.get('silent') or data.get('send_when_online')):
+        from app.notify_ws import notify_message
+        notify_message(msg, 'personal', chat.id, [receiver_id])
+
     return jsonify({'success': True, 'data': {'message': _serialize_message(msg, current_user_id)}}), 201
+
+
+@spav2_messages_bp.route('/messages/locations/<int:chat_id>', methods=['GET'])
+def get_chat_locations(chat_id):
+    """Return all geo-location messages in a chat (for map display)."""
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({'success': False, 'error': {'code': 'UNAUTHORIZED', 'message': 'Not authenticated'}}), 401
+
+    from app.models import ChatMember, ChannelAdmin, ChatSubscriber
+    chat = Chat.query.get(chat_id)
+    if not chat:
+        return jsonify({'success': False, 'error': {'code': 'NOT_FOUND', 'message': 'Chat not found'}}), 404
+
+    # Access check: personal/group via ChatMember, channel via subscriber/admin/owner
+    allowed = False
+    if chat.chat_type == 'channel':
+        if chat.owner_id == current_user_id:
+            allowed = True
+        elif ChatSubscriber.query.filter_by(chat_id=chat.id, user_id=current_user_id).first():
+            allowed = True
+        elif ChannelAdmin.query.filter_by(chat_id=chat.id, user_id=current_user_id).first():
+            allowed = True
+    elif ChatMember.query.filter_by(chat_id=chat.id, user_id=current_user_id).first():
+        allowed = True
+
+    if not allowed:
+        return jsonify({'success': False, 'error': {'code': 'FORBIDDEN', 'message': 'No access to this chat'}}), 403
+
+    locations = (Message.query
+                 .filter_by(chat_id=chat_id, file_type='geo')
+                 .filter(Message.lat.isnot(None), Message.lon.isnot(None))
+                 .order_by(Message.timestamp.asc())
+                 .all())
+
+    data = []
+    for m in locations:
+        data.append({
+            'message_id': m.id,
+            'sender_id': m.sender_id,
+            'sender_username': m.sender.username if m.sender else None,
+            'sender_avatar_url': m.sender.avatar_url if m.sender else None,
+            'lat': m.lat,
+            'lon': m.lon,
+            'content': m.content,
+            'timestamp': m.timestamp.isoformat() if m.timestamp else None,
+            'chat_id': m.chat_id,
+        })
+    return jsonify({'success': True, 'data': {'locations': data, 'chat_id': chat_id}})
 
 
 @spav2_messages_bp.route('/mark_read/<int:user_id>', methods=['POST'])

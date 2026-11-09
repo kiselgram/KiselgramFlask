@@ -2,10 +2,10 @@
   KISELGRAM — Messenger
   CHANGELOG / RECOMMENDATIONS
 ========================================================
-Last updated: 20.10.2026
+Last updated: 08.11.2026
 
 --------------------------------------------------------
-CURRENT VERSION: v4.9.9
+CURRENT VERSION: v4.9.9.9
 --------------------------------------------------------
 
 IMPORTANT: This file is updated automatically on every change
@@ -79,6 +79,117 @@ Security (Sputnik v0.60-v0.64 class fixes applied)
 ========================================================
 3. WHAT WAS ADDED THIS TIME
 ========================================================
+
+[08.11.2026] — Behavior: shared location messages now pop up on the in-app Map tab
+  Files: static/js/k/chat.js (K.chat.location.open() → switches to Map tab and calls
+         K.map.showLocation() instead of confirm()+window.open(openstreetmap.org);
+         OSM tab kept as fallback when Leaflet is missing. Bugfix: send() no longer
+         returns early on empty composer when a pendingLocation exists — location
+         picker messages with empty input now actually send),
+         static/js/k/map.js (NEW showLocation(lat, lon, sender): pulsing focus marker,
+         flyTo zoom 15, popup '📍 Shared location' with sender + coords + OSM link),
+         static/css/k.css (.k-focus-dot pulsing marker animation).
+  Result: Clicking a shared-location message card jumps to the fullscreen Map tab,
+          flies to the location and opens a popup. Verified in Playwright MCP browser:
+          sent a dot-picked location to chat personal:7 (card appeared, pendingLocation
+          cleared) → clicked card → Map tab active, zoom 15, popup with sender shown.
+
+[08.11.2026] — UI: All composer send-options consolidated into one burger menu (k-input)
+  Files: templates/k.html (input area: replaced 4 separate k-icon-btn — attach, emoji/GIF,
+         send location, live location, + separate mic button — with a single burger button
+         (fa-bars, k-icon-btn style) that opens a dropdown menu; kept textarea + send),
+         static/js/k/chat.js (K.chat.input.toggleMenu/closeMenu/menuAction — menu items
+         dispatch to upload/emoji picker/location picker/live location/voice; closes on
+         outside click and on action),
+         static/css/k.css (.k-input-menu floating panel above the button).
+  Result: Composer now has one burger button like k-icon-btn in k-input: Attachment,
+          Emoji / GIF, Send Location, Share Live Location, Voice Message. Verified in
+          Playwright MCP browser: menu opens with 5 items, choosing 'Send Location'
+          closes the menu and opens the location picker (premium dot placement works,
+          send button enables with coords shown).
+
+[08.11.2026] — Ops (DB data, no code change): granted lifetime premium to ALL users
+  Files affected: instance/kiselgram.db via /tmp/k_grant_premium_all.py (one-off script,
+  not committed to repo).
+  Result: 9/9 users now have is_premium=True, premium_plan='lifetime', expires_at=None
+          (never expires). Covers tester, guest_0m9x4j, KiselOK, kiselgram,
+          kiselgram_premium, kiselgram_bot, and bots weather_bot/news_bot/calc_bot.
+          Users who were already premium (tester) were kept and switched to lifetime.
+
+[08.11.2026] — Fix: Map zoom was crippled (scroll zoom off, maxZoom 6)
+  Files: static/js/k/map.js (L.map options: scrollWheelZoom false → true; maxZoom 6 → 18
+         on both the map and the OSM tileLayer).
+  Result: Wheel scrolling over the map now zooms smoothly up to street level (18);
+          previously scrolling did nothing and the +/- buttons only reached world/
+          country level. Verified in Playwright MCP browser: setZoom 2→12 works,
+          12 street tiles loaded around Moscow center (screenshot /tmp/k_map_zoom12.png).
+
+[08.11.2026] — UI: Map tab now takes up the whole screen (panel + chat area)
+  Files: static/css/k.css (map panel active → width:100%/flex:1/border-right:none;
+         .k-main.map-fullscreen hides .k-chat-view; removed duplicated 'Map panel' CSS
+         block; dropped fixed min-height on #map),
+         static/js/k/views.js (K.views.show() toggles class 'map-fullscreen' on .k-main
+         for view 'map').
+  Result: Opening the Map tab expands the map over the entire main area (formerly a
+          420px column next to the chat placeholder). Switching back to any other tab
+          restores the normal panel+chat layout. Verified in Playwright MCP browser:
+          panel 818/818px wide, chat view hidden, 16 OSM tiles re-rendered after
+          invalidateSize; chat view returns (display:flex) on switching back to Chats.
+
+[08.11.2026] — Fix: Map CSP violation + Geolocation permission (found in Playwright MCP browser)
+  Files: static/vendor/leaflet/ (NEW: self-hosted Leaflet 1.9.4 — leaflet.js, leaflet.css,
+         images/{marker-icon,marker-icon-2x,marker-shadow,layers,layers-2x}.png),
+         templates/k.html (script/link tags switched from unpkg.com CDN to
+         /static/vendor/leaflet/... — CSP script-src blocked unpkg entirely so Leaflet
+         never loaded even with internet),
+         app/utils/security.py (Permissions-Policy 'geolocation=()' → 'geolocation=(self)' —
+         the old value silently disabled the browser Geolocation API, breaking live
+         location sharing).
+  Result: Map tab loads tiles and Leaflet with no CSP errors; live location sharing can
+          actually request browser position. Verified in Playwright MCP browser: logged
+          in as 'tester', Map tab shows Leaflet 1.9.4 container with 8/8 OSM tiles loaded.
+
+[08.11.2026] — Hardening: Map tab offline fallback (Playwright test run found crash)
+  Files: static/js/k/map.js (guard: if Leaflet CDN missing, show 'Map is unavailable offline'
+         placeholder in mapWrap instead of throwing 'L is not defined'; loadSelectedLocations
+         now no-ops without a live map instance).
+  Result: Opening the Map tab with no internet no longer crashes via K.views.show('map');
+          a friendly offline notice is displayed. Found while E2E-testing with Playwright
+          (registered+verified+login of user 'tester' succeeded end-to-end).
+
+[01.11.2026] — New feature: Live user location sharing on map
+  Files: app/routes/spav2/telegram.py (/tg/geo/live now returns username + avatar_url),
+         static/js/k/chat.js (K.chat.location.live — shareLive/stopLiveShare with duration picker,
+         watchPosition + periodic updates, live button UI state),
+         static/js/k/map.js (renders live location markers from /tg/geo/live with user names,
+         polls every 15s for updates, own-marker highlighting, demo fallback),
+         static/js/k/views.js (starts/stops live polling on map view show/hide),
+         templates/k.html (live location button in input area, duration picker modal),
+         static/css/k.css (live button states, live marker icons, modal styles).
+  Result: Users can share their live GPS location in a chat for 15 min / 1 h / 8 h / 24 h.
+          Live locations appear as moving markers on the World Map tab with user names,
+          time-remaining, and per-chat filtering. Markers update via watchPosition + polling.
+
+[01.11.2026] — New feature: User location sharing in chats + map integration
+  Files: app/models.py (Message.lat, Message.lon columns + safe ALTER TABLE in app/__init__.py),
+         app/routes/spav2/messages.py (send_personal_message accepts lat/lon; new GET /messages/locations/<chat_id>),
+         app/routes/spav2/groups.py (send_group_message accepts lat/lon),
+         app/routes/spav2/channels.py (send_channel_message accepts lat/lon + response serialization),
+         static/js/k/chat.js (K.chat.location share/loadLocations/open, location message rendering, pendingLocation payload),
+         static/js/k/map.js (load real shared locations from API, chat selector, OSM open action),
+         templates/k.html (location button in input area, map chat selector, Leaflet assets),
+         static/css/k.css (location button pulse, k-msg-location bubble, map panel styles).
+  Result: Users can share their current GPS location in personal/group/channel chats.
+          Location messages render as a clickable map card in chat. Shared locations appear
+          on the World Map tab with per-chat filtering and OpenStreetMap link action.
+
+[01.11.2026] — New feature: Map tab with world map (messaging sidebar)
+  Files: templates/k.html (Map nav item + map panel + Leaflet CSS/JS),
+         static/js/k/map.js (new — Leaflet world map with demo city markers),
+         static/js/k/views.js (K.views.show('map') → K.map.init()),
+         static/css/k.css (.k-panel.map-panel, .k-map-wrap, #map, leaflet popup styles).
+  Result: Map tab added to sidebar navigation; clicking it opens an interactive
+          world map (OpenStreetMap tiles, zoom/pan, demo markers with popups).
 
 [23.10.2026] — Bug fixes (AGENTS.md pre-existing)
   Files: tests/test_spav2_admin.py (API_PREFIX /api.v2/api -> /api; added db.session.flush for message in delete test),

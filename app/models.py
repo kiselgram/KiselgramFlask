@@ -327,6 +327,10 @@ class Message(db.Model):
     # Telegram-style message reminder
     reminder_at = db.Column(db.DateTime, nullable=True)
 
+    # Location sharing: GPS coordinates attached to a message (file_type='geo')
+    lat = db.Column(db.Float, nullable=True, index=True)
+    lon = db.Column(db.Float, nullable=True, index=True)
+
     file_id = db.Column(db.Integer, db.ForeignKey('files.id', ondelete='SET NULL'), nullable=True)
     file = db.relationship('File', backref=db.backref('messages', lazy='dynamic'), lazy=True)
 
